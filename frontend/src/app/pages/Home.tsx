@@ -94,6 +94,17 @@ export function Home() {
     <div className="min-h-screen bg-background pb-32">
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-8">
         
+        {/* Welcome Header */}
+        <div className="animate-fade-in flex justify-between items-center px-2">
+          <div>
+            <h1 className="text-3xl mb-1 font-black text-[var(--text-main)]">Olá, {userName}! 👋</h1>
+            <p className="text-muted-foreground text-sm font-medium">O que vamos ler hoje?</p>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-white border-2 border-[var(--lavender)]/20 flex items-center justify-center text-2xl shadow-sm">
+            🐼
+          </div>
+        </div>
+
         {/* Banner Bonitinho */}
         <div className="relative h-44 rounded-[3rem] overflow-hidden bg-gradient-to-br from-[var(--lavender)] via-[var(--peach)] to-[var(--blush)] shadow-xl animate-scale-in">
           <div className="absolute inset-0 bg-white/10 backdrop-blur-[2px]" />
@@ -169,16 +180,6 @@ export function Home() {
           )}
         </div>
 
-        {/* Welcome Header */}
-        <div className="animate-fade-in flex justify-between items-center px-2">
-          <div>
-            <h1 className="text-3xl mb-1 font-black text-[var(--text-main)]">Olá, {userName}! 👋</h1>
-            <p className="text-muted-foreground text-sm font-medium">O que vamos ler hoje?</p>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-white border-2 border-[var(--lavender)]/20 flex items-center justify-center text-2xl shadow-sm">
-            🐼
-          </div>
-        </div>
 
         {/* Search */}
         <div className="relative animate-fade-in">

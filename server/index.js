@@ -4,32 +4,35 @@ const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
+const { createClient } = require("@supabase/supabase-js");
 const { db, sql, initDB } = require("./db");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// ─── Supabase Storage ─────────────────────────────────────────────────────────
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_KEY
+);
+const BUCKET = "bookzinhos";
+
+async function uploadToSupabase(buffer, filename, mimetype) {
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .upload(filename, buffer, { contentType: mimetype, upsert: true });
+  if (error) throw new Error("Supabase upload error: " + error.message);
+  const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filename);
+  return urlData.publicUrl;
+}
+
 // ─── Middleware ───────────────────────────────────────────────────────────────
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
-// ─── Upload de PDFs ───────────────────────────────────────────────────────────
-const DATA_DIR = process.env.DATA_DIR
-  ? path.resolve(process.env.DATA_DIR)
-  : path.join(__dirname, "data");
-const UPLOADS_DIR = path.join(DATA_DIR, "uploads");
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+// ─── Upload (memória temporária para repassar ao Supabase) ────────────────────
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
-  filename: (_req, file, cb) => {
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    cb(null, `${unique}-${file.originalname}`);
-  },
-});
-const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
-
-app.use("/uploads", express.static(UPLOADS_DIR));
 
 // ─── Health ───────────────────────────────────────────────────────────────────
 app.get("/", (_req, res) => {
@@ -57,8 +60,9 @@ function rowToBook(row) {
     isPublic: !!row.is_public,
     coverColor: row.cover_color,
     addedAt: row.added_at,
-    pdfPath: row.pdf_path ? `/uploads/${path.basename(row.pdf_path)}` : null,
-    coverImagePath: row.cover_image_path ? `/uploads/${path.basename(row.cover_image_path)}` : null,
+    // Supabase URLs are stored as full URLs now
+    pdfPath: row.pdf_path || null,
+    coverImagePath: row.cover_image_path || null,
     isUserBook: !!row.is_user_book,
   };
 }
@@ -114,9 +118,21 @@ app.post("/books", upload.fields([{ name: "pdf", maxCount: 1 }, { name: "cover",
     const pdfFile = req.files?.pdf?.[0];
     const coverFile = req.files?.cover?.[0];
 
+    let pdfUrl = null;
+    let coverUrl = null;
+
+    if (pdfFile) {
+      const pdfName = `pdfs/${id}-${Date.now()}.pdf`;
+      pdfUrl = await uploadToSupabase(pdfFile.buffer, pdfName, "application/pdf");
+    }
+    if (coverFile) {
+      const coverName = `covers/${id}-${Date.now()}.jpg`;
+      coverUrl = await uploadToSupabase(coverFile.buffer, coverName, coverFile.mimetype);
+    }
+
     await db.query(sql`
       INSERT INTO books (id,title,author,description,genre,rating,review_count,is_public,cover_color,added_at,pdf_path,cover_image_path,is_user_book)
-      VALUES (${id},${title},${author || ""},${description || ""},${genre || "Outros"},0,0,${isPublic === "false" ? 0 : 1},${coverColor || "lavender-mint"},${Date.now()},${pdfFile?.path || null},${coverFile?.path || null},1)
+      VALUES (${id},${title},${author || ""},${description || ""},${genre || "Outros"},0,0,${isPublic === "false" ? 0 : 1},${coverColor || "lavender-mint"},${Date.now()},${pdfUrl},${coverUrl},1)
     `);
 
     const [bookRow] = await db.query(sql`SELECT * FROM books WHERE id = ${id}`);
@@ -125,6 +141,7 @@ app.post("/books", upload.fields([{ name: "pdf", maxCount: 1 }, { name: "cover",
     book.pages = [];
     res.status(201).json(book);
   } catch (err) {
+    console.error("Upload error:", err);
     res.status(500).json({ error: err.message });
   }
 });
