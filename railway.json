@@ -6,7 +6,6 @@
     "context": "."
   },
   "deploy": {
-    "startCommand": "node server/index.js",
     "restartPolicyType": "ON_FAILURE",
     "numReplicas": 1
   }
