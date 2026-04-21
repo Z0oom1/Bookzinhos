@@ -32,6 +32,15 @@ const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
 app.use("/uploads", express.static(UPLOADS_DIR));
 
 // ─── Health ───────────────────────────────────────────────────────────────────
+app.get("/", (_req, res) => {
+  res.send(`
+    <div style="font-family: sans-serif; text-align: center; padding: 50px;">
+      <h1>🐼 Bookzinhos API</h1>
+      <p>O servidor está rodando com sucesso! ✨</p>
+      <p style="color: #666;">Use a URL do seu Frontend para acessar o app.</p>
+    </div>
+  `);
+});
 app.get("/health", (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
