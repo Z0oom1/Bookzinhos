@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { BookOpen, Clock, Award, Pencil, X, Check } from "lucide-react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { fetchBooks, fetchAllProgress, fetchStats } from "../lib/api";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import type { Book, ReadingProgress, Stats } from "../lib/types";
@@ -8,6 +8,7 @@ import type { Book, ReadingProgress, Stats } from "../lib/types";
 const AVATARS = ["🐼", "🦊", "🐰", "🌸", "🎀", "✨", "🦋", "🌷", "🍡"];
 
 export function Profile() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [books, setBooks] = useState<Book[]>([]);
   const [progress, setProgress] = useState<ReadingProgress[]>([]);
   const [stats, setStats] = useState<Stats>({ finished: 0, reading: 0, notesCount: 0 });
@@ -25,6 +26,17 @@ export function Profile() {
     return saved ? JSON.parse(saved) : [];
   });
   const [isEditingShelf, setIsEditingShelf] = useState(false);
+
+  // Sync editing state with URL to hide navbar
+  useEffect(() => {
+    const isEditing = isEditingProfile || isEditingShelf;
+    if (isEditing) {
+      searchParams.set("hideNav", "true");
+    } else {
+      searchParams.delete("hideNav");
+    }
+    setSearchParams(searchParams, { replace: true });
+  }, [isEditingProfile, isEditingShelf]);
 
   useEffect(() => {
     Promise.all([fetchBooks(), fetchAllProgress(), fetchStats()]).then(([b, p, s]) => {

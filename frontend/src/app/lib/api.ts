@@ -4,43 +4,21 @@
 
 import { API_BASE_URL } from "./config";
 
-const OFFLINE_KEY_PREFIX = "offline_cache_";
-
 async function request(method: string, path: string, body?: any) {
   const url = `${API_BASE_URL}${path}`;
   const userId = localStorage.getItem("books-username") || "anonymous";
 
-  try {
-    const res = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        "x-user-id": userId
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
+  const res = await fetch(url, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      "x-user-id": userId
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
 
-    if (!res.ok) throw new Error(await res.text());
-    
-    const data = await res.json();
-    
-    // Se for um GET bem sucedido, salva no cache offline
-    if (method === "GET") {
-      localStorage.setItem(OFFLINE_KEY_PREFIX + path, JSON.stringify(data));
-    }
-    
-    return data;
-  } catch (err) {
-    console.warn(`Modo Offline ativado para ${path}`);
-    
-    // Tenta pegar do cache offline se falhar (sem internet)
-    if (method === "GET") {
-      const cached = localStorage.getItem(OFFLINE_KEY_PREFIX + path);
-      if (cached) return JSON.parse(cached);
-    }
-    
-    throw err;
-  }
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
 }
 
 // Livros
@@ -84,7 +62,6 @@ export const deleteBook = (id: string) => request("DELETE", `/books/${id}`);
 export const fetchAllProgress = () => request("GET", "/progress");
 export const fetchProgress = (bookId: string) => request("GET", `/progress/${bookId}`);
 export async function saveProgress(p: any) {
-  localStorage.setItem(OFFLINE_KEY_PREFIX + `/progress/${p.bookId}`, JSON.stringify(p));
   return request("PUT", `/progress/${p.bookId}`, p);
 }
 
@@ -125,7 +102,3 @@ export const fetchGlobalStatus = () => request("GET", "/status");
 export const updateGlobalStatus = (content: string, emote: string) => 
   request("POST", "/status", { content, emote });
 
-// Sincronização
-export const syncOfflineQueue = () => {
-  console.log("Sincronizando dados offline...");
-};

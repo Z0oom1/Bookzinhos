@@ -34,6 +34,18 @@ export function RootLayout() {
     { path: "/profile", icon: User, label: "Eu" },
   ];
 
+  const hideNav = new URLSearchParams(location.search).get("hideNav") === "true";
+
+  if (hideNav) {
+    return (
+      <div className="flex flex-col h-screen bg-background overflow-hidden">
+        <main className="flex-1 overflow-y-auto">
+          <Outlet />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
       <main className="flex-1 overflow-y-auto pb-24">
