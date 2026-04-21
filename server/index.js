@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 3001;
 // ─── Supabase Storage ─────────────────────────────────────────────────────────
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_KEY
+  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY
 );
 const BUCKET = "bookzinhos";
 
