@@ -5,25 +5,16 @@ import { WebView } from "react-native-webview";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 /**
- * Em desenvolvimento: carrega do servidor Vite local.
- * Em produção (APK): carrega o web app bundlado dentro do APK (assets/www/index.html).
- *
- * Para fazer o build de produção:
- *   1. Configure VITE_API_URL com a URL do Railway
- *   2. npm run build:web   (gera repositorio/Bookdahelo/dist/)
- *   3. npm run copy:web    (copia dist/ para android/app/src/main/assets/www/)
- *   4. eas build --platform android --profile production
+ * AppWebView: O coração do Bookzinhos no Celular.
+ * Agora apontando para o seu site oficial no Vercel! ✨
  */
 
 const IS_DEV = __DEV__;
 
-const DEV_URL =
-  Platform.OS === "android" ? "http://10.0.2.2:5173" : "http://localhost:5173";
+const DEV_URL = Platform.OS === "android" ? "http://10.0.2.2:5173" : "http://localhost:5173";
 
-// No Android, arquivos em android/app/src/main/assets/ ficam acessíveis via file:///android_asset/
-const PROD_URL = Platform.OS === "android"
-  ? "file:///android_asset/www/index.html"
-  : "http://localhost:5173";
+// URL oficial que você acabou de criar no Vercel!
+const PROD_URL = "https://bookzinhos-b76d69gwj-caios-projects-0c30cff6.vercel.app";
 
 function AppContent() {
   const [isLoading, setIsLoading] = useState(true);
@@ -39,11 +30,9 @@ function AppContent() {
     return (
       <SafeAreaView style={styles.centered}>
         <StatusBar style="dark" />
-        <Text style={styles.title}>Não foi possível abrir o Books da Helo</Text>
+        <Text style={styles.title}>Ops! O Bookzinhos tropeçou 🐼</Text>
         <Text style={styles.body}>
-          {IS_DEV
-            ? `Certifique-se que o servidor Vite está rodando:\n\`cd repositorio/Bookdahelo && npm run dev\``
-            : "Erro ao carregar o app. Tente reinstalar."}
+          Verifique sua conexão com a internet para carregar seus livros.
         </Text>
         <TouchableOpacity
           style={styles.button}
@@ -53,7 +42,7 @@ function AppContent() {
             setReloadKey((v) => v + 1);
           }}
         >
-          <Text style={styles.buttonText}>Tentar novamente</Text>
+          <Text style={styles.buttonText}>Tentar novamente ✨</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
@@ -69,9 +58,7 @@ function AppContent() {
         javaScriptEnabled
         domStorageEnabled
         allowsInlineMediaPlayback
-        allowFileAccess
-        allowFileAccessFromFileURLs
-        allowUniversalAccessFromFileURLs
+        mediaPlaybackRequiresUserAction={false}
         originWhitelist={["*"]}
         onLoadStart={() => setIsLoading(true)}
         onLoadEnd={() => setIsLoading(false)}
@@ -82,8 +69,8 @@ function AppContent() {
       />
       {isLoading && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#8FA98E" />
-          <Text style={styles.loadingText}>Carregando Books da Helo...</Text>
+          <ActivityIndicator size="large" color="#B6A6EE" />
+          <Text style={styles.loadingText}>Abrindo o Bookzinhos... 🐾</Text>
         </View>
       )}
     </SafeAreaView>
@@ -99,32 +86,37 @@ export default function AppWebView() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#FAF8F5" },
+  root: { flex: 1, backgroundColor: "#ffffff" },
   webview: { flex: 1 },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(250,248,245,0.94)",
-    gap: 10,
+    backgroundColor: "#ffffff",
+    gap: 15,
   },
-  loadingText: { color: "#2D2D2D", fontWeight: "600" },
+  loadingText: { color: "#433422", fontWeight: "800", fontSize: 16 },
   centered: {
     flex: 1,
-    backgroundColor: "#FAF8F5",
-    padding: 20,
+    backgroundColor: "#ffffff",
+    padding: 30,
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
+    gap: 15,
   },
-  title: { fontSize: 20, fontWeight: "800", color: "#2D2D2D", textAlign: "center" },
-  body: { color: "#5F5F5F", textAlign: "center", lineHeight: 20 },
+  title: { fontSize: 22, fontBold: "900", color: "#433422", textAlign: "center" },
+  body: { color: "#706558", textAlign: "center", lineHeight: 24, fontSize: 16 },
   button: {
-    marginTop: 10,
-    backgroundColor: "#8FA98E",
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    marginTop: 20,
+    backgroundColor: "#B6A6EE",
+    borderRadius: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    shadowColor: "#B6A6EE",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  buttonText: { color: "#fff", fontWeight: "700" },
+  buttonText: { color: "#fff", fontWeight: "800", fontSize: 16 },
 });
