@@ -104,7 +104,12 @@ export function getCoverGradient(book: Pick<Book, "id" | "coverColor">): string 
   return COVER_GRADIENTS[key] ?? "from-[var(--lavender)] to-[var(--mint)]";
 }
 
-export { getFullUrl } from "./api";
+export function getFullUrl(path?: string | null): string | null {
+  if (!path) return null;
+  if (path.startsWith("http")) return path;
+  const base = "https://bookzinhos-production.up.railway.app";
+  return `${base}${path.startsWith("/") ? "" : "/"}${path}`;
+}
 
 export function randomCoverColor(): string {
   return GRADIENT_LIST[Math.floor(Math.random() * GRADIENT_LIST.length)];
