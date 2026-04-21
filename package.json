@@ -8,9 +8,9 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "dev:web": "npm run dev --prefix repositorio/Bookdahelo",
+    "dev:web": "npm run dev --prefix frontend",
     "dev:server": "npm start --prefix server",
-    "build:web": "npm run build --prefix repositorio/Bookdahelo",
+    "build:web": "npm run build --prefix frontend",
     "copy:web": "node scripts/copy-web.js",
     "prebuild:apk": "npm run build:web && npm run copy:web",
     "build:apk": "set EAS_NO_VCS=1&& npx eas-cli build --platform android --profile production"
