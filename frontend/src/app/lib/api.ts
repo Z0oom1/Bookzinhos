@@ -104,7 +104,6 @@ export const fetchAllUsers = () => request("GET", "/users");
 export const fetchUserProfile = (username: string) => request("GET", `/users/${username}`);
 export const updateProfile = (bio: string, avatar: string, shelf: string[]) => 
   request("PUT", "/auth/me", { bio, avatar, shelf });
-export const setNickname = (nickname: string) => request("PUT", "/users/nickname", { nickname });
 export const fetchStats = () => request("GET", "/stats");
 
 // Notas e Diário
