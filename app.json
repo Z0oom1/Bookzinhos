@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "Bookzinhos",
+    "slug": "bookzinhos",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#B6A6EE"
+    },
+    "assetBundlePatterns": [
+      "**/*",
+      "assets/www/**"
+    ],
+    "android": {
+      "package": "com.bookzinhos.app",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#B6A6EE"
+      },
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bookzinhos.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-document-picker",
+        {
+          "iCloudContainerEnvironment": "Production"
+        }
+      ],
+      "./withAndroidAssets.js"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "83279d09-f70c-4903-8027-d4b98d5cf1e2"
+      }
+    }
+  }
+}
