@@ -116,7 +116,9 @@ export const deleteNote = (id: string) => request("DELETE", `/notes/${id}`);
 export const fetchChat = (target: string) => request("GET", `/chat/${target}`);
 export const fetchMessages = (target: string) => request("GET", `/chat/${target}`);
 export const sendMessage = (target: string, content: string, bookId?: string) => 
-  request("POST", "/chat", { target, content, bookId });
+  request("POST", `/chat/${target}`, { content, sharedBookId: bookId || null });
+export const setNickname = (target: string, nickname: string) => 
+  request("POST", `/chat/nickname/${target}`, { nickname });
 export const fetchNotifications = () => request("GET", "/notifications");
 
 // Global Status (Shoutbox)

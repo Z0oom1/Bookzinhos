@@ -40,7 +40,7 @@ export function Notes() {
   const handleSubmit = async () => {
     if (rating === 0 || !feedback.trim()) return;
     setIsSaving(true);
-    const newNote = await addNote(selectedBookId, feedback.trim(), rating);
+    const newNote = await addNote({ bookId: selectedBookId, feedback: feedback.trim(), rating });
     setNotes((prev) => [newNote, ...prev]);
     setRating(0);
     setFeedback("");
