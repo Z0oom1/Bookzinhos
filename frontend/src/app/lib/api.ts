@@ -17,6 +17,7 @@ async function request(method: string, path: string, body?: any) {
     body: body ? JSON.stringify(body) : undefined,
   });
 
+  if (res.status === 404) return null;
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }

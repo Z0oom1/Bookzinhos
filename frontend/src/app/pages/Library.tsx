@@ -12,11 +12,16 @@ export function Library() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([fetchBooks(), fetchSavedIds()]).then(([b, s]) => {
-      setBooks(b);
-      setSavedIds(s);
-      setIsLoading(false);
-    });
+    Promise.all([fetchBooks(), fetchSavedIds()])
+      .then(([b, s]) => {
+        setBooks(b);
+        setSavedIds(s);
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        console.error("Erro na biblioteca:", err);
+        setIsLoading(false);
+      });
   }, []);
 
   const filteredBooks = books.filter((b) => {

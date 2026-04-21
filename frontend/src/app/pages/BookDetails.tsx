@@ -18,13 +18,18 @@ export function BookDetails() {
 
   useEffect(() => {
     if (!id) return;
-    Promise.all([fetchBook(id), fetchSavedIds(), fetchProgress(id), fetchAllUsers()]).then(([b, savedIds, p, allUsers]) => {
-      setBook(b);
-      setIsSaved(savedIds.includes(id));
-      setProgress(p);
-      setUsers(allUsers.filter(u => u.username !== myUsername));
-      setIsLoading(false);
-    });
+    Promise.all([fetchBook(id), fetchSavedIds(), fetchProgress(id), fetchAllUsers()])
+      .then(([b, savedIds, p, allUsers]) => {
+        setBook(b);
+        setIsSaved(savedIds.includes(id));
+        setProgress(p);
+        setUsers(allUsers.filter(u => u.username !== myUsername));
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        console.error("Erro ao carregar livro:", err);
+        setIsLoading(false);
+      });
   }, [id, myUsername]);
 
   const handleToggleSave = async () => {
