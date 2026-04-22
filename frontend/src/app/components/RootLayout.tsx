@@ -48,7 +48,7 @@ export function RootLayout() {
 
   return (
     <div className="flex flex-col h-screen bg-background overflow-hidden">
-      <main className="flex-1 overflow-y-auto pb-24">
+      <main className="flex-1 overflow-y-auto pb-32">
         <Outlet />
       </main>
 

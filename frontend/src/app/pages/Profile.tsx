@@ -297,7 +297,7 @@ function EditProfileModal({ initialName, initialBio, initialAvatar, onClose, onS
   const [avatar, setAvatar] = useState(initialAvatar);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-6" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div 
         className="relative bg-card rounded-t-[32px] sm:rounded-[32px] w-full max-w-md p-6 space-y-6 shadow-2xl animate-slide-up"
@@ -369,7 +369,7 @@ function EditShelfModal({ books, initialIds, onClose, onSave }: any) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-6" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div 
         className="relative bg-card rounded-t-[32px] sm:rounded-[32px] w-full max-w-lg h-[80vh] sm:h-auto sm:max-h-[85vh] flex flex-col shadow-2xl animate-slide-up"

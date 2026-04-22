@@ -207,7 +207,7 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
 
 function DeleteConfirmDialog({ book, onConfirm, onCancel }: { book: Book; onConfirm: () => void; onCancel: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-6" onClick={onCancel}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6" onClick={onCancel}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div
         className="relative bg-card rounded-[24px] p-6 space-y-4 shadow-2xl w-full max-w-sm animate-scale-in"
