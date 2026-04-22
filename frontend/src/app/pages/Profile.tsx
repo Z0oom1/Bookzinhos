@@ -349,7 +349,12 @@ function EditProfileModal({ initialName, initialBio, initialAvatar, onClose, onS
 
         <button 
           onClick={() => onSave(name, bio, avatar)}
-          className="w-full py-4 bg-gradient-to-r from-[var(--primary)] to-[var(--peach)] text-white font-bold rounded-[16px] shadow-lg shadow-[var(--primary)]/30 active:scale-95 transition-all flex justify-center items-center gap-2"
+          disabled={!name.trim() || !bio.trim()}
+          className={`w-full py-4 font-bold rounded-[16px] transition-all flex justify-center items-center gap-2 ${
+            !name.trim() || !bio.trim()
+              ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
+              : "bg-gradient-to-r from-[var(--primary)] to-[var(--peach)] text-white shadow-lg shadow-[var(--primary)]/30 active:scale-95"
+          }`}
         >
           <Check className="w-5 h-5" /> Salvar Perfil
         </button>
@@ -414,7 +419,12 @@ function EditShelfModal({ books, initialIds, onClose, onSave }: any) {
         <div className="p-4 border-t border-border/50 flex-shrink-0 bg-background/50 backdrop-blur-md rounded-b-[32px]">
           <button 
             onClick={() => onSave(Array.from(selectedIds))}
-            className="w-full py-4 bg-gradient-to-r from-[var(--primary)] to-[var(--peach)] text-white font-bold rounded-[16px] shadow-lg shadow-[var(--primary)]/30 active:scale-95 transition-all"
+            disabled={selectedIds.size === 0}
+            className={`w-full py-4 font-bold rounded-[16px] transition-all ${
+              selectedIds.size === 0
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
+                : "bg-gradient-to-r from-[var(--primary)] to-[var(--peach)] text-white shadow-lg shadow-[var(--primary)]/30 active:scale-95"
+            }`}
           >
             Salvar Estante
           </button>

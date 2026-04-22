@@ -160,7 +160,11 @@ export function Notes() {
                     <button
                       onClick={handleSubmit}
                       disabled={isSaving || !feedback.trim()}
-                      className="absolute bottom-3 right-3 p-3 bg-gradient-to-r from-primary to-[var(--mint)] text-white rounded-full transition-all active:scale-95 disabled:opacity-50 hover:shadow-lg"
+                      className={`absolute bottom-3 right-3 p-3 rounded-full transition-all active:scale-95 shadow-md ${
+                        isSaving || !feedback.trim()
+                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                          : "bg-gradient-to-r from-primary to-[var(--mint)] text-white hover:shadow-lg"
+                      }`}
                     >
                       <Send className="w-5 h-5" />
                     </button>

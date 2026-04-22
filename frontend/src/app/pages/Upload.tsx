@@ -239,7 +239,11 @@ export function Upload() {
           <button
             type="submit"
             disabled={!pdfFile || !formData.title || isUploading}
-            className="w-full py-4 bg-gradient-to-r from-primary to-[var(--mint)] text-white rounded-[16px] disabled:opacity-50 transition-all active:scale-[0.98] shadow-lg hover:shadow-xl"
+            className={`w-full py-4 font-bold rounded-[16px] transition-all shadow-lg hover:shadow-xl ${
+              !pdfFile || !formData.title || isUploading
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
+                : "bg-gradient-to-r from-primary to-[var(--mint)] text-white active:scale-[0.98]"
+            }`}
           >
             {isUploading ? (
               <div className="flex items-center justify-center gap-3">

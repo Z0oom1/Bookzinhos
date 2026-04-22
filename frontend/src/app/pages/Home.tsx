@@ -171,7 +171,12 @@ export function Home() {
                 </button>
                 <button 
                   onClick={handleUpdateStatus}
-                  className="flex-1 py-3 rounded-2xl bg-[var(--lavender)] text-white font-bold text-sm shadow-lg shadow-[var(--lavender)]/20 flex items-center justify-center gap-2"
+                  disabled={!statusInput.trim()}
+                  className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 ${
+                    !statusInput.trim()
+                      ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
+                      : "bg-[var(--lavender)] text-white shadow-[var(--lavender)]/20"
+                  }`}
                 >
                   <Send className="w-4 h-4" /> Postar
                 </button>

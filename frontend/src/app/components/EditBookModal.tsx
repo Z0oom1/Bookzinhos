@@ -144,7 +144,11 @@ export function EditBookModal({ book, onClose, onSaved }: Props) {
         <button
           onClick={handleSave}
           disabled={!form.title.trim() || isSaving}
-          className="w-full py-3 bg-gradient-to-r from-primary to-[var(--mint)] text-white rounded-[16px] disabled:opacity-50 transition-all active:scale-[0.98] shadow-lg"
+          className={`w-full py-3 rounded-[16px] transition-all font-bold shadow-lg ${
+            !form.title.trim() || isSaving
+              ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
+              : "bg-gradient-to-r from-primary to-[var(--mint)] text-white active:scale-[0.98]"
+          }`}
         >
           {isSaving ? "Salvando..." : "Salvar alterações ✨"}
         </button>

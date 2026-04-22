@@ -107,7 +107,11 @@ export function Login({ onLoginSuccess }: LoginProps) {
             <button
               type="submit"
               disabled={!name.trim() || !password.trim() || isLoading}
-              className="w-full mt-4 py-4 bg-gradient-to-r from-primary to-[var(--peach)] text-white rounded-[16px] font-bold transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl relative overflow-hidden group animate-fade-in"
+              className={`w-full mt-4 py-4 font-bold rounded-[16px] transition-all relative overflow-hidden group animate-fade-in shadow-lg ${
+                !name.trim() || !password.trim() || isLoading
+                  ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
+                  : "bg-gradient-to-r from-primary to-[var(--peach)] text-white active:scale-95 hover:shadow-xl"
+              }`}
               style={{ animationDelay: "0.5s" }}
             >
               {isLoading ? (

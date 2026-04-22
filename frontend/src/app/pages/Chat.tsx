@@ -197,7 +197,11 @@ export function Chat() {
           <button
             onClick={() => handleSend()}
             disabled={!inputValue.trim()}
-            className="p-3 bg-[var(--lavender)] disabled:opacity-50 text-white rounded-full shadow-lg shadow-[var(--lavender)]/20 active:scale-95 transition-all"
+            className={`p-3 rounded-full shadow-lg transition-all active:scale-95 ${
+              !inputValue.trim() 
+                ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none" 
+                : "bg-[var(--primary)] text-white shadow-[var(--primary)]/30"
+            }`}
           >
             <Send className="w-5 h-5" />
           </button>
