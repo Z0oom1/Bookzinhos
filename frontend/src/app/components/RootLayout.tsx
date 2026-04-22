@@ -84,7 +84,7 @@ export function RootLayout() {
               <span
                 className={`text-[8px] font-black mt-1 transition-all duration-300 uppercase tracking-tighter ${
                   isActive(path)
-                    ? "text-[var(--text-main)] opacity-100"
+                    ? "text-[var(--primary)] opacity-100"
                     : "text-[var(--text-muted)] opacity-0 -translate-y-1"
                 }`}
               >

@@ -24,9 +24,18 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
   const [localProgress, setLocalProgress] = useState(initialProgress);
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const longPressedRef = useRef(false);
+  const touchStartPos = useRef({ x: 0, y: 0 });
 
-  const startPress = useCallback(() => {
+  const startPress = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     longPressedRef.current = false;
+    
+    // Track start position
+    if ('touches' in e) {
+      touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else {
+      touchStartPos.current = { x: e.clientX, y: e.clientY };
+    }
+
     timerRef.current = setTimeout(() => {
       longPressedRef.current = true;
       setShowMenu(true);
@@ -45,10 +54,29 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
     clearTimeout(timerRef.current);
   }, []);
 
-  const endPress = useCallback(() => {
+  const endPress = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     clearTimeout(timerRef.current);
+    
     if (!longPressedRef.current) {
-      navigate(`/book/${book.id}`);
+      // Check distance moved
+      let endX, endY;
+      if ('changedTouches' in e) {
+        endX = e.changedTouches[0].clientX;
+        endY = e.changedTouches[0].clientY;
+      } else {
+        endX = e.clientX;
+        endY = e.clientY;
+      }
+
+      const dist = Math.sqrt(
+        Math.pow(endX - touchStartPos.current.x, 2) + 
+        Math.pow(endY - touchStartPos.current.y, 2)
+      );
+
+      // Only navigate if movement is small (less than 10px)
+      if (dist < 10) {
+        navigate(`/book/${book.id}`);
+      }
     }
     longPressedRef.current = false;
   }, [book.id, navigate]);
