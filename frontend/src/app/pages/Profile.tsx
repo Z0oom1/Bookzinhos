@@ -353,7 +353,7 @@ function EditProfileModal({ initialName, initialBio, initialAvatar, onClose, onS
           className={`w-full py-4 font-bold rounded-[16px] transition-all flex justify-center items-center gap-2 ${
             !name.trim() || !bio.trim()
               ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
-              : "bg-gradient-to-r from-[var(--primary)] to-[var(--peach)] text-white shadow-lg shadow-[var(--primary)]/30 active:scale-95"
+              : "bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/30 active:scale-95"
           }`}
         >
           <Check className="w-5 h-5" /> Salvar Perfil

@@ -175,7 +175,7 @@ export function Home() {
                   className={`flex-1 py-3 rounded-2xl font-bold text-sm transition-all shadow-lg flex items-center justify-center gap-2 ${
                     !statusInput.trim()
                       ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
-                      : "bg-[var(--lavender)] text-white shadow-[var(--lavender)]/20"
+                      : "bg-[var(--primary)] text-white shadow-[var(--primary)]/30"
                   }`}
                 >
                   <Send className="w-4 h-4" /> Postar

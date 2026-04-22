@@ -163,7 +163,7 @@ export function Notes() {
                       className={`absolute bottom-3 right-3 p-3 rounded-full transition-all active:scale-95 shadow-md ${
                         isSaving || !feedback.trim()
                           ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                          : "bg-gradient-to-r from-primary to-[var(--mint)] text-white hover:shadow-lg"
+                          : "bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/30"
                       }`}
                     >
                       <Send className="w-5 h-5" />
