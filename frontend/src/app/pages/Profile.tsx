@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { BookOpen, Clock, Award, Pencil, X, Check } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
-import { fetchBooks, fetchAllProgress, fetchStats } from "../lib/api";
+import { fetchBooks, fetchAllProgress, fetchStats, updateProfile } from "../lib/api";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import type { Book, ReadingProgress, Stats } from "../lib/types";
 
@@ -65,7 +65,7 @@ export function Profile() {
     // Note: name shouldn't actually change if it's the PK in the DB, 
     // but we can update bio and avatar.
     try {
-      await import("../lib/api").then(m => m.updateProfile(bio, avatar, shelfBookIds));
+      await updateProfile(bio, avatar, shelfBookIds);
       setUserName(name);
       setUserBio(bio);
       setUserAvatar(avatar);
@@ -79,7 +79,7 @@ export function Profile() {
 
   const handleSaveShelf = async (ids: string[]) => {
     try {
-      await import("../lib/api").then(m => m.updateProfile(userBio, userAvatar, ids));
+      await updateProfile(userBio, userAvatar, ids);
       setShelfBookIds(ids);
       localStorage.setItem("profile-shelf", JSON.stringify(ids));
       setIsEditingShelf(false);
