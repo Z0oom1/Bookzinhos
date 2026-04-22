@@ -12,7 +12,7 @@ interface Props {
   onFeedback: () => void;
   onPause?: () => void;
 }
-
+export function BookContextMenu({ book, isPaused, onClose, onRead, onEdit, onDelete, onFeedback, onPause }: Props) {
   const coverUrl = getFullUrl(book.coverImagePath);
 
   return (
