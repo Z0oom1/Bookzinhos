@@ -12,7 +12,6 @@ export function Home() {
   const [progress, setProgress] = useState<ReadingProgress[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
-  const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
