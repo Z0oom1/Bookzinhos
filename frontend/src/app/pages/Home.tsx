@@ -12,6 +12,8 @@ export function Home() {
   const [progress, setProgress] = useState<ReadingProgress[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const [search, setSearch] = useState("");
+  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   const [status, setStatus] = useState<GlobalStatus | null>(null);
@@ -20,6 +22,8 @@ export function Home() {
   const [statusEmote, setStatusEmote] = useState("🐼");
 
   const EMOTES = ["🐼", "💕", "✨", "📖", "📚", "🤍", "🌸", "🍭", "🎈"];
+  
+  const CATEGORIES = ["Todos", "Romance", "Fantasia", "Ficção", "Autoajuda"];
 
   useEffect(() => {
     async function loadData() {
@@ -74,13 +78,22 @@ export function Home() {
     ? books.find((b) => b.id === currentlyReading.bookId)
     : null;
 
-  const searchResults = search.trim()
+  let searchResults = search.trim()
     ? books.filter(
         (b) =>
           b.title.toLowerCase().includes(search.toLowerCase()) ||
           b.author.toLowerCase().includes(search.toLowerCase())
       )
     : null;
+
+  if (activeCategory && activeCategory !== "Todos") {
+    const categoryFiltered = books.filter(b => b.genre?.toLowerCase() === activeCategory.toLowerCase() || b.genre?.toLowerCase().includes(activeCategory.toLowerCase()));
+    if (searchResults) {
+      searchResults = searchResults.filter(b => categoryFiltered.includes(b));
+    } else {
+      searchResults = categoryFiltered.length > 0 ? categoryFiltered : [];
+    }
+  }
 
   if (isLoading) {
     return (
@@ -95,14 +108,16 @@ export function Home() {
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-8">
         
         {/* Welcome Header */}
-        <div className="animate-fade-in flex justify-between items-center px-2">
+        <div className="animate-fade-in flex justify-between items-center px-2 pt-2">
           <div>
             <h1 className="text-3xl mb-1 font-black text-[var(--text-main)]">Olá, {userName}! 👋</h1>
-            <p className="text-muted-foreground text-sm font-medium">O que vamos ler hoje?</p>
+            <p className="text-[var(--text-muted)] text-sm font-bold">O que vamos ler hoje?</p>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-white border-2 border-[var(--lavender)]/20 flex items-center justify-center text-2xl shadow-sm">
-            🐼
-          </div>
+          <Link to="/profile">
+            <div className="w-14 h-14 rounded-[1.5rem] bg-gradient-to-br from-[var(--lavender)]/30 to-[var(--blush)]/30 flex items-center justify-center text-3xl shadow-inner hover:scale-110 hover:rotate-3 transition-transform cursor-pointer border-2 border-white">
+              🐼
+            </div>
+          </Link>
         </div>
 
         {/* Banner Bonitinho */}
@@ -121,25 +136,33 @@ export function Home() {
         </div>
 
         {/* Global Shoutbox */}
-        <div className="animate-fade-in">
+        <div className="animate-fade-in relative z-20">
           {!isEditingStatus ? (
             <div 
               onClick={() => setIsEditingStatus(true)}
-              className="bg-white/60 backdrop-blur-md p-5 rounded-[2rem] border-2 border-[var(--lavender)]/20 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+              className="bg-white/70 backdrop-blur-xl p-5 rounded-[2rem] border border-white/60 shadow-lg hover:shadow-xl transition-all cursor-pointer group active:scale-[0.98] mt-2 relative overflow-hidden"
             >
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-[var(--lavender)]/30 to-[var(--blush)]/30 rounded-2xl flex items-center justify-center text-3xl shadow-inner group-hover:rotate-12 transition-transform">
+              <div className="absolute inset-0 bg-gradient-to-r from-[var(--lavender)]/5 to-[var(--peach)]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="flex items-center gap-4 relative z-10">
+                <div className="w-16 h-16 bg-gradient-to-br from-[var(--lavender)]/20 to-[var(--blush)]/20 rounded-[1.5rem] flex items-center justify-center text-4xl shadow-sm group-hover:rotate-12 group-hover:scale-110 transition-transform duration-300">
                   {status?.emote || "🐼"}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-[var(--text-main)] font-black leading-tight mb-1 truncate">
+                  <p className="text-[15px] text-[var(--text-main)] font-black leading-tight mb-1 truncate group-hover:text-[var(--lavender)] transition-colors">
                     "{status?.content}"
                   </p>
-                  <p className="text-[10px] text-[var(--text-muted)] italic">
-                    — {status?.username} • {status ? new Date(status.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-[var(--text-muted)] bg-[var(--bg-pastel)] px-2 py-0.5 rounded-md">
+                      {status?.username}
+                    </span>
+                    <span className="text-[10px] text-[var(--text-muted)]/70 italic">
+                      • {status ? new Date(status.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+                    </span>
+                  </div>
                 </div>
-                <Edit3 className="w-4 h-4 text-[var(--lavender)] opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-all -translate-x-4 group-hover:translate-x-0">
+                  <Edit3 className="w-4 h-4 text-[var(--lavender)]" />
+                </div>
               </div>
             </div>
           ) : (
@@ -186,16 +209,34 @@ export function Home() {
         </div>
 
 
-        {/* Search */}
-        <div className="relative animate-fade-in">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar livros, autores..."
-            className="w-full pl-12 pr-4 py-4 bg-white rounded-[2rem] outline-none border-2 border-[var(--lavender)]/5 focus:border-[var(--lavender)]/40 transition-all shadow-sm"
-          />
+        {/* Search & Categories */}
+        <div className="space-y-4 animate-fade-in">
+          <div className="relative">
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--lavender)]" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar livros, autores mágicos..."
+              className="w-full pl-14 pr-5 py-4 bg-white/80 backdrop-blur-sm rounded-[2rem] outline-none border border-white/60 focus:border-[var(--lavender)]/60 focus:ring-4 focus:ring-[var(--lavender)]/10 transition-all shadow-md text-[var(--text-main)] font-medium placeholder:text-[var(--text-muted)]"
+            />
+          </div>
+          
+          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 px-1">
+            {CATEGORIES.map(cat => (
+              <button
+                key={cat}
+                onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
+                className={`flex-shrink-0 px-4 py-2 rounded-[1rem] text-xs font-bold transition-all active:scale-95 border ${
+                  activeCategory === cat || (cat === "Todos" && !activeCategory)
+                    ? "bg-gradient-to-r from-[var(--lavender)] to-[var(--primary)] text-white shadow-md border-transparent"
+                    : "bg-white/60 text-[var(--text-muted)] border-white hover:bg-white"
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
         </div>
 
         {searchResults ? (
@@ -215,16 +256,19 @@ export function Home() {
             {/* Continue lendo */}
             {currentBook && currentlyReading && (
               <section className="animate-fade-in">
-                <div className="flex items-center gap-2 mb-4 px-2">
-                  <div className="w-8 h-8 bg-[var(--mint)]/20 rounded-xl flex items-center justify-center">
-                    <BookOpen className="w-4 h-4 text-[var(--mint)]" />
+                <div className="flex items-center justify-between mb-4 px-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 bg-gradient-to-br from-[var(--mint)]/30 to-[var(--sky)]/30 rounded-xl flex items-center justify-center shadow-sm">
+                      <BookOpen className="w-4 h-4 text-[var(--mint)]" />
+                    </div>
+                    <h2 className="text-xl font-black text-[var(--text-main)]">Continue lendo</h2>
                   </div>
-                  <h2 className="text-lg font-black text-[var(--text-main)]">Continue lendo</h2>
+                  <span className="text-[10px] font-bold text-[var(--text-muted)] bg-white px-2 py-1 rounded-lg shadow-sm">Aventura Ativa ✨</span>
                 </div>
                 <Link to={`/read/${currentBook.id}`}>
-                  <div className="bg-white rounded-[2.5rem] p-5 shadow-lg hover:shadow-xl transition-all flex gap-5 border border-white group relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-[var(--mint)]/10 to-transparent rounded-bl-full -z-1" />
-                    <div className="flex-shrink-0 w-20 h-28 rounded-2xl overflow-hidden shadow-md group-hover:scale-105 transition-transform z-10">
+                  <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-5 shadow-xl hover:shadow-2xl transition-all flex gap-5 border border-white/60 group relative overflow-hidden active:scale-[0.98]">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[var(--mint)]/20 to-transparent rounded-bl-full -z-1 opacity-50 group-hover:scale-110 transition-transform" />
+                    <div className="flex-shrink-0 w-24 h-32 rounded-2xl overflow-hidden shadow-lg group-hover:rotate-2 group-hover:scale-105 transition-all z-10 border border-white/50">
                       {currentBook.coverImagePath ? (
                         <img src={getFullUrl(currentBook.coverImagePath)!} className="w-full h-full object-cover" />
                       ) : (
@@ -233,16 +277,25 @@ export function Home() {
                         </div>
                       )}
                     </div>
-                    <div className="flex-1 py-1 space-y-4 z-10">
+                    <div className="flex-1 py-2 space-y-4 z-10 flex flex-col justify-between">
                       <div>
-                        <h3 className="font-black text-[var(--text-main)] text-lg line-clamp-1">{currentBook.title}</h3>
-                        <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">{currentlyReading.progress}% concluído</p>
+                        <h3 className="font-black text-[var(--text-main)] text-lg line-clamp-2 leading-tight mb-1">{currentBook.title}</h3>
+                        <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">{currentBook.author}</p>
                       </div>
-                      <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden shadow-inner">
-                        <div 
-                          className="bg-gradient-to-r from-[var(--mint)] to-[var(--sky)] h-full transition-all duration-700" 
-                          style={{ width: `${currentlyReading.progress}%` }} 
-                        />
+                      <div>
+                        <div className="flex justify-between items-end mb-1">
+                          <span className="text-[10px] font-black text-[var(--mint)] bg-[var(--mint)]/10 px-2 py-0.5 rounded-md">
+                            {currentlyReading.progress}% concluído
+                          </span>
+                        </div>
+                        <div className="w-full bg-[var(--bg-pastel)] h-2.5 rounded-full overflow-hidden shadow-inner">
+                          <div 
+                            className="bg-gradient-to-r from-[var(--mint)] to-[var(--sky)] h-full transition-all duration-1000 relative" 
+                            style={{ width: `${currentlyReading.progress}%` }} 
+                          >
+                            <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>

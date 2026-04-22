@@ -121,66 +121,75 @@ export function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-[var(--peach)]/10 pb-20">
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-8">
+    <div className="min-h-screen bg-[var(--bg-pastel)] pb-20 relative overflow-hidden">
+      {/* Decorative Background Elements */}
+      <div className="absolute top-0 left-0 w-full h-72 bg-gradient-to-b from-[var(--blush)]/30 via-[var(--lavender)]/20 to-transparent pointer-events-none" />
+      <div className="absolute top-24 right-8 text-4xl opacity-30 animate-float" style={{ animationDelay: "0s" }}>✨</div>
+      <div className="absolute top-48 left-8 text-3xl opacity-30 animate-float" style={{ animationDelay: "1.5s" }}>💕</div>
+      <div className="absolute top-12 left-1/2 text-2xl opacity-20 animate-float" style={{ animationDelay: "3s" }}>🐼</div>
+
+      <div className="max-w-2xl mx-auto px-4 py-8 space-y-10 relative z-10">
         {/* Header */}
-        <div className="text-center space-y-4 animate-fade-in relative">
+        <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border border-white/60 text-center animate-scale-in relative mt-12">
           <button 
             onClick={() => setIsEditingProfile(true)}
-            className="absolute right-0 top-0 p-2 bg-card rounded-full shadow-sm hover:shadow-md transition-all text-muted-foreground hover:text-[var(--primary)]"
+            className="absolute right-4 top-4 p-3 bg-[var(--lavender)]/10 text-[var(--lavender)] rounded-2xl shadow-sm hover:shadow-md hover:bg-[var(--lavender)]/20 hover:-translate-y-1 transition-all"
+            title="Editar Perfil"
           >
-            <Pencil className="w-4 h-4" />
+            <Pencil className="w-5 h-5" />
           </button>
           
-          <div className="relative inline-block">
-            <div className="w-24 h-24 bg-gradient-to-br from-[var(--blush)] via-[var(--peach)] to-[var(--lavender)] rounded-full mx-auto flex items-center justify-center text-white shadow-xl shadow-[var(--blush)]/40 animate-bounce-in">
-              <span className="text-4xl">{userAvatar}</span>
+          <div className="relative inline-block mb-4 -mt-20">
+            <div className="absolute inset-0 bg-gradient-to-br from-[var(--lavender)] to-[var(--blush)] rounded-[2.5rem] blur-xl opacity-50 animate-pulse-soft" />
+            <div className="w-32 h-32 relative rounded-[2.5rem] bg-gradient-to-br from-[var(--blush)] via-[var(--peach)] to-[var(--lavender)] mx-auto flex items-center justify-center text-6xl shadow-xl border-4 border-white transform hover:rotate-3 hover:scale-105 transition-all duration-300">
+              {userAvatar}
             </div>
             <div
-              className="absolute -bottom-1 -right-1 w-8 h-8 bg-card rounded-full flex items-center justify-center shadow-lg animate-scale-in"
+              className="absolute -bottom-2 -right-2 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg border-2 border-[var(--bg-pastel)] animate-scale-in"
               style={{ animationDelay: "0.3s" }}
             >
-              <span className="text-lg">✨</span>
+              <span className="text-xl">✨</span>
             </div>
           </div>
-          <div>
-            <h1 className="text-foreground text-2xl font-bold">{userName}</h1>
-            <p className="text-sm text-muted-foreground mt-1 max-w-[250px] mx-auto leading-relaxed">
-              {userBio}
-            </p>
-          </div>
+          
+          <h1 className="text-3xl font-black text-[var(--text-main)] mb-2">{userName}</h1>
+          <p className="text-[15px] text-[var(--text-muted)] italic px-4">
+            "{userBio}"
+          </p>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-3">
           {statCards.map(({ icon: Icon, label, value }, idx) => (
             <div
               key={label}
-              className="bg-card border border-[var(--primary)]/10 rounded-[20px] p-4 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all text-center space-y-2 animate-scale-in"
+              className="bg-white/80 backdrop-blur-md border border-[var(--lavender)]/20 rounded-[2rem] p-4 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-center flex flex-col items-center justify-center gap-2 animate-scale-in group"
               style={{ animationDelay: `${0.2 + idx * 0.1}s` }}
             >
-              <div className="w-12 h-12 bg-gradient-to-br from-[var(--blush)]/50 to-[var(--lavender)]/50 rounded-full mx-auto flex items-center justify-center">
-                <Icon className="w-6 h-6 text-[var(--primary)]" />
+              <div className="w-12 h-12 bg-gradient-to-br from-[var(--blush)]/20 to-[var(--lavender)]/20 rounded-[1rem] flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Icon className="w-6 h-6 text-[var(--lavender)]" />
               </div>
-              <div className="text-2xl font-bold text-foreground">
-                {value}
+              <div>
+                <div className="text-2xl font-black text-[var(--text-main)] leading-none mb-1">
+                  {value}
+                </div>
+                <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">{label}</div>
               </div>
-              <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{label}</div>
             </div>
           ))}
         </div>
 
         {/* Bookshelf */}
-        <div className="space-y-4 animate-fade-in" style={{ animationDelay: "0.5s" }}>
-          <div className="flex items-center justify-between">
-            <h2 className="text-foreground font-semibold flex items-center gap-2">
-              <span className="text-xl">📚</span> Minha estante
+        <div className="bg-white/60 backdrop-blur-md rounded-[2.5rem] p-6 border border-white/50 shadow-sm animate-fade-in" style={{ animationDelay: "0.4s" }}>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-[var(--text-main)] font-black text-xl flex items-center gap-2">
+              <BookOpen className="w-6 h-6 text-[var(--blush)]" /> Minha Estante
             </h2>
             <button 
               onClick={() => setIsEditingShelf(true)}
-              className="text-xs font-medium text-[var(--primary)] bg-[var(--blush)]/30 px-3 py-1.5 rounded-full hover:bg-[var(--blush)]/60 transition-colors"
+              className="text-xs font-bold text-[var(--lavender)] bg-[var(--lavender)]/10 px-4 py-2 rounded-xl hover:bg-[var(--lavender)]/20 active:scale-95 transition-all flex items-center gap-1"
             >
-              Editar
+              <Pencil className="w-3 h-3" /> Editar
             </button>
           </div>
           
@@ -192,27 +201,34 @@ export function Profile() {
                   <Link
                     key={book.id}
                     to={`/book/${book.id}`}
-                    className={`aspect-[2/3] bg-gradient-to-br ${getCoverGradient(book)} rounded-[12px] shadow-sm hover:shadow-xl hover:-translate-y-2 transition-all active:scale-95 flex items-center justify-center animate-scale-in overflow-hidden relative`}
-                    style={{ animationDelay: `${0.6 + idx * 0.05}s` }}
+                    className="group relative aspect-[2/3] rounded-2xl bg-white shadow-md overflow-hidden border border-white/50 cursor-pointer animate-fade-in block"
+                    style={{ animationDelay: `${0.5 + idx * 0.05}s` }}
                   >
                     {coverUrl ? (
-                      <img src={coverUrl} alt={book.title} className="w-full h-full object-cover" />
+                      <img src={coverUrl} alt={book.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
                     ) : (
-                      <BookOpen className="w-8 h-8 text-white/80" />
+                      <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient(book)} flex items-center justify-center p-3 text-xs text-center font-bold text-white transition-transform duration-500 group-hover:scale-105`}>
+                        {book.title}
+                      </div>
                     )}
+                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                      <div className="bg-white/90 p-2 rounded-full transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                        <BookOpen className="w-5 h-5 text-[var(--primary)]" />
+                      </div>
+                    </div>
                   </Link>
                 );
               })}
             </div>
           ) : (
-            <div className="bg-card border border-dashed border-border rounded-[16px] p-8 text-center space-y-3">
-              <div className="text-4xl opacity-50">🪴</div>
-              <p className="text-sm text-muted-foreground">Sua estante está vazia.</p>
+            <div className="bg-[var(--bg-pastel)]/50 border-2 border-dashed border-[var(--lavender)]/30 rounded-[2rem] p-8 text-center space-y-4">
+              <div className="text-5xl opacity-50 grayscale mx-auto">🪴</div>
+              <p className="text-sm font-bold text-[var(--text-muted)]">Sua estante está vazia.</p>
               <button 
                 onClick={() => setIsEditingShelf(true)}
-                className="text-sm font-medium text-[var(--primary)] hover:underline"
+                className="text-sm font-black text-[var(--primary)] hover:text-[var(--lavender)] transition-colors underline"
               >
-                Adicionar livros
+                Adicionar livros mágicos ✨
               </button>
             </div>
           )}
@@ -221,8 +237,8 @@ export function Profile() {
         {/* Recent Activity */}
         {recentActivity.length > 0 && (
           <div className="space-y-4 animate-fade-in" style={{ animationDelay: "0.6s" }}>
-            <h2 className="text-foreground font-semibold flex items-center gap-2">
-              <span className="text-xl">💫</span> Atividade recente
+            <h2 className="text-[var(--text-main)] font-black text-xl flex items-center gap-2 px-2">
+              <span className="text-2xl animate-spin-slow">💫</span> Atividade Recente
             </h2>
             <div className="space-y-3">
               {recentActivity.map((activity, idx) => {
@@ -232,23 +248,25 @@ export function Profile() {
                   <Link
                     key={idx}
                     to={`/book/${activity.book.id}`}
-                    className="flex bg-card rounded-[16px] p-3 shadow-sm hover:shadow-md transition-all animate-fade-in gap-4 items-center group"
+                    className="flex bg-white/80 backdrop-blur-md rounded-[2rem] p-3 shadow-sm border border-white hover:border-[var(--lavender)]/30 hover:shadow-md transition-all animate-fade-in gap-4 items-center group active:scale-[0.98]"
                     style={{ animationDelay: `${0.7 + idx * 0.1}s` }}
                   >
-                    <div className="w-12 h-16 rounded overflow-hidden flex-shrink-0 shadow-sm bg-gradient-to-br from-muted to-muted/50">
-                      {coverUrl ? <img src={coverUrl} className="w-full h-full object-cover" /> : <BookOpen className="w-full h-full p-3 text-muted-foreground/30" />}
+                    <div className="w-14 h-20 rounded-xl overflow-hidden flex-shrink-0 shadow-sm bg-gradient-to-br from-[var(--lavender)]/20 to-[var(--blush)]/20 relative">
+                      {coverUrl ? <img src={coverUrl} className="w-full h-full object-cover" /> : <BookOpen className="absolute inset-0 m-auto w-6 h-6 text-[var(--lavender)]/50" />}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start mb-1">
-                        <h4 className="text-sm font-medium text-foreground truncate pr-2 group-hover:text-[var(--primary)] transition-colors">{activity.book.title}</h4>
-                        <span className="text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full flex-shrink-0">{activity.dateStr}</span>
+                    <div className="flex-1 min-w-0 py-1">
+                      <div className="flex justify-between items-start mb-2">
+                        <h4 className="text-sm font-bold text-[var(--text-main)] truncate pr-2 group-hover:text-[var(--lavender)] transition-colors">{activity.book.title}</h4>
+                        <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-pastel)] px-2 py-1 rounded-lg font-bold flex-shrink-0">{activity.dateStr}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${activity.label === 'Finalizou' ? 'bg-green-100 text-green-700' : activity.label === 'Lendo' ? 'bg-[var(--peach)]/30 text-orange-700' : 'bg-gray-100 text-gray-600'}`}>
+                        <span className={`text-[10px] font-black uppercase tracking-wide px-3 py-1 rounded-xl ${activity.label === 'Finalizou' ? 'bg-[var(--mint)]/20 text-[var(--mint)]' : activity.label === 'Lendo' ? 'bg-[var(--peach)]/20 text-[var(--peach)]' : 'bg-gray-100 text-gray-500'}`}>
                           {activity.label}
                         </span>
                         {activity.progress.status === "lendo" && (
-                          <span className="text-[10px] font-medium text-muted-foreground">{activity.progress.progress}%</span>
+                          <span className="text-[11px] font-black text-[var(--lavender)] bg-[var(--lavender)]/10 px-2 py-1 rounded-lg">
+                            {activity.progress.progress}%
+                          </span>
                         )}
                       </div>
                     </div>
@@ -259,12 +277,12 @@ export function Profile() {
           </div>
         )}
 
-        <div className="pt-6 border-t border-border/50 text-center animate-fade-in" style={{ animationDelay: "0.8s" }}>
+        <div className="pt-8 text-center animate-fade-in" style={{ animationDelay: "0.8s" }}>
           <button
             onClick={handleLogout}
-            className="text-sm text-red-500 font-medium px-6 py-3 rounded-full hover:bg-red-50 transition-colors"
+            className="text-xs text-red-500 font-bold px-6 py-3 rounded-2xl bg-red-50 hover:bg-red-100 hover:scale-105 active:scale-95 transition-all shadow-sm"
           >
-            Sair da conta
+            Sair da Conta 🐾
           </button>
         </div>
       </div>
