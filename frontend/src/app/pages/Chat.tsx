@@ -82,21 +82,34 @@ export function Chat() {
   return (
     <div className="flex flex-col h-screen bg-[var(--bg-pastel)]">
       {/* Header */}
-      <div className="bg-white/80 backdrop-blur-md px-4 py-3 flex items-center justify-between border-b border-[var(--lavender)]/20 shadow-sm z-10">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="p-1 hover:bg-[var(--lavender)]/10 rounded-full">
-            <ArrowLeft className="w-6 h-6 text-[var(--text-main)]" />
+      <div className="bg-white/90 backdrop-blur-xl px-4 py-4 flex items-center justify-between border-b border-[var(--lavender)]/20 shadow-sm z-20 sticky top-0">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="w-10 h-10 bg-[var(--bg-pastel)] flex items-center justify-center rounded-2xl hover:bg-[var(--lavender)]/10 active:scale-90 transition-all border border-[var(--lavender)]/20 shadow-sm"
+            title="Voltar"
+          >
+            <ArrowLeft className="w-5 h-5 text-[var(--text-main)]" />
           </button>
-          <div onClick={() => navigate(`/user/${otherUser}`)} className="cursor-pointer">
-            <div className="font-bold text-[var(--text-main)] flex items-center gap-1">
-              {otherUser} {nickname && <span className="text-[var(--blush)] text-sm">({nickname})</span>}
+          
+          <div onClick={() => navigate(`/user/${otherUser}`)} className="cursor-pointer group">
+            <div className="font-black text-lg text-[var(--text-main)] flex items-center gap-2 group-hover:text-[var(--lavender)] transition-colors">
+              {otherUser} {nickname && <span className="text-[var(--blush)] text-xs font-bold bg-[var(--blush)]/10 px-2 py-0.5 rounded-full">@{nickname}</span>}
             </div>
-            <div className="text-[10px] text-[var(--text-muted)] flex items-center gap-1">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div> online
+            <div className="text-[10px] text-[var(--text-muted)] font-bold flex items-center gap-1.5 uppercase tracking-widest mt-0.5">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+              </span>
+              online agora
             </div>
           </div>
         </div>
-        <button onClick={() => setShowSettings(!showSettings)} className="p-2 hover:bg-[var(--lavender)]/10 rounded-full transition-colors text-[var(--text-muted)]">
+        
+        <button 
+          onClick={() => setShowSettings(!showSettings)} 
+          className="w-10 h-10 flex items-center justify-center hover:bg-[var(--lavender)]/10 rounded-2xl transition-all text-[var(--text-muted)] border border-transparent hover:border-[var(--lavender)]/20"
+        >
           <Settings className="w-5 h-5" />
         </button>
       </div>

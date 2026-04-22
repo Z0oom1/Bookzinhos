@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback } from "react";
 import { BookOpen } from "lucide-react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import { BookContextMenu } from "./BookContextMenu";
 import { EditBookModal } from "./EditBookModal";
@@ -17,6 +17,7 @@ interface Props {
 
 export function BookCard({ book, progress: initialProgress, variant = "grid", onDeleted, onEdited }: Props) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [showMenu, setShowMenu] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -29,8 +30,16 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
     timerRef.current = setTimeout(() => {
       longPressedRef.current = true;
       setShowMenu(true);
+      searchParams.set("hideNav", "true");
+      setSearchParams(searchParams);
     }, 500);
-  }, []);
+  }, [searchParams, setSearchParams]);
+
+  const handleCloseMenu = () => {
+    setShowMenu(false);
+    searchParams.delete("hideNav");
+    setSearchParams(searchParams);
+  };
 
   const cancelPress = useCallback(() => {
     clearTimeout(timerRef.current);
@@ -46,7 +55,7 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
 
   const handleDelete = async () => {
     setShowDeleteConfirm(false);
-    setShowMenu(false);
+    handleCloseMenu();
     await deleteBook(book.id);
     onDeleted?.(book.id);
   };
@@ -57,7 +66,7 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
   };
 
   const handlePause = async () => {
-    setShowMenu(false);
+    handleCloseMenu();
     if (!localProgress) return;
     const isPaused = localProgress.status === "pausado";
     const nextStatus = isPaused ? "lendo" : "pausado";
@@ -106,11 +115,11 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
           <BookContextMenu
             book={book}
             isPaused={localProgress?.status === "pausado"}
-            onClose={() => setShowMenu(false)}
-            onRead={() => { setShowMenu(false); navigate(`/read/${book.id}`); }}
-            onEdit={() => { setShowMenu(false); setShowEdit(true); }}
-            onDelete={() => { setShowMenu(false); setShowDeleteConfirm(true); }}
-            onFeedback={() => { setShowMenu(false); navigate(`/notes?bookId=${book.id}`); }}
+            onClose={handleCloseMenu}
+            onRead={() => { handleCloseMenu(); navigate(`/read/${book.id}`); }}
+            onEdit={() => { handleCloseMenu(); setShowEdit(true); }}
+            onDelete={() => { handleCloseMenu(); setShowDeleteConfirm(true); }}
+            onFeedback={() => { handleCloseMenu(); navigate(`/notes?bookId=${book.id}`); }}
             onPause={localProgress ? handlePause : undefined}
           />
         )}
@@ -155,11 +164,11 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
           <BookContextMenu
             book={book}
             isPaused={localProgress?.status === "pausado"}
-            onClose={() => setShowMenu(false)}
-            onRead={() => { setShowMenu(false); navigate(`/read/${book.id}`); }}
-            onEdit={() => { setShowMenu(false); setShowEdit(true); }}
-            onDelete={() => { setShowMenu(false); setShowDeleteConfirm(true); }}
-            onFeedback={() => { setShowMenu(false); navigate(`/notes?bookId=${book.id}`); }}
+            onClose={handleCloseMenu}
+            onRead={() => { handleCloseMenu(); navigate(`/read/${book.id}`); }}
+            onEdit={() => { handleCloseMenu(); setShowEdit(true); }}
+            onDelete={() => { handleCloseMenu(); setShowDeleteConfirm(true); }}
+            onFeedback={() => { handleCloseMenu(); navigate(`/notes?bookId=${book.id}`); }}
             onPause={localProgress ? handlePause : undefined}
           />
         )}
@@ -191,11 +200,11 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
         <BookContextMenu
           book={book}
           isPaused={localProgress?.status === "pausado"}
-          onClose={() => setShowMenu(false)}
-          onRead={() => { setShowMenu(false); navigate(`/read/${book.id}`); }}
-          onEdit={() => { setShowMenu(false); setShowEdit(true); }}
-          onDelete={() => { setShowMenu(false); setShowDeleteConfirm(true); }}
-          onFeedback={() => { setShowMenu(false); navigate(`/notes?bookId=${book.id}`); }}
+          onClose={handleCloseMenu}
+          onRead={() => { handleCloseMenu(); navigate(`/read/${book.id}`); }}
+          onEdit={() => { handleCloseMenu(); setShowEdit(true); }}
+          onDelete={() => { handleCloseMenu(); setShowDeleteConfirm(true); }}
+          onFeedback={() => { handleCloseMenu(); navigate(`/notes?bookId=${book.id}`); }}
           onPause={localProgress ? handlePause : undefined}
         />
       )}

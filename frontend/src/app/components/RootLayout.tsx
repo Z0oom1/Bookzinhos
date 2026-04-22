@@ -34,7 +34,8 @@ export function RootLayout() {
     { path: "/profile", icon: User, label: "Eu" },
   ];
 
-  const hideNav = new URLSearchParams(location.search).get("hideNav") === "true";
+  const isChat = location.pathname.startsWith("/chat/");
+  const hideNav = new URLSearchParams(location.search).get("hideNav") === "true" || isChat;
 
   if (hideNav) {
     return (

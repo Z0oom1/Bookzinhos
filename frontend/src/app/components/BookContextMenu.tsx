@@ -1,4 +1,4 @@
-import { BookOpen, Pencil, Trash2, MessageSquare, X, PauseCircle, PlayCircle } from "lucide-react";
+import { BookOpen, Pencil, Trash2, MessageSquare, X, PauseCircle, PlayCircle, Star, Heart } from "lucide-react";
 import type { Book } from "../lib/types";
 
 interface Props {
@@ -15,86 +15,116 @@ interface Props {
 export function BookContextMenu({ book, isPaused, onClose, onRead, onEdit, onDelete, onFeedback, onPause }: Props) {
   return (
     <div
-      className="fixed inset-0 z-[100] flex flex-col justify-end"
+      className="fixed inset-0 z-[100] flex flex-col justify-end p-4 pb-10"
       onClick={onClose}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-md transition-opacity duration-300" />
 
       {/* Sheet */}
       <div
-        className="relative bg-gradient-to-b from-card to-[var(--peach)]/10 rounded-t-[28px] p-6 space-y-4 shadow-2xl animate-slide-up"
+        className="relative bg-white/90 backdrop-blur-2xl rounded-[2.5rem] p-8 shadow-[0_-20px_50px_rgba(0,0,0,0.2)] animate-in slide-in-from-bottom duration-500 ease-out border border-white/20"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Handle */}
-        <div className="w-10 h-1 bg-border rounded-full mx-auto" />
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-12 h-1.5 bg-white/40 rounded-full" />
 
-        {/* Book info */}
-        <div className="flex items-center gap-3 pb-2 border-b border-border/50">
-          <div className="w-10 h-10 bg-gradient-to-br from-[var(--primary)]/20 to-[var(--mint)]/20 rounded-lg flex items-center justify-center">
-            <BookOpen className="w-5 h-5 text-[var(--primary)]" />
+        {/* Header/Info */}
+        <div className="flex items-start gap-6 mb-8">
+          <div className="relative group">
+            <div className="w-24 h-32 bg-gradient-to-br from-[var(--lavender)] to-[var(--sky)] rounded-2xl shadow-xl overflow-hidden transform group-hover:scale-105 transition-transform duration-300">
+              <div className="absolute inset-0 flex items-center justify-center opacity-20">
+                <BookOpen className="w-12 h-12 text-white" />
+              </div>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+            </div>
+            <div className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center text-xs">
+              🐼
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-foreground font-medium truncate">{book.title}</p>
-            <p className="text-xs text-muted-foreground truncate">{book.author}</p>
+          
+          <div className="flex-1 min-w-0 pt-2">
+            <h3 className="text-xl font-black text-[var(--text-main)] leading-tight mb-1 line-clamp-2">
+              {book.title}
+            </h3>
+            <p className="text-sm font-medium text-[var(--text-muted)] mb-3">
+              por <span className="text-[var(--lavender)] font-bold">{book.author}</span>
+            </p>
+            <div className="flex gap-1.5">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star 
+                  key={i} 
+                  className={`w-3.5 h-3.5 ${i < book.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-200"}`} 
+                />
+              ))}
+            </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-muted transition-colors">
-            <X className="w-4 h-4 text-muted-foreground" />
+
+          <button 
+            onClick={onClose}
+            className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 active:scale-90 transition-all"
+          >
+            <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
-        {/* Actions */}
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={onRead}
-            className="flex flex-col items-center gap-2 p-4 bg-gradient-to-br from-[var(--mint)]/40 to-[var(--sky)]/30 rounded-[16px] hover:shadow-md active:scale-95 transition-all"
-          >
-            <div className="w-10 h-10 bg-[var(--mint)]/50 rounded-full flex items-center justify-center">
-              <BookOpen className="w-5 h-5 text-green-700" />
-            </div>
-            <span className="text-sm font-medium text-foreground">Ler</span>
-          </button>
+        {/* Main Action */}
+        <button
+          onClick={onRead}
+          className="w-full bg-gradient-to-r from-[var(--lavender)] to-[var(--sky)] text-white py-5 rounded-2xl font-black text-lg shadow-xl shadow-[var(--lavender)]/20 active:scale-[0.98] transition-all mb-6 flex items-center justify-center gap-3"
+        >
+          <BookOpen className="w-6 h-6" />
+          LER AGORA
+        </button>
 
+        {/* Secondary Actions Grid */}
+        <div className="grid grid-cols-4 gap-4">
           {onPause && (
             <button
               onClick={onPause}
-              className="flex flex-col items-center gap-2 p-4 bg-gradient-to-br from-[var(--peach)]/40 to-[var(--primary)]/30 rounded-[16px] hover:shadow-md active:scale-95 transition-all"
+              className="flex flex-col items-center gap-2 group"
             >
-              <div className="w-10 h-10 bg-[var(--peach)]/50 rounded-full flex items-center justify-center">
-                {isPaused ? <PlayCircle className="w-5 h-5 text-[var(--primary)]" /> : <PauseCircle className="w-5 h-5 text-orange-700" />}
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${
+                isPaused 
+                  ? "bg-green-100 text-green-600 group-hover:bg-green-200" 
+                  : "bg-orange-100 text-orange-600 group-hover:bg-orange-200"
+              }`}>
+                {isPaused ? <PlayCircle className="w-6 h-6" /> : <PauseCircle className="w-6 h-6" />}
               </div>
-              <span className="text-sm font-medium text-foreground">{isPaused ? "Retomar" : "Pausar"}</span>
+              <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
+                {isPaused ? "Retomar" : "Pausar"}
+              </span>
             </button>
           )}
 
           <button
-            onClick={onEdit}
-            className="flex flex-col items-center gap-2 p-4 bg-gradient-to-br from-[var(--sky)]/40 to-[var(--lavender)]/30 rounded-[16px] hover:shadow-md active:scale-95 transition-all"
+            onClick={onFeedback}
+            className="flex flex-col items-center gap-2 group"
           >
-            <div className="w-10 h-10 bg-[var(--sky)]/50 rounded-full flex items-center justify-center">
-              <Pencil className="w-5 h-5 text-blue-700" />
+            <div className="w-14 h-14 bg-purple-100 text-purple-600 rounded-2xl flex items-center justify-center group-hover:bg-purple-200 transition-all duration-300">
+              <MessageSquare className="w-6 h-6" />
             </div>
-            <span className="text-sm font-medium text-foreground">Editar</span>
+            <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Notas</span>
           </button>
 
           <button
-            onClick={onFeedback}
-            className="flex flex-col items-center gap-2 p-4 bg-gradient-to-br from-[var(--lavender)]/40 to-[var(--peach)]/30 rounded-[16px] hover:shadow-md active:scale-95 transition-all"
+            onClick={onEdit}
+            className="flex flex-col items-center gap-2 group"
           >
-            <div className="w-10 h-10 bg-[var(--lavender)]/50 rounded-full flex items-center justify-center">
-              <MessageSquare className="w-5 h-5 text-purple-700" />
+            <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center group-hover:bg-blue-200 transition-all duration-300">
+              <Pencil className="w-6 h-6" />
             </div>
-            <span className="text-sm font-medium text-foreground">Feedback</span>
+            <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Editar</span>
           </button>
 
           <button
             onClick={onDelete}
-            className="flex flex-col items-center gap-2 p-4 bg-gradient-to-br from-red-100 to-rose-50 rounded-[16px] hover:shadow-md active:scale-95 transition-all"
+            className="flex flex-col items-center gap-2 group"
           >
-            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-              <Trash2 className="w-5 h-5 text-red-600" />
+            <div className="w-14 h-14 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center group-hover:bg-red-200 transition-all duration-300">
+              <Trash2 className="w-6 h-6" />
             </div>
-            <span className="text-sm font-medium text-red-600">Excluir</span>
+            <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">Excluir</span>
           </button>
         </div>
       </div>
