@@ -8,3 +8,7 @@ build
 .env
 .env.*
 server/.env
+server/data/
+frontend/.env
+*.db
+*.sqlite

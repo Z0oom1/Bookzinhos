@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
-import { ArrowLeft, Settings, ChevronLeft, ChevronRight, PenLine, PauseCircle, PlayCircle, CheckCircle } from "lucide-react";
+import { ArrowLeft, Settings, ChevronLeft, ChevronRight, PenLine, PauseCircle, PlayCircle, CheckCircle, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { fetchBook, fetchProgress, saveProgress } from "../lib/api";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import type { Book, ReadingProgress } from "../lib/types";
@@ -21,6 +21,9 @@ export function BookReader() {
   const [isPaused, setIsPaused] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
   const [jumpPageInput, setJumpPageInput] = useState("");
+  const [zoomScale, setZoomScale] = useState(1);
+  const touchStartRef = useRef<{ x: number, y: number, time: number } | null>(null);
+  const initialPinchDistRef = useRef<number | null>(null);
 
   // PDF State
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -168,6 +171,59 @@ export function BookReader() {
     }
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      touchStartRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+        time: Date.now()
+      };
+    } else if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      initialPinchDistRef.current = dist;
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && initialPinchDistRef.current !== null) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const delta = dist / initialPinchDistRef.current;
+      setZoomScale(prev => Math.min(Math.max(prev * delta, 1), 5));
+      initialPinchDistRef.current = dist;
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartRef.current && e.changedTouches.length === 1 && zoomScale === 1) {
+      const deltaX = e.changedTouches[0].clientX - touchStartRef.current.x;
+      const deltaY = e.changedTouches[0].clientY - touchStartRef.current.y;
+      const deltaTime = Date.now() - touchStartRef.current.time;
+
+      // Swipe detected: distance > 50px, time < 300ms, horizontal move > vertical move
+      if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) && deltaTime < 300) {
+        if (deltaX < 0) {
+          goNext();
+        } else {
+          goPrev();
+        }
+      }
+    }
+    touchStartRef.current = null;
+    initialPinchDistRef.current = null;
+  };
+
+  const handleZoom = (delta: number) => {
+    setZoomScale(prev => Math.min(Math.max(prev + delta, 1), 5));
+  };
+
+  const resetZoom = () => setZoomScale(1);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -189,11 +245,21 @@ export function BookReader() {
   }
 
   return (
-    <div className={`min-h-screen ${themeStyles[theme]} transition-colors relative select-none`}>
-      <div onClick={() => setShowMenu(!showMenu)} className="min-h-screen flex flex-col items-center justify-start px-4 py-20 cursor-pointer overflow-x-hidden">
+    <div className={`min-h-screen ${themeStyles[theme]} transition-colors relative select-none overflow-hidden`}>
+      <div 
+        onClick={() => setShowMenu(!showMenu)} 
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className="min-h-screen flex flex-col items-center justify-start px-4 py-20 cursor-pointer"
+      >
         <div
-          className={`w-full max-w-2xl leading-relaxed transition-all ${isTransitioning ? "opacity-0 scale-95" : "opacity-100 scale-100 animate-fade-in"}`}
-          style={{ fontSize: `${fontSize}px` }}
+          className={`w-full max-w-2xl leading-relaxed transition-all ${isTransitioning ? "opacity-0 scale-95" : "opacity-100 animate-fade-in"}`}
+          style={{ 
+            fontSize: `${fontSize}px`,
+            transform: `scale(${zoomScale})`,
+            transformOrigin: 'top center'
+          }}
         >
           {pdfUrl ? (
             <div className="flex justify-center w-full">
@@ -216,9 +282,20 @@ export function BookReader() {
             <ArrowLeft className="w-5 h-5 text-foreground" />
           </button>
           <h3 className="text-foreground truncate px-2 font-black text-sm">{book.title}</h3>
-          <button onClick={() => setShowSettings(!showSettings)} className="p-2 hover:bg-[var(--lavender)]/20 rounded-full transition-all active:scale-95">
-            <Settings className="w-5 h-5 text-foreground" />
-          </button>
+          <div className="flex items-center gap-1">
+            <button onClick={() => handleZoom(0.2)} className="p-2 hover:bg-[var(--peach)]/20 rounded-full transition-all active:scale-95">
+              <ZoomIn className="w-4 h-4 text-foreground" />
+            </button>
+            <button onClick={() => handleZoom(-0.2)} className="p-2 hover:bg-[var(--peach)]/20 rounded-full transition-all active:scale-95">
+              <ZoomOut className="w-4 h-4 text-foreground" />
+            </button>
+            <button onClick={resetZoom} className="p-2 hover:bg-[var(--peach)]/20 rounded-full transition-all active:scale-95 flex items-center gap-1 text-[10px] font-bold text-foreground">
+              <Maximize2 className="w-4 h-4" /> Normal
+            </button>
+            <button onClick={() => setShowSettings(!showSettings)} className="p-2 hover:bg-[var(--lavender)]/20 rounded-full transition-all active:scale-95">
+              <Settings className="w-5 h-5 text-foreground" />
+            </button>
+          </div>
         </div>
       </div>
 
