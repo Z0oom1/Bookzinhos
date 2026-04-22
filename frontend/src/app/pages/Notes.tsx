@@ -82,37 +82,44 @@ export function Notes() {
   const filteredBooks = books.filter(b => b.title.toLowerCase().includes(bookSearch.toLowerCase()));
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-[var(--lavender)]/10">
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        <h1 className="text-foreground animate-fade-in">Notinhas</h1>
+    <div className="min-h-screen bg-[var(--bg-pastel)] pb-24 relative overflow-hidden">
+      {/* Decorative background blobs */}
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-[var(--lavender)]/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob" />
+      <div className="absolute top-[20%] right-[-10%] w-96 h-96 bg-[var(--peach)]/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000" />
+      
+      <div className="bg-white/70 backdrop-blur-xl sticky top-0 z-20 px-4 py-4 flex items-center gap-4 border-b border-white/60 shadow-sm">
+        <h1 className="text-2xl font-black text-[var(--text-main)] bg-clip-text text-transparent bg-gradient-to-r from-[var(--primary)] to-[var(--lavender)]">Notinhas ✨</h1>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6 relative z-10">
 
         {/* Book Selection with Search */}
-        <div className="bg-card rounded-[20px] p-4 shadow-sm border border-border">
-          <h3 className="text-foreground text-sm font-medium mb-3 flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-primary" />
+        <div className="bg-white/60 backdrop-blur-xl rounded-[2rem] p-5 shadow-lg border border-white">
+          <h3 className="text-[var(--text-main)] text-sm font-black mb-4 flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-[var(--lavender)]" />
             Selecione o livro
           </h3>
           
-          <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <div className="relative mb-4">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
             <input
               type="text"
               placeholder="Buscar livro..."
               value={bookSearch}
               onChange={(e) => setBookSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-muted rounded-xl text-sm outline-none focus:ring-2 focus:ring-primary/50 transition-all"
+              className="w-full pl-11 pr-4 py-3 bg-white/80 rounded-2xl text-sm outline-none border border-transparent focus:border-[var(--lavender)]/40 focus:ring-4 focus:ring-[var(--lavender)]/10 transition-all shadow-sm font-medium text-[var(--text-main)]"
             />
           </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide snap-x">
+          <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar snap-x px-1">
             {filteredBooks.map((book) => (
               <button
                 key={book.id}
                 onClick={() => setSelectedBookId(book.id)}
-                className={`snap-start flex-shrink-0 px-4 py-2 rounded-[12px] text-sm whitespace-nowrap transition-all active:scale-95 ${
+                className={`snap-start flex-shrink-0 px-5 py-2.5 rounded-2xl text-sm font-bold whitespace-nowrap transition-all active:scale-95 ${
                   selectedBookId === book.id
-                    ? "bg-gradient-to-r from-primary to-[var(--mint)] text-white shadow-md"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    ? "bg-gradient-to-r from-[var(--lavender)] to-[var(--sky)] text-white shadow-md"
+                    : "bg-white/80 text-[var(--text-muted)] hover:bg-white shadow-sm border border-white"
                 }`}
               >
                 {book.title}
@@ -127,21 +134,22 @@ export function Notes() {
         {selectedBookId ? (
           <>
             {/* Form */}
-            <div className="bg-gradient-to-br from-[var(--peach)]/20 to-[var(--lavender)]/20 rounded-[24px] p-6 shadow-md border border-white/50 animate-fade-in">
-              <h2 className="text-foreground text-center mb-6">O que você achou até agora?</h2>
+            <div className="bg-gradient-to-br from-white/70 to-white/40 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-xl border border-white/80 animate-fade-in relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-r from-[var(--lavender)]/5 to-[var(--peach)]/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+              <h2 className="text-[var(--text-main)] font-black text-center text-xl mb-6">O que você achou até agora?</h2>
               
-              <div className="mb-6">{renderPandas()}</div>
+              <div className="mb-8">{renderPandas()}</div>
 
-              <div className="space-y-4">
+              <div className="space-y-6 relative z-10">
                 <div className="flex flex-wrap gap-2 justify-center">
                   {quickFeedback.map((f) => (
                     <button
                       key={f}
                       onClick={() => setFeedback(f)}
-                      className={`px-4 py-2 rounded-full text-sm transition-all active:scale-95 ${
+                      className={`px-5 py-2.5 rounded-[1.5rem] text-sm font-bold transition-all active:scale-95 border ${
                         feedback === f
-                          ? "bg-primary text-primary-foreground shadow-md"
-                          : "bg-white/80 text-secondary-foreground hover:bg-white"
+                          ? "bg-gradient-to-r from-[var(--primary)] to-[var(--peach)] text-white shadow-md border-transparent"
+                          : "bg-white/60 text-[var(--text-muted)] hover:bg-white border-white/80"
                       }`}
                     >
                       {f}
@@ -149,20 +157,20 @@ export function Notes() {
                   ))}
                 </div>
 
-                <div className="relative">
+                <div className="relative group/input">
                   <textarea
                     value={feedback}
                     onChange={(e) => setFeedback(e.target.value)}
                     placeholder="Ou escreva o que está sentindo..."
-                    className="w-full px-5 py-4 bg-white/90 backdrop-blur-sm rounded-[16px] outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-none min-h-[120px] shadow-sm"
+                    className="w-full px-6 py-5 bg-white/60 backdrop-blur-md rounded-[2rem] outline-none border border-white/60 focus:border-[var(--lavender)]/60 focus:ring-4 focus:ring-[var(--lavender)]/10 transition-all resize-none min-h-[140px] shadow-sm text-[var(--text-main)] font-medium placeholder:text-[var(--text-muted)]/70"
                   />
                   <button
                     onClick={handleSubmit}
                     disabled={isSaving || !feedback.trim() || rating === 0}
-                    className={`absolute bottom-3 right-3 p-3 rounded-full transition-all active:scale-95 shadow-md ${
+                    className={`absolute bottom-4 right-4 p-4 rounded-full transition-all duration-300 active:scale-95 shadow-md flex items-center justify-center ${
                       isSaving || !feedback.trim() || rating === 0
                         ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
-                        : "bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/30"
+                        : "bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/30 hover:-translate-y-1 hover:shadow-xl"
                     }`}
                   >
                     <Send className="w-5 h-5" />
@@ -172,21 +180,21 @@ export function Notes() {
             </div>
 
             {/* List */}
-            <div className="space-y-4">
-              <h3 className="text-foreground">Suas notinhas</h3>
+            <div className="space-y-5">
+              <h3 className="text-xl font-black text-[var(--text-main)] pl-2">Suas notinhas</h3>
               {notes.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground bg-card rounded-[16px] border border-dashed border-border">
+                <div className="text-center py-12 text-[var(--text-muted)] bg-white/40 backdrop-blur-sm rounded-[2rem] border-2 border-dashed border-[var(--lavender)]/20 shadow-sm font-medium">
                   Nenhuma notinha ainda. Que tal escrever a primeira? ✍️
                 </div>
               ) : (
                 notes.map((note) => (
-                  <div key={note.id} className="bg-card rounded-[16px] p-5 shadow-sm border border-border group animate-slide-up">
-                    <div className="flex items-start justify-between mb-3">
+                  <div key={note.id} className="bg-white/70 backdrop-blur-md rounded-[2rem] p-6 shadow-sm border border-white/60 hover:shadow-md transition-shadow group animate-slide-up">
+                    <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-medium text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
+                        <span className="text-xs font-bold text-[var(--text-muted)] bg-[var(--bg-pastel)] px-3 py-1 rounded-full shadow-inner border border-white">
                           {note.date}
                         </span>
-                        <div className="flex">
+                        <div className="flex bg-white/50 px-2 py-1 rounded-full shadow-sm">
                           {Array.from({ length: 5 }).map((_, i) => (
                             <span key={i} className="text-sm">{i < note.rating ? "🐼" : "🤍"}</span>
                           ))}
@@ -194,20 +202,20 @@ export function Notes() {
                       </div>
                       <button
                         onClick={() => handleDelete(note.id)}
-                        className="p-2 text-muted-foreground hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                        className="p-2 text-[var(--text-muted)] hover:text-red-500 bg-white hover:bg-red-50 rounded-full transition-colors opacity-0 group-hover:opacity-100 shadow-sm"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
-                    <p className="text-foreground text-[15px] leading-relaxed">{note.feedback}</p>
+                    <p className="text-[var(--text-main)] text-[15px] leading-relaxed font-medium">{note.feedback}</p>
                   </div>
                 ))
               )}
             </div>
           </>
         ) : (
-          <div className="text-center py-12 text-muted-foreground">
-            Adicione livros à biblioteca primeiro
+          <div className="text-center py-20 text-[var(--text-muted)] font-bold bg-white/40 backdrop-blur-md rounded-[3rem] border-2 border-dashed border-[var(--lavender)]/30">
+            Adicione livros à biblioteca primeiro 📚
           </div>
         )}
       </div>

@@ -53,18 +53,27 @@ export function Social() {
   }, [myUsername]);
 
   return (
-    <div className="min-h-screen bg-[var(--bg-pastel)] pb-24">
-      <div className="bg-white/80 backdrop-blur-md sticky top-0 z-10 px-4 py-4 flex items-center gap-4 border-b border-[var(--lavender)]/20 shadow-sm">
-        <button
-          onClick={() => navigate(-1)}
-          className="p-2 hover:bg-[var(--lavender)]/10 rounded-full transition-colors"
-        >
-          <ArrowLeft className="w-6 h-6 text-[var(--text-main)]" />
-        </button>
-        <h1 className="text-xl font-bold text-[var(--text-main)]">Área Social</h1>
+    <div className="min-h-screen bg-[var(--bg-pastel)] pb-24 relative overflow-hidden">
+      {/* Decorative background blobs */}
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-[var(--lavender)]/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob" />
+      <div className="absolute top-[20%] right-[-10%] w-96 h-96 bg-[var(--blush)]/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000" />
+      
+      <div className="bg-white/70 backdrop-blur-xl sticky top-0 z-20 px-4 py-4 flex items-center justify-between border-b border-white/60 shadow-sm">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate(-1)}
+            className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm hover:scale-105 active:scale-95 transition-all text-[var(--text-main)] border border-[var(--lavender)]/20"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-2xl font-black text-[var(--text-main)] bg-clip-text text-transparent bg-gradient-to-r from-[var(--primary)] to-[var(--lavender)]">Social ✨</h1>
+        </div>
+        <div className="w-10 h-10 bg-gradient-to-br from-[var(--lavender)]/30 to-[var(--blush)]/30 rounded-2xl flex items-center justify-center text-xl shadow-inner cursor-pointer" onClick={() => navigate('/profile')}>
+          🐼
+        </div>
       </div>
 
-      <div className="p-4 max-w-2xl mx-auto space-y-4">
+      <div className="p-4 max-w-2xl mx-auto space-y-6 relative z-10">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4">
             <div className="w-12 h-12 border-4 border-[var(--lavender)] border-t-transparent rounded-full animate-spin"></div>
@@ -117,7 +126,7 @@ export function Social() {
                         e.stopPropagation();
                         navigate(`/chat/${user.username}`);
                       }}
-                      className="p-3 bg-[var(--lavender)]/20 hover:bg-[var(--lavender)]/40 rounded-2xl transition-colors text-[var(--text-main)]"
+                      className="w-12 h-12 bg-gradient-to-r from-[var(--lavender)] to-[var(--sky)] rounded-2xl flex items-center justify-center shadow-md hover:shadow-lg active:scale-95 transition-all text-white group-hover:scale-110"
                     >
                       <MessageCircle className="w-5 h-5" />
                     </button>
@@ -130,15 +139,16 @@ export function Social() {
       </div>
 
       {/* Recompensas / Info */}
-      <div className="p-4 max-w-2xl mx-auto">
-        <div className="bg-gradient-to-r from-[var(--blush)]/10 to-[var(--lavender)]/10 p-6 rounded-[2.5rem] border border-[var(--lavender)]/20">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-2xl shadow-sm">
+      <div className="p-4 max-w-2xl mx-auto relative z-10 mt-4">
+        <div className="bg-white/60 backdrop-blur-xl p-6 rounded-[2.5rem] border border-white shadow-lg relative overflow-hidden group">
+          <div className="absolute inset-0 bg-gradient-to-r from-[var(--blush)]/10 to-[var(--lavender)]/10 opacity-50 group-hover:opacity-100 transition-opacity" />
+          <div className="flex items-center gap-5 relative z-10">
+            <div className="w-14 h-14 bg-gradient-to-br from-[var(--peach)]/30 to-[var(--blush)]/30 rounded-2xl flex items-center justify-center text-3xl shadow-inner transform group-hover:rotate-12 transition-transform">
               🐼
             </div>
             <div>
-              <h4 className="font-bold text-[var(--text-main)]">Pandinhas de Amor</h4>
-              <p className="text-xs text-[var(--text-muted)]">
+              <h4 className="font-black text-[var(--text-main)] text-lg mb-1">Pandinhas de Amor</h4>
+              <p className="text-xs font-bold text-[var(--text-muted)] leading-tight">
                 Recomende livros! Se a pessoa ler até o fim, ambos ganham um Pandinha!
               </p>
             </div>

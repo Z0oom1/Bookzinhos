@@ -56,71 +56,93 @@ export function MyBooks() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-foreground">Meus Livros</h1>
-          <Link to="/upload" className="px-4 py-2 bg-primary text-primary-foreground rounded-[12px] transition-all active:scale-95 text-sm">
-            + Adicionar
-          </Link>
-        </div>
+    <div className="min-h-screen bg-[var(--bg-pastel)] pb-24 relative overflow-hidden">
+      {/* Decorative background blobs */}
+      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-[var(--lavender)]/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob" />
+      <div className="absolute top-[20%] right-[-10%] w-96 h-96 bg-[var(--mint)]/20 rounded-full mix-blend-multiply filter blur-3xl opacity-70 animate-blob animation-delay-2000" />
+
+      <div className="bg-white/70 backdrop-blur-xl sticky top-0 z-20 px-4 py-4 flex items-center justify-between border-b border-white/60 shadow-sm">
+        <h1 className="text-2xl font-black text-[var(--text-main)] bg-clip-text text-transparent bg-gradient-to-r from-[var(--primary)] to-[var(--lavender)]">Meus Livros 📚</h1>
+        <Link to="/upload" className="px-4 py-2 bg-gradient-to-r from-[var(--primary)] to-[var(--peach)] text-white rounded-[1rem] font-bold shadow-md hover:shadow-lg transition-all active:scale-95 text-sm">
+          + Adicionar
+        </Link>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-4 py-6 space-y-8 relative z-10">
 
         {/* Current Book */}
         {currentBook && currentReading ? (
-          <div className="bg-gradient-to-br from-[var(--peach)]/30 via-[var(--lavender)]/30 to-[var(--mint)]/30 rounded-[24px] p-6 shadow-xl border border-white/50 animate-fade-in">
-            <p className="text-sm text-muted-foreground mb-3 flex items-center gap-2">Continue lendo <span className="animate-pulse-soft">📖</span></p>
-            <div className="flex gap-4 mb-4">
-              <div className="flex-shrink-0 w-24 h-32 rounded-lg overflow-hidden shadow-lg">{coverContent(currentBook)}</div>
-              <div className="flex-1 space-y-2">
-                <h2 className="text-foreground">{currentBook.title}</h2>
-                <p className="text-sm text-muted-foreground">{currentBook.author}</p>
-                <div className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Progresso</span>
-                    <span className="text-primary">{currentReading.progress}%</span>
+          <div className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] p-6 shadow-xl border border-white/60 animate-fade-in group relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[var(--mint)]/20 to-transparent rounded-bl-full -z-1 opacity-50 group-hover:scale-110 transition-transform" />
+            <p className="text-sm font-bold text-[var(--text-main)] mb-4 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-[var(--mint)]/20 flex items-center justify-center">
+                <BookOpen className="w-3 h-3 text-[var(--mint)]" />
+              </span>
+              Continue lendo <span className="animate-pulse-soft">✨</span>
+            </p>
+            <div className="flex gap-5 mb-5 relative z-10">
+              <div className="flex-shrink-0 w-24 h-36 rounded-xl overflow-hidden shadow-lg group-hover:rotate-2 group-hover:scale-105 transition-all border border-white/50">{coverContent(currentBook)}</div>
+              <div className="flex-1 space-y-3 flex flex-col justify-center">
+                <div>
+                  <h2 className="text-xl font-black text-[var(--text-main)] leading-tight mb-1 line-clamp-2">{currentBook.title}</h2>
+                  <p className="text-sm font-bold text-[var(--text-muted)] uppercase tracking-wider">{currentBook.author}</p>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-end">
+                    <span className="text-[10px] font-black text-[var(--mint)] bg-[var(--mint)]/10 px-2 py-0.5 rounded-md">
+                      {currentReading.progress}% concluído
+                    </span>
+                    <span className="text-[10px] text-[var(--text-muted)] font-bold">Pág. {currentReading.currentPage + 1} de {currentReading.totalPages}</span>
                   </div>
-                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                    <div className="bg-gradient-to-r from-primary via-[var(--mint)] to-primary h-2 rounded-full transition-all" style={{ width: `${currentReading.progress}%` }} />
+                  <div className="w-full bg-[var(--bg-pastel)] rounded-full h-2.5 overflow-hidden shadow-inner">
+                    <div className="bg-gradient-to-r from-[var(--mint)] to-[var(--sky)] h-full transition-all duration-1000 relative" style={{ width: `${currentReading.progress}%` }}>
+                      <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground">Página {currentReading.currentPage + 1} de {currentReading.totalPages}</p>
                 </div>
               </div>
             </div>
-            <Link to={`/read/${currentBook.id}`} className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-primary to-[var(--mint)] text-white rounded-[16px] transition-all active:scale-[0.98] shadow-lg hover:shadow-xl">
+            <Link to={`/read/${currentBook.id}`} className="relative z-10 flex items-center justify-center gap-2 w-full py-4 bg-gradient-to-r from-[var(--primary)] to-[var(--mint)] text-white rounded-2xl font-black transition-all active:scale-[0.98] shadow-lg hover:shadow-xl">
               <Play className="w-5 h-5 fill-current" />
               Continuar leitura
             </Link>
           </div>
         ) : (
-          <div className="bg-gradient-to-br from-[var(--peach)]/20 to-[var(--lavender)]/20 rounded-[24px] p-8 text-center shadow-lg border border-white/50">
-            <div className="text-4xl mb-3">📚</div>
-            <p className="text-muted-foreground mb-4">Nenhum livro em leitura</p>
-            <Link to="/library" className="inline-flex px-6 py-3 bg-gradient-to-r from-primary to-[var(--mint)] text-white rounded-[16px] shadow-lg transition-all active:scale-95">
-              Explorar biblioteca
+          <div className="bg-white/60 backdrop-blur-xl rounded-[2.5rem] p-10 text-center shadow-sm border border-white">
+            <div className="text-5xl mb-4 grayscale opacity-50">📚</div>
+            <p className="text-[var(--text-muted)] font-bold mb-6">Nenhum livro em leitura</p>
+            <Link to="/library" className="inline-flex px-8 py-4 bg-gradient-to-r from-[var(--lavender)] to-[var(--sky)] text-white font-black rounded-2xl shadow-lg transition-all active:scale-95 hover:scale-105">
+              Explorar biblioteca ✨
             </Link>
           </div>
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 border-b border-border">
+        <div className="flex gap-2 p-1 bg-white/60 backdrop-blur-md rounded-[1.5rem] border border-white/60 shadow-sm">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-3 relative transition-all active:scale-95 ${activeTab === tab.key ? "text-primary" : "text-muted-foreground"}`}
+              className={`flex-1 px-4 py-3 rounded-2xl font-bold transition-all text-sm active:scale-95 ${
+                activeTab === tab.key 
+                  ? "bg-white text-[var(--lavender)] shadow-sm" 
+                  : "text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-white/40"
+              }`}
             >
               {tab.label}
-              <span className="ml-1 text-xs opacity-60">({progress.filter((p) => p.status === tab.key).length})</span>
-              {activeTab === tab.key && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-primary to-[var(--mint)] rounded-full" />}
+              <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-md ${
+                activeTab === tab.key ? "bg-[var(--lavender)]/10 text-[var(--lavender)]" : "bg-black/5 opacity-60"
+              }`}>
+                {progress.filter((p) => p.status === tab.key).length}
+              </span>
             </button>
           ))}
         </div>
 
         {/* Books Grid */}
         {booksInTab.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <div className="text-4xl mb-3">{activeTab === "lendo" ? "📖" : activeTab === "finalizado" ? "🎉" : "⏸️"}</div>
+          <div className="text-center py-16 text-[var(--text-muted)] bg-white/40 backdrop-blur-sm rounded-[2rem] border-2 border-dashed border-[var(--lavender)]/20 shadow-sm font-bold">
+            <div className="text-5xl mb-4 opacity-70 grayscale">{activeTab === "lendo" ? "📖" : activeTab === "finalizado" ? "🎉" : "⏸️"}</div>
             <p>Nenhum livro aqui ainda</p>
           </div>
         ) : (
@@ -143,8 +165,8 @@ export function MyBooks() {
           </div>
         )}
 
-        <p className="text-center text-xs text-muted-foreground pt-2">
-          💡 Pressione e segure um livro para mais opções
+        <p className="text-center text-xs font-bold text-[var(--text-muted)] opacity-70 pt-4">
+          💡 Pressione e segure um livro para magias avançadas
         </p>
       </div>
     </div>
