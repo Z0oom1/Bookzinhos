@@ -132,45 +132,43 @@ export function Notes() {
               
               <div className="mb-6">{renderPandas()}</div>
 
-              {rating > 0 && (
-                <div className="space-y-4 animate-scale-in">
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    {quickFeedback.map((f) => (
-                      <button
-                        key={f}
-                        onClick={() => setFeedback(f)}
-                        className={`px-4 py-2 rounded-full text-sm transition-all active:scale-95 ${
-                          feedback === f
-                            ? "bg-primary text-primary-foreground shadow-md"
-                            : "bg-white/80 text-secondary-foreground hover:bg-white"
-                        }`}
-                      >
-                        {f}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="relative">
-                    <textarea
-                      value={feedback}
-                      onChange={(e) => setFeedback(e.target.value)}
-                      placeholder="Ou escreva o que está sentindo..."
-                      className="w-full px-5 py-4 bg-white/90 backdrop-blur-sm rounded-[16px] outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-none min-h-[120px] shadow-sm"
-                    />
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {quickFeedback.map((f) => (
                     <button
-                      onClick={handleSubmit}
-                      disabled={isSaving || !feedback.trim()}
-                      className={`absolute bottom-3 right-3 p-3 rounded-full transition-all active:scale-95 shadow-md ${
-                        isSaving || !feedback.trim()
-                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                          : "bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/30"
+                      key={f}
+                      onClick={() => setFeedback(f)}
+                      className={`px-4 py-2 rounded-full text-sm transition-all active:scale-95 ${
+                        feedback === f
+                          ? "bg-primary text-primary-foreground shadow-md"
+                          : "bg-white/80 text-secondary-foreground hover:bg-white"
                       }`}
                     >
-                      <Send className="w-5 h-5" />
+                      {f}
                     </button>
-                  </div>
+                  ))}
                 </div>
-              )}
+
+                <div className="relative">
+                  <textarea
+                    value={feedback}
+                    onChange={(e) => setFeedback(e.target.value)}
+                    placeholder="Ou escreva o que está sentindo..."
+                    className="w-full px-5 py-4 bg-white/90 backdrop-blur-sm rounded-[16px] outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-none min-h-[120px] shadow-sm"
+                  />
+                  <button
+                    onClick={handleSubmit}
+                    disabled={isSaving || !feedback.trim() || rating === 0}
+                    className={`absolute bottom-3 right-3 p-3 rounded-full transition-all active:scale-95 shadow-md ${
+                      isSaving || !feedback.trim() || rating === 0
+                        ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
+                        : "bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/30"
+                    }`}
+                  >
+                    <Send className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* List */}
