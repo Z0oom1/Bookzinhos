@@ -38,39 +38,52 @@ export function Library() {
     await toggleSaved(bookId, currently);
   };
 
+  // Group books into chunks of 3 for the shelves
+  const chunkSize = 3;
+  const chunkedBooks = [];
+  for (let i = 0; i < filteredBooks.length; i += chunkSize) {
+    chunkedBooks.push(filteredBooks.slice(i, i + chunkSize));
+  }
+
   if (isLoading) return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
+    <div className="min-h-screen bg-[#FDFBF7] flex items-center justify-center">
       <div className="text-5xl animate-bounce-in">🐼</div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-[var(--mint)]/10">
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-        <h1 className="text-foreground animate-fade-in">Biblioteca</h1>
+    <div className="min-h-screen bg-[#FDFBF7] pb-32 overflow-x-hidden">
+      {/* Library Wall Texture / Wallpaper */}
+      <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#E5D9C5 1px, transparent 1px)', backgroundSize: '20px 20px', opacity: 0.5 }} />
+      
+      <div className="max-w-2xl mx-auto px-4 py-8 space-y-8 relative z-10">
+        <div className="text-center mb-6 animate-fade-in">
+          <h1 className="text-3xl font-black text-[#5C4033] drop-shadow-sm mb-1">A Biblioteca 📚</h1>
+          <p className="text-[#8B5A2B] text-sm font-bold">Encontre sua próxima aventura</p>
+        </div>
 
         {/* Search */}
-        <div className="relative animate-fade-in">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+        <div className="relative animate-fade-in mx-2">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8B5A2B]/60" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar na biblioteca..."
-            className="w-full pl-12 pr-4 py-3 bg-gradient-to-r from-[var(--blush)]/30 to-[var(--sky)]/30 rounded-[16px] outline-none focus:ring-2 focus:ring-primary/50 focus:shadow-lg transition-all"
+            placeholder="Procurar nos pergaminhos..."
+            className="w-full pl-12 pr-4 py-4 bg-white/90 backdrop-blur-sm rounded-[2rem] outline-none focus:ring-4 focus:ring-[#8B5A2B]/20 transition-all shadow-md text-[#5C4033] font-medium border-2 border-[#E5D9C5]"
           />
         </div>
 
         {/* Filters */}
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="flex gap-2 overflow-x-auto pb-2 px-2 custom-scrollbar">
           {availableGenres.map((genre) => (
             <button
               key={genre}
               onClick={() => setSelectedGenre(genre)}
-              className={`px-4 py-2 rounded-[12px] whitespace-nowrap transition-all active:scale-95 ${
+              className={`px-5 py-2 rounded-2xl whitespace-nowrap transition-all active:scale-95 font-bold text-sm ${
                 selectedGenre === genre
-                  ? "bg-gradient-to-r from-primary to-[var(--mint)] text-white shadow-lg"
-                  : "bg-white/80 backdrop-blur-sm text-secondary-foreground shadow-sm hover:shadow-md"
+                  ? "bg-[#5C4033] text-white shadow-lg shadow-[#5C4033]/30"
+                  : "bg-white text-[#8B5A2B] shadow-sm hover:bg-[#F5E6D3] border border-[#E5D9C5]"
               }`}
             >
               {genre}
@@ -78,40 +91,50 @@ export function Library() {
           ))}
         </div>
 
-        {/* Books — long-press mostra menu, clique vai para detalhes, coração salva */}
+        {/* Bookshelf Layout */}
         {filteredBooks.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground">
-            <div className="text-4xl mb-3">🔍</div>
-            <p>Nenhum livro encontrado</p>
+          <div className="text-center py-20 text-[#8B5A2B]/60">
+            <div className="text-6xl mb-4 opacity-50 grayscale">🕸️</div>
+            <p className="font-bold">Esta seção da biblioteca está vazia...</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {filteredBooks.map((book) => (
-              <div key={book.id} className="relative">
-                <BookCard
-                  book={book}
-                  variant="list"
-                  onDeleted={(id) => setBooks((b) => b.filter((x) => x.id !== id))}
-                  onEdited={(updated) => setBooks((b) => b.map((x) => x.id === updated.id ? updated : x))}
-                />
-                {/* Saved button overlay */}
-                <button
-                  onClick={() => handleToggleSave(book.id)}
-                  className={`absolute top-3 right-3 px-3 py-1.5 rounded-[10px] text-xs transition-all active:scale-95 ${
-                    savedIds.includes(book.id)
-                      ? "bg-gradient-to-r from-primary to-[var(--mint)] text-white shadow-md"
-                      : "bg-white/90 text-muted-foreground"
-                  }`}
-                >
-                  {savedIds.includes(book.id) ? "❤️ Salvo" : "🤍 Salvar"}
-                </button>
+          <div className="space-y-12 mt-10">
+            {chunkedBooks.map((row, rowIndex) => (
+              <div key={rowIndex} className="relative pt-6 px-4 flex justify-around items-end h-[160px] animate-fade-in" style={{ animationDelay: `${rowIndex * 0.1}s` }}>
+                
+                {/* The Books */}
+                {row.map((book) => (
+                  <div key={book.id} className="relative z-10 flex flex-col items-center">
+                    <BookCard
+                      book={book}
+                      variant="shelf"
+                      onDeleted={(id) => setBooks((b) => b.filter((x) => x.id !== id))}
+                      onEdited={(updated) => setBooks((b) => b.map((x) => x.id === updated.id ? updated : x))}
+                    />
+                    {/* Small Save heart indicator */}
+                    <button
+                      onClick={() => handleToggleSave(book.id)}
+                      className="absolute -top-3 -right-3 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-md active:scale-95 transition-transform"
+                    >
+                      {savedIds.includes(book.id) ? "❤️" : "🤍"}
+                    </button>
+                  </div>
+                ))}
+
+                {/* The Wooden Shelf */}
+                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-b from-[#A0522D] to-[#8B4513] rounded-sm shadow-[0_10px_20px_rgba(0,0,0,0.4)] z-0 border-t border-[#CD853F]" />
+                <div className="absolute -bottom-2 left-1 right-1 h-2 bg-[#5C4033] rounded-b-md shadow-2xl z-0" />
+                
+                {/* Shelf Side Brackets (decorative) */}
+                <div className="absolute -bottom-4 left-4 w-2 h-6 bg-[#3E2723] rounded-b-sm shadow-md z-0" />
+                <div className="absolute -bottom-4 right-4 w-2 h-6 bg-[#3E2723] rounded-b-sm shadow-md z-0" />
               </div>
             ))}
           </div>
         )}
 
-        <p className="text-center text-xs text-muted-foreground pt-2 animate-fade-in">
-          💡 Pressione e segure um livro para mais opções
+        <p className="text-center text-xs text-[#8B5A2B] pt-8 animate-fade-in opacity-70 font-bold">
+          💡 Pressione e segure um livro para magias avançadas
         </p>
       </div>
     </div>

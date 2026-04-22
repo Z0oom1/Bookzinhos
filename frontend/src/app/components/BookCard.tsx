@@ -10,7 +10,7 @@ import type { Book, ReadingProgress } from "../lib/types";
 interface Props {
   book: Book;
   progress?: ReadingProgress;
-  variant?: "grid" | "list" | "small";
+  variant?: "grid" | "list" | "small" | "shelf";
   onDeleted?: (id: string) => void;
   onEdited?: (updated: Book) => void;
 }
@@ -187,6 +187,43 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
               )}
             </div>
           </div>
+        </div>
+        {showMenu && (
+          <BookContextMenu
+            book={book}
+            isPaused={localProgress?.status === "pausado"}
+            onClose={handleCloseMenu}
+            onRead={() => { handleCloseMenu(); navigate(`/read/${book.id}`); }}
+            onEdit={() => { handleCloseMenu(); setShowEdit(true); }}
+            onDelete={() => { handleCloseMenu(); setShowDeleteConfirm(true); }}
+            onFeedback={() => { handleCloseMenu(); navigate(`/notes?bookId=${book.id}`); }}
+            onPause={localProgress ? handlePause : undefined}
+          />
+        )}
+        {showEdit && <EditBookModal book={book} onClose={() => setShowEdit(false)} onSaved={handleEdited} />}
+        {showDeleteConfirm && <DeleteConfirmDialog book={book} onConfirm={handleDelete} onCancel={() => setShowDeleteConfirm(false)} />}
+      </>
+    );
+  }
+
+  if (variant === "shelf") {
+    return (
+      <>
+        <div
+          {...pressHandlers}
+          className="relative w-24 h-[135px] group cursor-pointer origin-bottom transition-all duration-300 hover:scale-110 hover:-translate-y-2 z-10"
+        >
+          {/* Main Book Cover */}
+          <div className="absolute inset-0 rounded-[2px] rounded-r-[6px] overflow-hidden shadow-[-2px_0_5px_rgba(0,0,0,0.2)] bg-gray-100 border-l-[3px] border-black/10">
+            {coverContent}
+            {/* Book Spine Highlight */}
+            <div className="absolute top-0 bottom-0 left-0 w-2 bg-gradient-to-r from-white/30 to-transparent" />
+            {/* Overlay Gradient for realism */}
+            <div className="absolute inset-0 bg-gradient-to-br from-black/5 to-black/20 mix-blend-multiply pointer-events-none" />
+          </div>
+          
+          {/* Shadow behind the book on the shelf */}
+          <div className="absolute -bottom-1 -right-2 w-12 h-2 bg-black/40 blur-sm rounded-full -z-10 group-hover:scale-110 transition-transform" />
         </div>
         {showMenu && (
           <BookContextMenu
