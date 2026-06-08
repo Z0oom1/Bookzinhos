@@ -18,12 +18,20 @@ export function BookDetails() {
 
   useEffect(() => {
     if (!id) return;
-    Promise.all([fetchBook(id), fetchSavedIds(), fetchProgress(id), fetchAllUsers()])
+    Promise.all([
+      fetchBook(id).catch(() => null),
+      fetchSavedIds().catch(() => []),
+      fetchProgress(id).catch(() => null),
+      fetchAllUsers().catch(() => [])
+    ])
       .then(([b, savedIds, p, allUsers]) => {
+        const savedIdsList = savedIds || [];
+        const allUsersList = allUsers || [];
+
         setBook(b);
-        setIsSaved(savedIds.includes(id));
+        setIsSaved(savedIdsList.includes(id));
         setProgress(p);
-        setUsers(allUsers.filter(u => u.username.toLowerCase() !== myUsername?.toLowerCase()));
+        setUsers(allUsersList.filter(u => u.username.toLowerCase() !== myUsername?.toLowerCase()));
         setIsLoading(false);
       })
       .catch((err) => {

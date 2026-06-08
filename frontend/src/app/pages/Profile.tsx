@@ -39,18 +39,34 @@ export function Profile() {
   }, [isEditingProfile, isEditingShelf]);
 
   useEffect(() => {
-    Promise.all([fetchBooks(), fetchAllProgress(), fetchStats()]).then(([b, p, s]) => {
-      setBooks(b);
-      setProgress(p);
-      setStats(s);
-      setIsLoading(false);
-      // Auto populate shelf if empty
-      if (shelfBookIds.length === 0) {
-        const defaultShelf = b.filter(book => p.some(prog => prog.bookId === book.id)).map(book => book.id).slice(0, 9);
-        setShelfBookIds(defaultShelf);
-        localStorage.setItem("profile-shelf", JSON.stringify(defaultShelf));
-      }
-    });
+    Promise.all([
+      fetchBooks().catch(() => []),
+      fetchAllProgress().catch(() => []),
+      fetchStats().catch(() => ({ finished: 0, reading: 0, notesCount: 0 }))
+    ])
+      .then(([b, p, s]) => {
+        const booksList = b || [];
+        const progressList = p || [];
+        const statsData = s || { finished: 0, reading: 0, notesCount: 0 };
+
+        setBooks(booksList);
+        setProgress(progressList);
+        setStats(statsData);
+        setIsLoading(false);
+
+        if (shelfBookIds.length === 0 && booksList.length > 0) {
+          const defaultShelf = booksList
+            .filter(book => progressList.some(prog => prog.bookId === book.id))
+            .map(book => book.id)
+            .slice(0, 9);
+          setShelfBookIds(defaultShelf);
+          localStorage.setItem("profile-shelf", JSON.stringify(defaultShelf));
+        }
+      })
+      .catch((err) => {
+        console.error("Erro ao carregar dados do perfil:", err);
+        setIsLoading(false);
+      });
   }, []);
 
   const handleLogout = () => {
