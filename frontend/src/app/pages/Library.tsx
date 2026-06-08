@@ -52,10 +52,7 @@ export function Library() {
   );
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] pb-32 overflow-x-hidden">
-      {/* Library Wall Texture / Wallpaper */}
-      <div className="absolute inset-0 pointer-events-none" style={{ backgroundImage: 'radial-gradient(#E5D9C5 1px, transparent 1px)', backgroundSize: '20px 20px', opacity: 0.5 }} />
-      
+    <div className="min-h-screen bg-transparent pb-32 overflow-x-hidden">
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-8 relative z-10">
         <div className="text-center mb-6 animate-fade-in">
           <h1 className="text-3xl font-black text-[#5C4033] drop-shadow-sm mb-1">A Biblioteca 📚</h1>

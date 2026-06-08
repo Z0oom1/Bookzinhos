@@ -54,18 +54,18 @@ export function RootLayout() {
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 px-2 pb-6">
-        <div className="bg-white/90 backdrop-blur-3xl border border-white/40 shadow-[0_15px_40px_rgba(0,0,0,0.12)] rounded-[2.5rem] h-20 max-w-lg mx-auto flex items-center justify-between px-2">
+        <div className="bg-white/95 backdrop-blur-3xl border border-[var(--border)] shadow-[0_10px_30px_rgba(92,64,51,0.08)] rounded-[2.5rem] h-20 max-w-lg mx-auto flex items-center justify-between px-2">
           {navItems.map(({ path, icon: Icon, label, badge }) => (
             <Link
               key={path}
               to={path}
               className="flex-1 flex flex-col items-center justify-center relative h-full transition-all active:scale-90"
             >
-              <div className={`relative flex items-center justify-center p-2 rounded-2xl transition-all duration-300 ${isActive(path) ? "bg-[var(--lavender)]/10" : ""}`}>
+              <div className={`relative flex items-center justify-center p-2 rounded-2xl transition-all duration-300 ${isActive(path) ? "bg-[var(--primary)]/10" : ""}`}>
                 <Icon
                   className={`w-6 h-6 transition-all duration-300 ${
                     isActive(path)
-                      ? "text-[var(--lavender)] scale-110 drop-shadow-[0_0_8px_rgba(182,166,238,0.5)]"
+                      ? "text-[var(--primary)] scale-110 drop-shadow-[0_0_8px_rgba(139,90,43,0.3)]"
                       : "text-[var(--text-muted)] opacity-50"
                   }`}
                 />
@@ -77,7 +77,7 @@ export function RootLayout() {
                   </div>
                 ) : (
                   isActive(path) && (
-                    <div className="absolute -bottom-1 w-1 h-1 bg-[var(--lavender)] rounded-full shadow-[0_0_8px_var(--lavender)]" />
+                    <div className="absolute -bottom-1 w-1 h-1 bg-[var(--primary)] rounded-full shadow-[0_0_8px_var(--primary)]" />
                   )
                 )}
               </div>

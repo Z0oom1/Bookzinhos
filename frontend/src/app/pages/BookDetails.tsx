@@ -104,7 +104,7 @@ export function BookDetails() {
   const isFinished = progress?.status === "finalizado";
 
   return (
-    <div className="min-h-screen bg-background pb-6">
+    <div className="min-h-screen bg-transparent pb-6">
       {/* Modal de Compartilhamento */}
       {showShare && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100] flex items-end justify-center animate-in fade-in duration-300">
