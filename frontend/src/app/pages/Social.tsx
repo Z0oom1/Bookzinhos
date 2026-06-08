@@ -86,7 +86,7 @@ export function Social() {
         ) : (
           <div className="grid grid-cols-1 gap-4">
             {users.map((user) => {
-              const unreadCount = notifications?.details?.[user.username] || 0;
+              const unreadCount = notifications?.details?.[user.username.toLowerCase()] || 0;
               return (
                 <div
                   key={user.username}

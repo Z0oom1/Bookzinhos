@@ -23,7 +23,7 @@ export function BookDetails() {
         setBook(b);
         setIsSaved(savedIds.includes(id));
         setProgress(p);
-        setUsers(allUsers.filter(u => u.username !== myUsername));
+        setUsers(allUsers.filter(u => u.username.toLowerCase() !== myUsername?.toLowerCase()));
         setIsLoading(false);
       })
       .catch((err) => {

@@ -362,12 +362,12 @@ app.get("/chat/:otherUser", async (req, res) => {
   try {
     const me = req.headers['x-user-id'];
     const other = req.params.otherUser;
-    const messages = await db.query(sql`SELECT * FROM chat_messages WHERE (sender = ${me} AND receiver = ${other} COLLATE NOCASE) OR (sender = ${other} COLLATE NOCASE AND receiver = ${me}) ORDER BY created_at ASC`);
+    const messages = await db.query(sql`SELECT * FROM chat_messages WHERE (sender = ${me} COLLATE NOCASE AND receiver = ${other} COLLATE NOCASE) OR (sender = ${other} COLLATE NOCASE AND receiver = ${me} COLLATE NOCASE) ORDER BY created_at ASC`);
     
     // Marcar como lidas
-    await db.query(sql`UPDATE chat_messages SET is_read = 1 WHERE receiver = ${me} AND sender = ${other} COLLATE NOCASE AND is_read = 0`);
+    await db.query(sql`UPDATE chat_messages SET is_read = 1 WHERE receiver = ${me} COLLATE NOCASE AND sender = ${other} COLLATE NOCASE AND is_read = 0`);
     
-    const [nick] = await db.query(sql`SELECT nickname FROM nicknames WHERE from_user = ${me} AND to_user = ${other} COLLATE NOCASE`);
+    const [nick] = await db.query(sql`SELECT nickname FROM nicknames WHERE from_user = ${me} COLLATE NOCASE AND to_user = ${other} COLLATE NOCASE`);
     res.json({ messages, nickname: nick ? nick.nickname : null });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -433,12 +433,16 @@ app.get("/notifications", async (req, res) => {
   try {
     const me = req.headers['x-user-id'];
     if (!me) return res.json({ unreadCount: 0 });
-    const [count] = await db.query(sql`SELECT COUNT(*) as c FROM chat_messages WHERE receiver = ${me} AND is_read = 0`);
+    const [count] = await db.query(sql`SELECT COUNT(*) as c FROM chat_messages WHERE receiver = ${me} COLLATE NOCASE AND is_read = 0`);
     
     // Retorna a contagem agrupada por sender para a tela de chat principal
-    const senders = await db.query(sql`SELECT sender, COUNT(*) as c FROM chat_messages WHERE receiver = ${me} AND is_read = 0 GROUP BY sender`);
+    const senders = await db.query(sql`SELECT sender, COUNT(*) as c FROM chat_messages WHERE receiver = ${me} COLLATE NOCASE AND is_read = 0 GROUP BY sender`);
     const details = {};
-    for (const row of senders) details[row.sender] = Number(row.c);
+    for (const row of senders) {
+      if (row.sender) {
+        details[row.sender.toLowerCase()] = Number(row.c);
+      }
+    }
     
     res.json({ unreadCount: Number(count.c), details });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -449,7 +453,7 @@ app.get("/notifications", async (req, res) => {
 app.get("/progress", async (req, res) => {
   try {
     const username = req.headers['x-user-id'] || 'Caio';
-    const rows = await db.query(sql`SELECT * FROM reading_progress WHERE username = ${username}`);
+    const rows = await db.query(sql`SELECT * FROM reading_progress WHERE username = ${username} COLLATE NOCASE`);
     res.json(rows.map((r) => ({
       bookId: r.book_id, currentPage: r.current_page, totalPages: r.total_pages,
       progress: r.progress, status: r.status, startedAt: r.started_at, lastReadAt: r.last_read_at,
@@ -462,7 +466,7 @@ app.get("/progress", async (req, res) => {
 app.get("/progress/:bookId", async (req, res) => {
   try {
     const username = req.headers['x-user-id'] || 'Caio';
-    const [row] = await db.query(sql`SELECT * FROM reading_progress WHERE book_id = ${req.params.bookId} AND username = ${username}`);
+    const [row] = await db.query(sql`SELECT * FROM reading_progress WHERE book_id = ${req.params.bookId} AND username = ${username} COLLATE NOCASE`);
     if (!row) return res.status(404).json({ error: "Sem progresso" });
     res.json({ bookId: row.book_id, currentPage: row.current_page, totalPages: row.total_pages, progress: row.progress, status: row.status, startedAt: row.started_at, lastReadAt: row.last_read_at });
   } catch (err) {
@@ -475,9 +479,9 @@ app.put("/progress/:bookId", async (req, res) => {
     const { bookId } = req.params;
     const { currentPage, totalPages, progress, status } = req.body;
     const username = req.headers['x-user-id'] || 'Caio';
-    const [existing] = await db.query(sql`SELECT 1 FROM reading_progress WHERE book_id = ${bookId} AND username = ${username}`);
+    const [existing] = await db.query(sql`SELECT 1 FROM reading_progress WHERE book_id = ${bookId} AND username = ${username} COLLATE NOCASE`);
     if (existing) {
-      await db.query(sql`UPDATE reading_progress SET current_page=${currentPage},total_pages=${totalPages},progress=${progress},status=${status},last_read_at=${Date.now()} WHERE book_id=${bookId} AND username=${username}`);
+      await db.query(sql`UPDATE reading_progress SET current_page=${currentPage},total_pages=${totalPages},progress=${progress},status=${status},last_read_at=${Date.now()} WHERE book_id=${bookId} AND username=${username} COLLATE NOCASE`);
     } else {
       const t = Date.now();
       await db.query(sql`INSERT INTO reading_progress (username,book_id,current_page,total_pages,progress,status,started_at,last_read_at) VALUES (${username},${bookId},${currentPage},${totalPages},${progress},${status},${t},${t})`);
@@ -493,7 +497,7 @@ app.put("/progress/:bookId", async (req, res) => {
       }
     }
 
-    const [updated] = await db.query(sql`SELECT * FROM reading_progress WHERE book_id = ${bookId} AND username = ${username}`);
+    const [updated] = await db.query(sql`SELECT * FROM reading_progress WHERE book_id = ${bookId} AND username = ${username} COLLATE NOCASE`);
     res.json({ bookId: updated.book_id, currentPage: updated.current_page, totalPages: updated.total_pages, progress: updated.progress, status: updated.status, startedAt: updated.started_at, lastReadAt: updated.last_read_at });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -505,7 +509,7 @@ app.put("/progress/:bookId", async (req, res) => {
 app.get("/notes", async (req, res) => {
   try {
     const username = req.headers['x-user-id'] || 'Caio';
-    const rows = await db.query(sql`SELECT * FROM notes WHERE username = ${username} ORDER BY created_at DESC`);
+    const rows = await db.query(sql`SELECT * FROM notes WHERE username = ${username} COLLATE NOCASE ORDER BY created_at DESC`);
     res.json(rows.map((r) => ({ id: r.id, bookId: r.book_id, date: r.date_label, feedback: r.feedback, rating: r.rating, createdAt: r.created_at })));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -515,7 +519,7 @@ app.get("/notes", async (req, res) => {
 app.get("/notes/book/:bookId", async (req, res) => {
   try {
     const username = req.headers['x-user-id'] || 'Caio';
-    const rows = await db.query(sql`SELECT * FROM notes WHERE book_id = ${req.params.bookId} AND username = ${username} ORDER BY created_at DESC`);
+    const rows = await db.query(sql`SELECT * FROM notes WHERE book_id = ${req.params.bookId} AND username = ${username} COLLATE NOCASE ORDER BY created_at DESC`);
     res.json(rows.map((r) => ({ id: r.id, bookId: r.book_id, date: r.date_label, feedback: r.feedback, rating: r.rating, createdAt: r.created_at })));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -541,7 +545,7 @@ app.post("/notes", async (req, res) => {
 app.delete("/notes/:id", async (req, res) => {
   try {
     const username = req.headers['x-user-id'] || 'Caio';
-    await db.query(sql`DELETE FROM notes WHERE id = ${req.params.id} AND username = ${username}`);
+    await db.query(sql`DELETE FROM notes WHERE id = ${req.params.id} AND username = ${username} COLLATE NOCASE`);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -553,7 +557,7 @@ app.delete("/notes/:id", async (req, res) => {
 app.get("/saved", async (req, res) => {
   try {
     const username = req.headers['x-user-id'] || 'Caio';
-    const rows = await db.query(sql`SELECT book_id FROM saved_books WHERE username = ${username} ORDER BY saved_at DESC`);
+    const rows = await db.query(sql`SELECT book_id FROM saved_books WHERE username = ${username} COLLATE NOCASE ORDER BY saved_at DESC`);
     res.json(rows.map((r) => r.book_id));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -573,7 +577,7 @@ app.post("/saved/:bookId", async (req, res) => {
 app.delete("/saved/:bookId", async (req, res) => {
   try {
     const username = req.headers['x-user-id'] || 'Caio';
-    await db.query(sql`DELETE FROM saved_books WHERE book_id = ${req.params.bookId} AND username = ${username}`);
+    await db.query(sql`DELETE FROM saved_books WHERE book_id = ${req.params.bookId} AND username = ${username} COLLATE NOCASE`);
     res.json({ saved: false });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -601,9 +605,9 @@ app.post("/books/:id/reviews", async (req, res) => {
 app.get("/stats", async (req, res) => {
   try {
     const username = req.headers['x-user-id'] || 'Caio';
-    const [finished] = await db.query(sql`SELECT COUNT(*) as c FROM reading_progress WHERE status='finalizado' AND username=${username}`);
-    const [reading] = await db.query(sql`SELECT COUNT(*) as c FROM reading_progress WHERE status='lendo' AND username=${username}`);
-    const [notesCount] = await db.query(sql`SELECT COUNT(*) as c FROM notes WHERE username=${username}`);
+    const [finished] = await db.query(sql`SELECT COUNT(*) as c FROM reading_progress WHERE status='finalizado' AND username=${username} COLLATE NOCASE`);
+    const [reading] = await db.query(sql`SELECT COUNT(*) as c FROM reading_progress WHERE status='lendo' AND username=${username} COLLATE NOCASE`);
+    const [notesCount] = await db.query(sql`SELECT COUNT(*) as c FROM notes WHERE username=${username} COLLATE NOCASE`);
     res.json({ finished: Number(finished.c), reading: Number(reading.c), notesCount: Number(notesCount.c) });
   } catch (err) {
     res.status(500).json({ error: err.message });

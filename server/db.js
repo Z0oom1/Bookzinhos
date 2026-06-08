@@ -112,7 +112,7 @@ async function initDB() {
     CREATE TABLE IF NOT EXISTS book_reviews (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       book_id    TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-      username   TEXT NOT NULL,
+      username   TEXT NOT NULL COLLATE NOCASE,
       rating     REAL NOT NULL,
       comment    TEXT NOT NULL,
       created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
@@ -130,7 +130,7 @@ async function initDB() {
 
   await db.query(sql`
     CREATE TABLE IF NOT EXISTS reading_progress (
-      username     TEXT NOT NULL,
+      username     TEXT NOT NULL COLLATE NOCASE,
       book_id      TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
       current_page INTEGER NOT NULL DEFAULT 0,
       total_pages  INTEGER NOT NULL DEFAULT 1,
@@ -145,7 +145,7 @@ async function initDB() {
   await db.query(sql`
     CREATE TABLE IF NOT EXISTS notes (
       id         TEXT PRIMARY KEY,
-      username   TEXT NOT NULL,
+      username   TEXT NOT NULL COLLATE NOCASE,
       book_id    TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
       date_label TEXT NOT NULL,
       feedback   TEXT NOT NULL,
@@ -156,7 +156,7 @@ async function initDB() {
 
   await db.query(sql`
     CREATE TABLE IF NOT EXISTS saved_books (
-      username TEXT NOT NULL,
+      username TEXT NOT NULL COLLATE NOCASE,
       book_id  TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
       saved_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
       PRIMARY KEY (username, book_id)
@@ -165,8 +165,8 @@ async function initDB() {
 
   await db.query(sql`
     CREATE TABLE IF NOT EXISTS nicknames (
-      from_user TEXT NOT NULL,
-      to_user TEXT NOT NULL,
+      from_user TEXT NOT NULL COLLATE NOCASE,
+      to_user TEXT NOT NULL COLLATE NOCASE,
       nickname TEXT NOT NULL,
       PRIMARY KEY (from_user, to_user)
     )
@@ -175,8 +175,8 @@ async function initDB() {
   await db.query(sql`
     CREATE TABLE IF NOT EXISTS chat_messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      sender TEXT NOT NULL,
-      receiver TEXT NOT NULL,
+      sender TEXT NOT NULL COLLATE NOCASE,
+      receiver TEXT NOT NULL COLLATE NOCASE,
       content TEXT NOT NULL,
       shared_book_id TEXT,
       is_read INTEGER NOT NULL DEFAULT 0,
@@ -187,8 +187,8 @@ async function initDB() {
   await db.query(sql`
     CREATE TABLE IF NOT EXISTS book_recommendations (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      sender TEXT NOT NULL,
-      receiver TEXT NOT NULL,
+      sender TEXT NOT NULL COLLATE NOCASE,
+      receiver TEXT NOT NULL COLLATE NOCASE,
       book_id TEXT NOT NULL,
       completed INTEGER NOT NULL DEFAULT 0
     )
@@ -197,7 +197,7 @@ async function initDB() {
   await db.query(sql`
     CREATE TABLE IF NOT EXISTS global_status (
       id INTEGER PRIMARY KEY,
-      username TEXT NOT NULL,
+      username TEXT NOT NULL COLLATE NOCASE,
       content TEXT NOT NULL,
       emote TEXT NOT NULL,
       updated_at INTEGER NOT NULL
