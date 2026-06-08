@@ -54,7 +54,7 @@ export function RootLayout() {
       </main>
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 px-2 pb-6">
-        <div className="bg-white/95 backdrop-blur-3xl border border-[var(--border)] shadow-[0_10px_30px_rgba(92,64,51,0.08)] rounded-[2.5rem] h-20 max-w-lg mx-auto flex items-center justify-between px-2">
+        <div className="bg-white/90 backdrop-blur-3xl border border-white/40 shadow-[0_15px_40px_rgba(0,0,0,0.12)] rounded-[2.5rem] h-20 max-w-lg mx-auto flex items-center justify-between px-2">
           {navItems.map(({ path, icon: Icon, label, badge }) => (
             <Link
               key={path}
@@ -65,7 +65,7 @@ export function RootLayout() {
                 <Icon
                   className={`w-6 h-6 transition-all duration-300 ${
                     isActive(path)
-                      ? "text-[var(--primary)] scale-110 drop-shadow-[0_0_8px_rgba(139,90,43,0.3)]"
+                      ? "text-[var(--primary)] scale-110 drop-shadow-[0_0_8px_rgba(243,168,184,0.4)]"
                       : "text-[var(--text-muted)] opacity-50"
                   }`}
                 />

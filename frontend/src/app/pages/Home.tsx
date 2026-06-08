@@ -118,7 +118,7 @@ export function Home() {
         </div>
 
         {/* Banner Principal */}
-        <div className="relative h-40 rounded-[2rem] overflow-hidden bg-gradient-to-tr from-[#8B5A2B] via-[#CD853F] to-[#F5E6D3] shadow-[0_10px_30px_rgba(139,90,43,0.15)] animate-scale-in border border-white/20">
+        <div className="relative h-40 rounded-[2rem] overflow-hidden bg-gradient-to-tr from-[var(--lavender)] via-[var(--peach)] to-[var(--blush)] shadow-[0_10px_30px_rgba(243,168,184,0.2)] animate-scale-in border border-white/20">
           <div className="absolute inset-0 bg-black/5 backdrop-blur-[0.5px]" />
           <div className="absolute top-6 left-6 z-10 space-y-2">
             <span className="text-[10px] font-black text-white bg-white/20 uppercase tracking-widest px-3 py-1 rounded-full backdrop-blur-md">
