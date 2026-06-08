@@ -10,20 +10,68 @@ const { db, sql, initDB } = require("./db");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ─── Supabase Storage ─────────────────────────────────────────────────────────
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY
-);
-const BUCKET = "bookzinhos";
+// ─── Storage Configuration (S3 / Supabase) ───────────────────────────────────
+let s3Client = null;
+let supabase = null;
+const BUCKET = process.env.S3_BUCKET_NAME || "bookzinhos";
+
+if (process.env.S3_ACCESS_KEY_ID) {
+  console.log("📦 Inicializando cliente de armazenamento S3...");
+  const { S3Client } = require("@aws-sdk/client-s3");
+  s3Client = new S3Client({
+    region: process.env.S3_REGION || "auto",
+    endpoint: process.env.S3_ENDPOINT,
+    credentials: {
+      accessKeyId: process.env.S3_ACCESS_KEY_ID,
+      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
+    },
+    forcePathStyle: true,
+  });
+} else if (process.env.SUPABASE_URL) {
+  console.log("📦 Inicializando cliente de armazenamento Supabase...");
+  supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_KEY
+  );
+} else {
+  console.log("⚠️ Nenhum serviço de armazenamento em nuvem configurado (.env)");
+}
+
+async function uploadToS3(buffer, filename, mimetype) {
+  if (!s3Client) throw new Error("Cliente S3 não está configurado");
+  const { PutObjectCommand } = require("@aws-sdk/client-s3");
+  const command = new PutObjectCommand({
+    Bucket: BUCKET,
+    Key: filename,
+    Body: buffer,
+    ContentType: mimetype
+  });
+  await s3Client.send(command);
+  
+  if (process.env.S3_PUBLIC_URL_PREFIX) {
+    return `${process.env.S3_PUBLIC_URL_PREFIX}/${filename}`;
+  }
+  return `${process.env.S3_ENDPOINT}/${BUCKET}/${filename}`;
+}
 
 async function uploadToSupabase(buffer, filename, mimetype) {
+  if (!supabase) throw new Error("Cliente Supabase não está configurado");
   const { data, error } = await supabase.storage
     .from(BUCKET)
     .upload(filename, buffer, { contentType: mimetype, upsert: true });
   if (error) throw new Error("Supabase upload error: " + error.message);
   const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filename);
   return urlData.publicUrl;
+}
+
+async function uploadFileToCloud(buffer, filename, mimetype) {
+  if (s3Client) {
+    return await uploadToS3(buffer, filename, mimetype);
+  } else if (supabase) {
+    return await uploadToSupabase(buffer, filename, mimetype);
+  } else {
+    throw new Error("Nenhum cliente de armazenamento (S3/Supabase) configurado");
+  }
 }
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
@@ -109,6 +157,49 @@ app.get("/books/:id", async (req, res) => {
   }
 });
 
+// ─── PRESIGNED URL ────────────────────────────────────────────────────────────
+app.post("/books/presigned-url", async (req, res) => {
+  try {
+    const { fileName, fileType } = req.body;
+    if (!fileName || !fileType) {
+      return res.status(400).json({ error: "fileName e fileType são obrigatórios" });
+    }
+
+    if (!s3Client) {
+      return res.status(400).json({ error: "Armazenamento S3 não está configurado neste servidor" });
+    }
+
+    const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+    const { PutObjectCommand } = require("@aws-sdk/client-s3");
+
+    const id = `user-${Date.now()}`;
+    const isPdf = fileType === "application/pdf";
+    const folder = isPdf ? "pdfs" : "covers";
+    const extension = path.extname(fileName) || (isPdf ? ".pdf" : ".jpg");
+    const safeName = `${folder}/${id}-${Math.floor(Math.random() * 1000)}${extension}`;
+
+    const command = new PutObjectCommand({
+      Bucket: BUCKET,
+      Key: safeName,
+      ContentType: fileType,
+    });
+
+    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
+
+    let downloadUrl = "";
+    if (process.env.S3_PUBLIC_URL_PREFIX) {
+      downloadUrl = `${process.env.S3_PUBLIC_URL_PREFIX}/${safeName}`;
+    } else {
+      downloadUrl = `${process.env.S3_ENDPOINT}/${BUCKET}/${safeName}`;
+    }
+
+    res.json({ uploadUrl, downloadUrl });
+  } catch (err) {
+    console.error("Erro ao gerar URL assinada:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post("/books", upload.fields([{ name: "pdf", maxCount: 1 }, { name: "cover", maxCount: 1 }]), async (req, res) => {
   try {
     const { title, author, description, genre, isPublic, coverColor } = req.body;
@@ -118,16 +209,17 @@ app.post("/books", upload.fields([{ name: "pdf", maxCount: 1 }, { name: "cover",
     const pdfFile = req.files?.pdf?.[0];
     const coverFile = req.files?.cover?.[0];
 
-    let pdfUrl = null;
-    let coverUrl = null;
+    // Aceita URLs já prontas de PDFs/capas se enviadas diretamente no corpo (Upload via URL pré-assinada)
+    let pdfUrl = req.body.pdfUrl || null;
+    let coverUrl = req.body.coverUrl || null;
 
-    if (pdfFile) {
+    if (!pdfUrl && pdfFile) {
       const pdfName = `pdfs/${id}-${Date.now()}.pdf`;
-      pdfUrl = await uploadToSupabase(pdfFile.buffer, pdfName, "application/pdf");
+      pdfUrl = await uploadFileToCloud(pdfFile.buffer, pdfName, "application/pdf");
     }
-    if (coverFile) {
+    if (!coverUrl && coverFile) {
       const coverName = `covers/${id}-${Date.now()}.jpg`;
-      coverUrl = await uploadToSupabase(coverFile.buffer, coverName, coverFile.mimetype);
+      coverUrl = await uploadFileToCloud(coverFile.buffer, coverName, coverFile.mimetype);
     }
 
     await db.query(sql`
@@ -150,10 +242,16 @@ app.put("/books/:id", upload.fields([{ name: "cover", maxCount: 1 }]), async (re
   try {
     const { title, author, description, genre, isPublic, coverColor } = req.body;
     const coverFile = req.files?.cover?.[0];
-    // Build update parts
+    
     const [existing] = await db.query(sql`SELECT * FROM books WHERE id = ${req.params.id}`);
     if (!existing) return res.status(404).json({ error: "Livro não encontrado" });
-    const newCoverPath = coverFile ? coverFile.path : existing.cover_image_path;
+    
+    let coverUrl = existing.cover_image_path;
+    if (coverFile) {
+      const coverName = `covers/cover-${req.params.id}-${Date.now()}.jpg`;
+      coverUrl = await uploadFileToCloud(coverFile.buffer, coverName, coverFile.mimetype);
+    }
+
     await db.query(sql`
       UPDATE books SET
         title=${title || existing.title},
@@ -162,7 +260,7 @@ app.put("/books/:id", upload.fields([{ name: "cover", maxCount: 1 }]), async (re
         genre=${genre || existing.genre},
         is_public=${isPublic === "false" ? 0 : 1},
         cover_color=${coverColor || existing.cover_color},
-        cover_image_path=${newCoverPath}
+        cover_image_path=${coverUrl}
       WHERE id=${req.params.id}
     `);
     const [updated] = await db.query(sql`SELECT * FROM books WHERE id = ${req.params.id}`);
@@ -170,19 +268,26 @@ app.put("/books/:id", upload.fields([{ name: "cover", maxCount: 1 }]), async (re
     book.reviews = await db.query(sql`SELECT username, rating, comment FROM book_reviews WHERE book_id = ${req.params.id}`);
     book.pages = (await db.query(sql`SELECT content FROM book_pages WHERE book_id = ${req.params.id} ORDER BY page_num`)).map(r => r.content);
     res.json(book);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+  } catch (err) { 
+    console.error("Error updating book:", err);
+    res.status(500).json({ error: err.message }); 
+  }
 });
 
 app.post("/books/:id/cover", upload.fields([{ name: "cover", maxCount: 1 }]), async (req, res) => {
   try {
     const coverFile = req.files?.cover?.[0];
     if (!coverFile) return res.status(400).json({ error: "Arquivo de capa obrigatório" });
-    // Delete old cover if exists
-    const [row] = await db.query(sql`SELECT cover_image_path FROM books WHERE id = ${req.params.id}`);
-    if (row?.cover_image_path && fs.existsSync(row.cover_image_path)) fs.unlinkSync(row.cover_image_path);
-    await db.query(sql`UPDATE books SET cover_image_path=${coverFile.path} WHERE id=${req.params.id}`);
-    res.json({ coverImagePath: `/uploads/${path.basename(coverFile.path)}` });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    
+    const coverName = `covers/cover-${req.params.id}-${Date.now()}.jpg`;
+    const coverUrl = await uploadFileToCloud(coverFile.buffer, coverName, coverFile.mimetype);
+
+    await db.query(sql`UPDATE books SET cover_image_path=${coverUrl} WHERE id=${req.params.id}`);
+    res.json({ coverImagePath: coverUrl });
+  } catch (err) { 
+    console.error("Error uploading cover:", err);
+    res.status(500).json({ error: err.message }); 
+  }
 });
 
 app.delete("/books/:id", async (req, res) => {
@@ -509,14 +614,22 @@ app.get("/stats", async (req, res) => {
 
 async function start() {
   await initDB();
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`\n🐼 Books da Helo — Servidor rodando!`);
-    console.log(`   Local:   http://localhost:${PORT}`);
-    console.log(`   Health:  http://localhost:${PORT}/health\n`);
-  });
+  if (!process.env.VERCEL) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`\n🐼 Books da Helo — Servidor rodando!`);
+      console.log(`   Local:   http://localhost:${PORT}`);
+      console.log(`   Health:  http://localhost:${PORT}/health\n`);
+    });
+  } else {
+    console.log("⚡ Servidor rodando em modo Serverless na Vercel!");
+  }
 }
 
 start().catch((err) => {
   console.error("Erro ao iniciar servidor:", err);
-  process.exit(1);
+  if (!process.env.VERCEL) {
+    process.exit(1);
+  }
 });
+
+module.exports = app;

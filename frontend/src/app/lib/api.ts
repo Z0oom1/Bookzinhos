@@ -37,6 +37,87 @@ export async function uploadBook(data: {
   coverFile?: File;
 }) {
   const userId = localStorage.getItem("books-username") || "anonymous";
+
+  try {
+    // 1. Tenta obter URLs pré-assinadas para o upload direto para o S3
+    const presignedRes = await fetch(`${API_BASE_URL}/books/presigned-url`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "x-user-id": userId
+      },
+      body: JSON.stringify({
+        fileName: data.pdfFile.name,
+        fileType: "application/pdf"
+      })
+    });
+
+    if (presignedRes.ok) {
+      const pdfS3Data = await presignedRes.json();
+      
+      // Upload do PDF direto para o S3
+      const pdfUploadRes = await fetch(pdfS3Data.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "application/pdf" },
+        body: data.pdfFile
+      });
+      if (!pdfUploadRes.ok) throw new Error("Erro no upload do PDF para o S3");
+
+      let coverUrl = null;
+      if (data.coverFile) {
+        // Obter URL assinada para a capa
+        const coverPresignedRes = await fetch(`${API_BASE_URL}/books/presigned-url`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "x-user-id": userId
+          },
+          body: JSON.stringify({
+            fileName: data.coverFile.name,
+            fileType: data.coverFile.type
+          })
+        });
+
+        if (coverPresignedRes.ok) {
+          const coverS3Data = await coverPresignedRes.json();
+          const coverUploadRes = await fetch(coverS3Data.uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": data.coverFile.type },
+            body: data.coverFile
+          });
+          if (coverUploadRes.ok) {
+            coverUrl = coverS3Data.downloadUrl;
+          }
+        }
+      }
+
+      // Envia os metadados e as URLs do S3 como JSON para o servidor
+      const serverRes = await fetch(`${API_BASE_URL}/books`, {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "x-user-id": userId
+        },
+        body: JSON.stringify({
+          title: data.title,
+          author: data.author,
+          description: data.description,
+          genre: data.genre,
+          isPublic: String(data.isPublic),
+          coverColor: data.coverColor,
+          pdfUrl: pdfS3Data.downloadUrl,
+          coverUrl
+        })
+      });
+
+      if (!serverRes.ok) throw new Error(await serverRes.text());
+      return serverRes.json();
+    }
+  } catch (err) {
+    console.warn("Upload via S3 falhou ou não está configurado. Usando fallback tradicional...", err);
+  }
+
+  // FALLBACK: Upload multipart via Express (com limites do servidor)
   const form = new FormData();
   form.append("title", data.title);
   form.append("author", data.author);

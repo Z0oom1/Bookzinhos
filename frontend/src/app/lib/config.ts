@@ -2,7 +2,7 @@
  * URL do servidor Bookzinhos.
  */
 
-const PROD_URL = "https://bookzinhos-production.up.railway.app";
+const PROD_URL = "https://bookzinhos-server.vercel.app";
 
 const isLocal = typeof window !== "undefined" && 
   (window.location.hostname === "localhost" || 

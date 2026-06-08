@@ -14,7 +14,56 @@ if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-const db = createDatabase(DB_PATH);
+let db;
+let usingTurso = false;
+
+if (process.env.TURSO_DATABASE_URL) {
+  console.log("🔌 Conectando ao banco de dados remoto Turso...");
+  const { createClient } = require("@libsql/client");
+  const turso = createClient({
+    url: process.env.TURSO_DATABASE_URL,
+    authToken: process.env.TURSO_AUTH_TOKEN
+  });
+
+  db = {
+    async query(queryObj) {
+      let text, values;
+      if (queryObj && typeof queryObj.format === 'function') {
+        const formatted = queryObj.format({
+          escapeIdentifier: (id) => `"${id}"`,
+          formatValue: (val) => ({ placeholder: "?", value: val })
+        });
+        text = formatted.text;
+        values = formatted.values;
+      } else if (typeof queryObj === 'string') {
+        text = queryObj;
+        values = [];
+      } else {
+        throw new Error("Formato de query inválido no wrapper Turso");
+      }
+
+      // Ignorar PRAGMA journal_mode no Turso
+      if (text.toUpperCase().includes("PRAGMA JOURNAL_MODE")) {
+        console.log("   [Turso] Ignorando PRAGMA journal_mode");
+        return [];
+      }
+
+      const res = await turso.execute({ sql: text, args: values });
+      const columns = res.columns || [];
+      return (res.rows || []).map(row => {
+        const obj = {};
+        columns.forEach((col, idx) => {
+          obj[col] = row[idx];
+        });
+        return obj;
+      });
+    }
+  };
+  usingTurso = true;
+} else {
+  console.log("🔌 Conectando ao banco de dados SQLite local...");
+  db = createDatabase(DB_PATH);
+}
 
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
