@@ -1,18 +1,7 @@
 require("dotenv").config();
 const path = require("path");
 const fs = require("fs");
-const createDatabase = require("@databases/sqlite").default;
 const sql = require("@databases/sqlite").sql;
-
-const DATA_DIR = process.env.DATA_DIR
-  ? path.resolve(process.env.DATA_DIR)
-  : path.join(__dirname, "data");
-
-const DB_PATH = path.join(DATA_DIR, "bookdahelo.db");
-
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
 
 let db;
 let usingTurso = false;
@@ -62,6 +51,22 @@ if (process.env.TURSO_DATABASE_URL) {
   usingTurso = true;
 } else {
   console.log("🔌 Conectando ao banco de dados SQLite local...");
+  const createDatabase = require("@databases/sqlite").default;
+
+  const DATA_DIR = process.env.DATA_DIR
+    ? path.resolve(process.env.DATA_DIR)
+    : (process.env.VERCEL ? "/tmp" : path.join(__dirname, "data"));
+
+  const DB_PATH = path.join(DATA_DIR, "bookdahelo.db");
+
+  if (!fs.existsSync(DATA_DIR)) {
+    try {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    } catch (e) {
+      console.warn("⚠️ Não foi possível criar DATA_DIR:", e.message);
+    }
+  }
+
   db = createDatabase(DB_PATH);
 }
 
