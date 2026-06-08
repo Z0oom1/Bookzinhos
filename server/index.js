@@ -10,7 +10,7 @@ const { db, sql, initDB } = require("./db");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// ─── Storage Configuration (S3 / Supabase) ───────────────────────────────────
+// ─── STORAGE ──────────────────────────────────────────────────────────────────
 let s3Client = null;
 let supabase = null;
 const BUCKET = process.env.S3_BUCKET_NAME || "bookzinhos";
@@ -74,11 +74,11 @@ async function uploadFileToCloud(buffer, filename, mimetype) {
   }
 }
 
-// ─── Middleware ───────────────────────────────────────────────────────────────
+// ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
-// ─── Upload (memória temporária para repassar ao Supabase) ────────────────────
+// ─── UPLOAD ───────────────────────────────────────────────────────────────────
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
 
 
@@ -209,7 +209,7 @@ app.post("/books", upload.fields([{ name: "pdf", maxCount: 1 }, { name: "cover",
     const pdfFile = req.files?.pdf?.[0];
     const coverFile = req.files?.cover?.[0];
 
-    // Aceita URLs já prontas de PDFs/capas se enviadas diretamente no corpo (Upload via URL pré-assinada)
+    // Upload via URL pré-assinada
     let pdfUrl = req.body.pdfUrl || null;
     let coverUrl = req.body.coverUrl || null;
 

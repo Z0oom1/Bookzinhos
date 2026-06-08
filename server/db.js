@@ -204,14 +204,14 @@ async function initDB() {
     )
   `);
 
-  // Initialize status if empty (always runs to be safe)
+  // Inicializa status
   try {
     await db.query(sql`INSERT OR IGNORE INTO global_status (id, username, content, emote, updated_at) VALUES (1, 'Sistema', 'Bem-vindos ao Books da Helo! ✨', '🐼', ${Date.now()})`);
   } catch (err) {
     console.error("Erro ao inicializar status:", err);
   }
 
-  // Migration: add auth and users to existing tables
+  // Migração: adicionar usuários às tabelas
   try {
     const tableInfo = await db.query(sql`PRAGMA table_info(reading_progress)`);
     if (!tableInfo.some(c => c.name === 'username')) {
@@ -268,7 +268,7 @@ async function initDB() {
     console.log("Migration check complete or skipped.");
   }
 
-  // Migration: pandinhas
+  // Migração: pandinhas
   try {
     const tableInfo = await db.query(sql`PRAGMA table_info(users)`);
     if (!tableInfo.some(c => c.name === 'pandinhas')) {
@@ -277,14 +277,14 @@ async function initDB() {
     }
   } catch (err) {}
 
-  // Garante que os usuários padrão existam
+  // Garante usuários padrão
   try {
     await db.query(sql`INSERT OR IGNORE INTO users (username, password, bio, avatar) VALUES ('Caio', '1234', 'Apaixonado por histórias que transformam', '🐼')`);
     await db.query(sql`INSERT OR IGNORE INTO users (username, password, bio, avatar) VALUES ('Helo', '1234', 'Apaixonada por histórias que transformam', '🎀')`);
   } catch (err) {}
 }
 
-// ─── Seed ────────────────────────────────────────────────────────────────────
+// ─── SEED ────────────────────────────────────────────────────────────────────
 
 async function seedData() {
   const seedBooks = [
