@@ -1,0 +1,16 @@
+{
+  "name": "Bookzinhos",
+  "short_name": "Bookzinhos",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#B6A6EE",
+  "icons": [
+    {
+      "src": "/icone.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

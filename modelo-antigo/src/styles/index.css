@@ -1,0 +1,147 @@
+@import './fonts.css';
+@import './tailwind.css';
+@import './theme.css';
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased selection:bg-primary/20 selection:text-primary;
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 0px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
+/* --- BETA 2.1 WIREFRAME SKETCH OVERRIDES --- */
+@layer base {
+  * {
+    border-color: #000000 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    font-family: monospace, Courier, "Courier New", monospace !important;
+    transition: none !important;
+    animation: none !important;
+  }
+  
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+}
+
+/* Convert all images/covers to monochrome sketches */
+img {
+  filter: grayscale(100%) contrast(110%) !important;
+  border: 1px solid #000000 !important;
+  border-radius: 0px !important;
+}
+
+/* Force gradients to flat white backgrounds */
+.bg-gradient-to-br, .bg-gradient-to-r, .bg-gradient-to-tr, .bg-gradient-to-l, .bg-gradient-to-t, .bg-gradient-to-b {
+  background-image: none !important;
+  background-color: #ffffff !important;
+}
+
+/* Override any potential Tailwind colors to black/white/gray */
+[class*="bg-red-"], [class*="bg-green-"], [class*="bg-blue-"], [class*="bg-yellow-"], [class*="bg-orange-"], [class*="bg-indigo-"], [class*="bg-purple-"], [class*="bg-pink-"], [class*="bg-slate-"], [class*="bg-gray-"], [class*="bg-neutral-"], [class*="bg-stone-"], [class*="bg-emerald-"], [class*="bg-teal-"], [class*="bg-cyan-"], [class*="bg-sky-"], [class*="bg-violet-"], [class*="bg-fuchsia-"], [class*="bg-rose-"], [class*="bg-amber-"], [class*="bg-lime-"] {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border: 1px solid #000000 !important;
+}
+
+[class*="text-red-"], [class*="text-green-"], [class*="text-blue-"], [class*="text-yellow-"], [class*="text-orange-"], [class*="text-indigo-"], [class*="text-purple-"], [class*="text-pink-"], [class*="text-slate-"], [class*="text-gray-"], [class*="text-neutral-"], [class*="text-stone-"] {
+  color: #000000 !important;
+}
+
+/* Reset borders, padding and background on interactable controls */
+button, input, select, textarea, [role="button"] {
+  border-radius: 0px !important;
+  border: 1px solid #000000 !important;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  transition: none !important;
+  box-shadow: none !important;
+}
+
+button:hover, [role="button"]:hover {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+}
+
+/* Primary buttons and elements */
+button[type="submit"], button.bg-primary, .bg-primary {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  border: 1px solid #000000 !important;
+}
+
+button[type="submit"]:hover, button.bg-primary:hover {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+/* Badges / notifications */
+.bg-red-500.text-white, [class*="bg-red-500"] {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  border: 1px solid #000000 !important;
+}
+
+/* Enforce flat corners and outline borders everywhere */
+.rounded-3xl, .rounded-\[32px\], .rounded-2xl, .rounded-\[16px\], .rounded-xl, .rounded-lg, .rounded-md, .rounded-sm, .rounded-\[14px\], .rounded-\[2\.5rem\], .rounded-\[1\.5rem\], .rounded-full {
+  border-radius: 0px !important;
+}
+
+/* Shadow removal and line reinforcement */
+.shadow-2xl, .shadow-xl, .shadow-lg, .shadow-md, .shadow, .shadow-sm {
+  box-shadow: none !important;
+  border: 1px solid #000000 !important;
+}
+
+/* Bottom layout bar */
+nav, .fixed {
+  background-color: #ffffff !important;
+  border-top: 2px solid #000000 !important;
+  border-bottom: none !important;
+  border-left: none !important;
+  border-right: none !important;
+  border-radius: 0px !important;
+  box-shadow: none !important;
+}
+
+/* Disable blur backgrounds */
+.backdrop-blur-xl, .backdrop-blur-3xl, .backdrop-blur-md, .backdrop-blur {
+  backdrop-filter: none !important;
+  background-color: #ffffff !important;
+}
+
+/* Color SVG outlines */
+svg {
+  stroke: currentColor !important;
+}
+
+/* Disable animation effects that suggest modern polished feel */
+.animate-float, .animate-bounce-in, .animate-scale-in, .animate-fade-in, .animate-bounce, .animate-pulse-soft, .animate-pulse {
+  animation: none !important;
+  transform: none !important;
+  opacity: 1 !important;
+}
+
+/* Allow loading spinner animation specifically */
+.animate-spin {
+  animation: spin 1s linear infinite !important;
+}
+
