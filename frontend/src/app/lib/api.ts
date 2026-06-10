@@ -4,6 +4,185 @@
 
 import { API_BASE_URL } from "./config";
 
+// --- HELPERS E INTERRUPTOR MODO OFFLINE ---
+export function isOfflineMode(): boolean {
+  return localStorage.getItem("offline-mode") === "true";
+}
+
+export function setOfflineMode(value: boolean): void {
+  localStorage.setItem("offline-mode", value ? "true" : "false");
+}
+
+// --- INDEXEDDB PARA ARMAZENAMENTO DE ARQUIVOS GRANDES ---
+function openOfflineDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open("BookzinhosOffline", 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains("files")) {
+        db.createObjectStore("files");
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function storeOfflineFile(key: string, file: Blob): Promise<void> {
+  return openOfflineDB().then(db => {
+    return new Promise<void>((resolve, reject) => {
+      const tx = db.transaction("files", "readwrite");
+      const store = tx.objectStore("files");
+      const req = store.put(file, key);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  });
+}
+
+function getOfflineFile(key: string): Promise<Blob | null> {
+  return openOfflineDB().then(db => {
+    return new Promise<Blob | null>((resolve, reject) => {
+      const tx = db.transaction("files", "readonly");
+      const store = tx.objectStore("files");
+      const req = store.get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+  });
+}
+
+function deleteOfflineFile(key: string): Promise<void> {
+  return openOfflineDB().then(db => {
+    return new Promise<void>((resolve, reject) => {
+      const tx = db.transaction("files", "readwrite");
+      const store = tx.objectStore("files");
+      const req = store.delete(key);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  });
+}
+
+const objectUrlCache = new Map<string, string>();
+
+async function resolveLocalPath(path: string | null | undefined): Promise<string | null> {
+  if (!path) return null;
+  if (path.startsWith("local://")) {
+    const key = path.substring(8);
+    if (objectUrlCache.has(key)) {
+      return objectUrlCache.get(key)!;
+    }
+    try {
+      const blob = await getOfflineFile(key);
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        objectUrlCache.set(key, url);
+        return url;
+      }
+    } catch (err) {
+      console.error("Erro ao carregar arquivo offline do IndexedDB:", err);
+    }
+    return null;
+  }
+  return path;
+}
+
+async function resolveBookPaths(book: any) {
+  if (!book) return book;
+  const newBook = { ...book };
+  if (newBook.pdfPath) {
+    newBook.pdfPath = await resolveLocalPath(newBook.pdfPath);
+  }
+  if (newBook.coverImagePath) {
+    newBook.coverImagePath = await resolveLocalPath(newBook.coverImagePath);
+  }
+  return newBook;
+}
+
+async function resolveBooksPaths(books: any[]) {
+  if (!books) return [];
+  return Promise.all(books.map(resolveBookPaths));
+}
+
+// --- DADOS INICIAIS MOCKADOS OFFLINE ---
+const LOCAL_USERS = [
+  { username: "Caio", bio: "Lendo clássicos offline 📖", avatar: "🐼", shelf: ["pequeno-principe"], pandinhas: 10 },
+  { username: "Helo", bio: "Apaixonada por histórias que transformam 💕", avatar: "🎀", shelf: ["dom-casmurro"], pandinhas: 15 }
+];
+
+const INITIAL_LOCAL_BOOKS = [
+  {
+    id: "pequeno-principe",
+    title: "O Pequeno Príncipe",
+    author: "Antoine de Saint-Exupéry",
+    description: "Uma história mágica sobre amizade, amor e o verdadeiro sentido da vida.",
+    genre: "Clássico",
+    rating: 5,
+    reviewCount: 1,
+    isPublic: true,
+    coverColor: "sky-mint",
+    addedAt: 1700000000000,
+    pdfPath: null,
+    coverImagePath: null,
+    isUserBook: false,
+    reviews: [{ username: "Helo", rating: 5, comment: "Meu livro favorito da vida! 🥹💕" }],
+    pages: [
+      "Foi assim que descobri o Pequeno Príncipe. A sua primeira pergunta foi: 'Desenha-me um carneiro!'",
+      "As pessoas grandes não compreendem nada por si mesmas, e é cansativo para as crianças estar sempre a dar-lhes explicações.",
+      "Se tu vens, por exemplo, às quatro da tarde, desde as três eu começarei a ser feliz. Quanto mais a hora for aproximando, mais eu me sentindo feliz.",
+      "O essencial é invisível aos olhos. Tu te tornas eternamente responsável por aquilo que cativas."
+    ],
+    pageCount: 4
+  },
+  {
+    id: "dom-casmurro",
+    title: "Dom Casmurro",
+    author: "Machado de Assis",
+    description: "O clássico romance brasileiro sobre a história de Bento Santiago e Capitu.",
+    genre: "Romance",
+    rating: 5,
+    reviewCount: 1,
+    isPublic: true,
+    coverColor: "peach-lavender",
+    addedAt: 1700000000001,
+    pdfPath: null,
+    coverImagePath: null,
+    isUserBook: false,
+    reviews: [{ username: "Caio", rating: 5, comment: "Muito bem escrito. Capitu traiu ou não traiu? 🤔" }],
+    pages: [
+      "Uma noite destas, vindo da cidade para o Engenho Novo, encontrei no trem um rapaz aqui de perto, que eu conheço de vista e de chapéu.",
+      "Capitu era Capitu, isto é, uma criatura mui particular, com olhos de cigana oblíqua e dissimulada.",
+      "Olhos de ressaca? Sim, os olhos dela pareciam trazer aquela força misteriosa de ressaca do mar que tudo arrasta para dentro.",
+      "A terra lhes seja leve, e a nós nos dê a paz de espírito necessária para contar a nossa própria história."
+    ],
+    pageCount: 4
+  },
+  {
+    id: "amor-perdicao",
+    title: "Amor de Perdição",
+    author: "Camilo Castelo Branco",
+    description: "A ultra-romântica tragédia amorosa entre Simão Botelho e Teresa de Albuquerque.",
+    genre: "Drama",
+    rating: 4,
+    reviewCount: 0,
+    isPublic: true,
+    coverColor: "blush-lavender",
+    addedAt: 1700000000002,
+    pdfPath: null,
+    coverImagePath: null,
+    isUserBook: false,
+    reviews: [],
+    pages: [
+      "Simão Botelho e Teresa de Albuquerque amavam-se. Era um amor puro, mas condenado pelo ódio secular de suas famílias.",
+      "As famílias odiavam-se há gerações, e as barreiras que os separavam pareciam cada vez mais intransponíveis.",
+      "Teresa foi enclausurada num convento frio, e Simão desesperava no cárcere da prisão, esperando o exílio.",
+      "O amor venceu a própria morte, unindo-os na eternidade do oceano que recebeu suas cinzas."
+    ],
+    pageCount: 4
+  }
+];
+
 async function request(method: string, path: string, body?: any) {
   const url = `${API_BASE_URL}${path}`;
   const userId = localStorage.getItem("books-username") || "anonymous";
@@ -22,9 +201,34 @@ async function request(method: string, path: string, body?: any) {
   return res.json();
 }
 
-// Livros
-export const fetchBooks = () => request("GET", "/books");
-export const fetchBook = (id: string) => request("GET", `/books/${id}`);
+// --- LIVROS ---
+export async function fetchBooks() {
+  if (isOfflineMode()) {
+    let booksStr = localStorage.getItem("local-books");
+    if (!booksStr) {
+      localStorage.setItem("local-books", JSON.stringify(INITIAL_LOCAL_BOOKS));
+      booksStr = JSON.stringify(INITIAL_LOCAL_BOOKS);
+    }
+    const parsed = JSON.parse(booksStr);
+    return resolveBooksPaths(parsed);
+  }
+  return request("GET", "/books");
+}
+
+export async function fetchBook(id: string) {
+  if (isOfflineMode()) {
+    let booksStr = localStorage.getItem("local-books");
+    if (!booksStr) {
+      localStorage.setItem("local-books", JSON.stringify(INITIAL_LOCAL_BOOKS));
+      booksStr = JSON.stringify(INITIAL_LOCAL_BOOKS);
+    }
+    const parsed = JSON.parse(booksStr);
+    const b = parsed.find((x: any) => x.id === id);
+    if (!b) return null;
+    return resolveBookPaths(b);
+  }
+  return request("GET", `/books/${id}`);
+}
 
 export async function uploadBook(data: {
   title: string;
@@ -36,6 +240,38 @@ export async function uploadBook(data: {
   pdfFile: File;
   coverFile?: File;
 }) {
+  if (isOfflineMode()) {
+    const id = "local_" + Date.now();
+    await storeOfflineFile(`${id}_pdf`, data.pdfFile);
+    if (data.coverFile) {
+      await storeOfflineFile(`${id}_cover`, data.coverFile);
+    }
+
+    const newBook = {
+      id,
+      title: data.title,
+      author: data.author || "Autor Desconhecido",
+      description: data.description || "",
+      genre: data.genre || "Outros",
+      rating: 5,
+      reviewCount: 0,
+      isPublic: false,
+      coverColor: data.coverColor,
+      addedAt: Date.now(),
+      pdfPath: `local://${id}_pdf`,
+      coverImagePath: data.coverFile ? `local://${id}_cover` : null,
+      isUserBook: true,
+      reviews: [],
+      pages: []
+    };
+
+    let booksStr = localStorage.getItem("local-books");
+    const list = booksStr ? JSON.parse(booksStr) : [...INITIAL_LOCAL_BOOKS];
+    list.unshift(newBook);
+    localStorage.setItem("local-books", JSON.stringify(list));
+    return resolveBookPaths(newBook);
+  }
+
   const userId = localStorage.getItem("books-username") || "anonymous";
 
   try {
@@ -137,50 +373,299 @@ export async function uploadBook(data: {
   return res.json();
 }
 
-export const editBook = (id: string, data: any) => request("PUT", `/books/${id}`, data);
-export const deleteBook = (id: string) => request("DELETE", `/books/${id}`);
+export async function editBook(id: string, data: any) {
+  if (isOfflineMode()) {
+    let booksStr = localStorage.getItem("local-books");
+    const list = booksStr ? JSON.parse(booksStr) : [...INITIAL_LOCAL_BOOKS];
+    const idx = list.findIndex((x: any) => x.id === id);
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...data };
+      localStorage.setItem("local-books", JSON.stringify(list));
+      return resolveBookPaths(list[idx]);
+    }
+    return null;
+  }
+  return request("PUT", `/books/${id}`, data);
+}
 
-// Progresso e Status
-export const fetchAllProgress = () => request("GET", "/progress");
-export const fetchProgress = (bookId: string) => request("GET", `/progress/${bookId}`);
+export async function deleteBook(id: string) {
+  if (isOfflineMode()) {
+    let booksStr = localStorage.getItem("local-books");
+    const list = booksStr ? JSON.parse(booksStr) : [...INITIAL_LOCAL_BOOKS];
+    const filtered = list.filter((x: any) => x.id !== id);
+    localStorage.setItem("local-books", JSON.stringify(filtered));
+    await deleteOfflineFile(`${id}_pdf`);
+    await deleteOfflineFile(`${id}_cover`);
+    return { ok: true };
+  }
+  return request("DELETE", `/books/${id}`);
+}
+
+// --- PROGRESSO E STATUS ---
+export async function fetchAllProgress() {
+  if (isOfflineMode()) {
+    const progStr = localStorage.getItem("local-progress");
+    return progStr ? JSON.parse(progStr) : [];
+  }
+  return request("GET", "/progress");
+}
+
+export async function fetchProgress(bookId: string) {
+  if (isOfflineMode()) {
+    const progStr = localStorage.getItem("local-progress");
+    const list = progStr ? JSON.parse(progStr) : [];
+    return list.find((x: any) => x.bookId === bookId) || null;
+  }
+  return request("GET", `/progress/${bookId}`);
+}
+
 export async function saveProgress(p: any) {
+  if (isOfflineMode()) {
+    const progStr = localStorage.getItem("local-progress");
+    const list = progStr ? JSON.parse(progStr) : [];
+    const idx = list.findIndex((x: any) => x.bookId === p.bookId);
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...p, lastReadAt: Date.now() };
+    } else {
+      list.push({ ...p, startedAt: Date.now(), lastReadAt: Date.now() });
+    }
+    localStorage.setItem("local-progress", JSON.stringify(list));
+    return p;
+  }
   return request("PUT", `/progress/${p.bookId}`, p);
 }
 
-// Autenticação
-export const login = (username: string, password: string) => 
-  request("POST", "/auth/login", { username, password });
-export const register = (username: string, password: string) => 
-  request("POST", "/auth/register", { username, password });
+// --- AUTENTICAÇÃO ---
+export async function login(username: string, password: string) {
+  if (isOfflineMode()) {
+    localStorage.setItem("books-username", username);
+    localStorage.setItem("books-avatar", "🐼");
+    localStorage.setItem("books-bio", "Modo Offline Ativo 🐾");
+    return { username, bio: "Modo Offline Ativo 🐾", avatar: "🐼", shelf: [] };
+  }
+  return request("POST", "/auth/login", { username, password });
+}
 
-// Favoritos
-export const fetchSavedIds = () => request("GET", "/saved");
-export const toggleSaved = (bookId: string, isSaved: boolean) => 
-  request(isSaved ? "DELETE" : "POST", `/saved/${bookId}`);
+export async function register(username: string, password: string) {
+  if (isOfflineMode()) {
+    localStorage.setItem("books-username", username);
+    localStorage.setItem("books-avatar", "🐼");
+    localStorage.setItem("books-bio", "Modo Offline Ativo 🐾");
+    return { username, bio: "Modo Offline Ativo 🐾", avatar: "🐼", shelf: [] };
+  }
+  return request("POST", "/auth/register", { username, password });
+}
 
-// Usuários e Perfil
-export const fetchAllUsers = () => request("GET", "/users");
-export const fetchUserProfile = (username: string) => request("GET", `/users/${username}`);
-export const updateProfile = (bio: string, avatar: string, shelf: string[]) => 
-  request("PUT", "/auth/me", { bio, avatar, shelf });
-export const fetchStats = () => request("GET", "/stats");
+// --- FAVORITOS ---
+export async function fetchSavedIds() {
+  if (isOfflineMode()) {
+    const savedStr = localStorage.getItem("local-saved-ids");
+    return savedStr ? JSON.parse(savedStr) : [];
+  }
+  return request("GET", "/saved");
+}
 
-// Notas e Diário
-export const fetchBookNotes = (bookId: string) => request("GET", `/notes/book/${bookId}`);
-export const addNote = (data: any) => request("POST", "/notes", data);
-export const deleteNote = (id: string) => request("DELETE", `/notes/${id}`);
+export async function toggleSaved(bookId: string, isSaved: boolean) {
+  if (isOfflineMode()) {
+    const savedStr = localStorage.getItem("local-saved-ids");
+    let list = savedStr ? JSON.parse(savedStr) : [];
+    if (isSaved) {
+      list = list.filter((x: any) => x !== bookId);
+    } else {
+      if (!list.includes(bookId)) list.push(bookId);
+    }
+    localStorage.setItem("local-saved-ids", JSON.stringify(list));
+    return !isSaved;
+  }
+  return request(isSaved ? "DELETE" : "POST", `/saved/${bookId}`);
+}
 
-// Chat e Mensagens
-export const fetchChat = (target: string) => request("GET", `/chat/${target}`);
-export const fetchMessages = (target: string) => request("GET", `/chat/${target}`);
-export const sendMessage = (target: string, content: string, bookId?: string) => 
-  request("POST", `/chat/${target}`, { content, sharedBookId: bookId || null });
-export const setNickname = (target: string, nickname: string) => 
-  request("POST", `/chat/nickname/${target}`, { nickname });
-export const fetchNotifications = () => request("GET", "/notifications");
+// --- USUÁRIOS E PERFIL ---
+export async function fetchAllUsers() {
+  if (isOfflineMode()) {
+    return LOCAL_USERS;
+  }
+  return request("GET", "/users");
+}
 
-// Global Status (Shoutbox)
-export const fetchGlobalStatus = () => request("GET", "/status");
-export const updateGlobalStatus = (content: string, emote: string) => 
-  request("POST", "/status", { content, emote });
+export async function fetchUserProfile(username: string) {
+  if (isOfflineMode()) {
+    const u = LOCAL_USERS.find(x => x.username.toLowerCase() === username.toLowerCase());
+    if (u) return u;
+    const myName = localStorage.getItem("books-username") || "Leitora";
+    const myBio = localStorage.getItem("books-bio") || "Apaixonada por histórias que transformam";
+    const myAvatar = localStorage.getItem("books-avatar") || "🐼";
+    const shelfStr = localStorage.getItem("profile-shelf");
+    const shelf = shelfStr ? JSON.parse(shelfStr) : [];
+    return { username: myName, bio: myBio, avatar: myAvatar, shelf, pandinhas: 5 };
+  }
+  return request("GET", `/users/${username}`);
+}
 
+export async function updateProfile(bio: string, avatar: string, shelf: string[]) {
+  if (isOfflineMode()) {
+    localStorage.setItem("books-bio", bio);
+    localStorage.setItem("books-avatar", avatar);
+    localStorage.setItem("profile-shelf", JSON.stringify(shelf));
+    return { ok: true };
+  }
+  return request("PUT", "/auth/me", { bio, avatar, shelf });
+}
+
+export async function fetchStats() {
+  if (isOfflineMode()) {
+    const progStr = localStorage.getItem("local-progress");
+    const progress = progStr ? JSON.parse(progStr) : [];
+    const notesStr = localStorage.getItem("local-notes");
+    const notes = notesStr ? JSON.parse(notesStr) : [];
+    const finished = progress.filter((p: any) => p.status === "finalizado").length;
+    const reading = progress.filter((p: any) => p.status === "lendo").length;
+    return { finished, reading, notesCount: notes.length };
+  }
+  return request("GET", "/stats");
+}
+
+// --- NOTAS E DIÁRIO ---
+export async function fetchBookNotes(bookId: string) {
+  if (isOfflineMode()) {
+    const notesStr = localStorage.getItem("local-notes");
+    const list = notesStr ? JSON.parse(notesStr) : [];
+    return list.filter((n: any) => n.bookId === bookId);
+  }
+  return request("GET", `/notes/book/${bookId}`);
+}
+
+export async function addNote(data: any) {
+  if (isOfflineMode()) {
+    const now = new Date();
+    const dateLabel = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+    const id = "note-" + Date.now();
+    const newNote = {
+      id,
+      bookId: data.bookId,
+      date: dateLabel,
+      feedback: data.feedback,
+      rating: data.rating,
+      createdAt: Date.now()
+    };
+    const notesStr = localStorage.getItem("local-notes");
+    const list = notesStr ? JSON.parse(notesStr) : [];
+    list.unshift(newNote);
+    localStorage.setItem("local-notes", JSON.stringify(list));
+    return newNote;
+  }
+  return request("POST", "/notes", data);
+}
+
+export async function deleteNote(id: string) {
+  if (isOfflineMode()) {
+    const notesStr = localStorage.getItem("local-notes");
+    const list = notesStr ? JSON.parse(notesStr) : [];
+    const filtered = list.filter((n: any) => n.id !== id);
+    localStorage.setItem("local-notes", JSON.stringify(filtered));
+    return { ok: true };
+  }
+  return request("DELETE", `/notes/${id}`);
+}
+
+// --- CHAT E MENSAGENS ---
+export async function fetchChat(target: string) {
+  if (isOfflineMode()) {
+    const chatStr = localStorage.getItem(`local-chat-${target.toLowerCase()}`);
+    const messages = chatStr ? JSON.parse(chatStr) : [];
+    const nick = localStorage.getItem(`local-nickname-${target.toLowerCase()}`);
+    return { messages, nickname: nick };
+  }
+  return request("GET", `/chat/${target}`);
+}
+
+export async function fetchMessages(target: string) {
+  if (isOfflineMode()) {
+    const chatStr = localStorage.getItem(`local-chat-${target.toLowerCase()}`);
+    return chatStr ? JSON.parse(chatStr) : [];
+  }
+  return request("GET", `/chat/${target}`);
+}
+
+export async function sendMessage(target: string, content: string, bookId?: string) {
+  if (isOfflineMode()) {
+    const myName = localStorage.getItem("books-username") || "Você";
+    const newMsg = {
+      id: Date.now(),
+      sender: myName,
+      receiver: target,
+      content,
+      shared_book_id: bookId || null,
+      is_read: 1,
+      created_at: Date.now()
+    };
+    const chatKey = `local-chat-${target.toLowerCase()}`;
+    const chatStr = localStorage.getItem(chatKey);
+    const list = chatStr ? JSON.parse(chatStr) : [];
+    list.push(newMsg);
+    localStorage.setItem(chatKey, JSON.stringify(list));
+
+    if (target.toLowerCase() === "helo" || target.toLowerCase() === "caio") {
+      setTimeout(() => {
+        const replies = [
+          "Que legal! Vou dar uma olhada nesse livro 🐾",
+          "Adorei a recomendação! ✨",
+          "Ah! Esse livro parece maravilhoso! 💕",
+          "Obrigado por compartilhar comigo! 🐼",
+          "Nossa, que demais! Já salvei na minha lista 📖"
+        ];
+        const replyContent = replies[Math.floor(Math.random() * replies.length)];
+        const replyMsg = {
+          id: Date.now() + 1,
+          sender: target,
+          receiver: myName,
+          content: replyContent,
+          shared_book_id: null,
+          is_read: 0,
+          created_at: Date.now()
+        };
+        const currentChat = localStorage.getItem(chatKey);
+        const currentList = currentChat ? JSON.parse(currentChat) : [];
+        currentList.push(replyMsg);
+        localStorage.setItem(chatKey, JSON.stringify(currentList));
+      }, 1000);
+    }
+    return { ok: true };
+  }
+  return request("POST", `/chat/${target}`, { content, sharedBookId: bookId || null });
+}
+
+export async function setNickname(target: string, nickname: string) {
+  if (isOfflineMode()) {
+    localStorage.setItem(`local-nickname-${target.toLowerCase()}`, nickname);
+    return { ok: true };
+  }
+  return request("POST", `/chat/nickname/${target}`, { nickname });
+}
+
+export async function fetchNotifications() {
+  if (isOfflineMode()) {
+    return { unreadCount: 0, details: {} };
+  }
+  return request("GET", "/notifications");
+}
+
+// --- GLOBAL STATUS (SHOUTBOX) ---
+export async function fetchGlobalStatus() {
+  if (isOfflineMode()) {
+    const statusStr = localStorage.getItem("local-status");
+    if (statusStr) return JSON.parse(statusStr);
+    return { username: "Sistema", content: "Bem-vindo ao modo Offline! 🐾", emote: "🐼", updated_at: Date.now() };
+  }
+  return request("GET", "/status");
+}
+
+export async function updateGlobalStatus(content: string, emote: string) {
+  if (isOfflineMode()) {
+    const username = localStorage.getItem("books-username") || "Você";
+    const newStatus = { username, content, emote, updated_at: Date.now() };
+    localStorage.setItem("local-status", JSON.stringify(newStatus));
+    return newStatus;
+  }
+  return request("POST", "/status", { content, emote });
+}

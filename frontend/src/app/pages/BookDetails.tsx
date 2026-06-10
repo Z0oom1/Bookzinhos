@@ -31,7 +31,7 @@ export function BookDetails() {
         setBook(b);
         setIsSaved(savedIdsList.includes(id));
         setProgress(p);
-        setUsers(allUsersList.filter(u => u.username.toLowerCase() !== myUsername?.toLowerCase()));
+        setUsers((allUsersList as UserProfile[]).filter((u: UserProfile) => u.username.toLowerCase() !== myUsername?.toLowerCase()));
         setIsLoading(false);
       })
       .catch((err) => {
@@ -56,7 +56,9 @@ export function BookDetails() {
       currentPage: isCurrentlyFinished ? 0 : (book.pages?.length || 1) - 1,
       totalPages: book.pages?.length || 1,
       progress: isCurrentlyFinished ? 0 : 100,
-      status: nextStatus
+      status: nextStatus,
+      startedAt: progress?.startedAt || Date.now(),
+      lastReadAt: Date.now()
     };
     
     await saveProgress(newProgress);
@@ -148,8 +150,22 @@ export function BookDetails() {
         </div>
       )}
 
-      {/* Header com gradiente */}
-      <div className="relative bg-gradient-to-b from-[var(--peach)]/40 via-[var(--lavender)]/40 to-transparent pb-8">
+      {/* Header com Dynamic Blur Background */}
+      <div className="relative overflow-hidden pb-8">
+        {/* Camada do Dynamic Blur */}
+        <div className="absolute inset-0 -z-10 w-full h-full overflow-hidden pointer-events-none select-none">
+          {book.coverImagePath ? (
+            <img 
+              src={getFullUrl(book.coverImagePath)!} 
+              alt="" 
+              className="w-full h-full object-cover filter blur-[60px] opacity-40 scale-150 transform-gpu transition-all duration-700 ease-in-out"
+            />
+          ) : (
+            <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient(book)} filter blur-[60px] opacity-45 scale-150 transform-gpu transition-all duration-700 ease-in-out`} />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/[0.03] via-transparent to-background" />
+        </div>
+
         <div className="max-w-2xl mx-auto px-4 pt-6">
           <div className="flex justify-between items-center mb-6">
             <button

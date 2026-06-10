@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { BookOpen, Clock, Award, Pencil, X, Check } from "lucide-react";
+import { BookOpen, Clock, Award, Pencil, X, Check, Settings } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
-import { fetchBooks, fetchAllProgress, fetchStats, updateProfile } from "../lib/api";
+import { fetchBooks, fetchAllProgress, fetchStats, updateProfile, isOfflineMode, setOfflineMode } from "../lib/api";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import type { Book, ReadingProgress, Stats } from "../lib/types";
 
@@ -19,6 +19,26 @@ export function Profile() {
   const [userBio, setUserBio] = useState(() => localStorage.getItem("books-bio") || "Apaixonada por histórias que transformam");
   const [userAvatar, setUserAvatar] = useState(() => localStorage.getItem("books-avatar") || "🐼");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+
+  // Offline Mode State
+  const [isOffline, setIsOffline] = useState(isOfflineMode);
+
+  const handleToggleOffline = () => {
+    const next = !isOffline;
+    setIsOffline(next);
+    setOfflineMode(next);
+    
+    const toastElement = document.createElement("div");
+    toastElement.className = "fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#333] text-white text-xs font-black px-6 py-3.5 rounded-[1.2rem] shadow-xl z-[150] animate-bounce-in flex items-center gap-2";
+    toastElement.innerHTML = next 
+      ? "<span>🐼 Ativando Modo Offline...</span>"
+      : "<span>🌐 Conectando ao Servidor...</span>";
+    document.body.appendChild(toastElement);
+    
+    setTimeout(() => {
+      window.location.reload();
+    }, 800);
+  };
 
   // Shelf State
   const [shelfBookIds, setShelfBookIds] = useState<string[]>(() => {
@@ -56,8 +76,8 @@ export function Profile() {
 
         if (shelfBookIds.length === 0 && booksList.length > 0) {
           const defaultShelf = booksList
-            .filter(book => progressList.some(prog => prog.bookId === book.id))
-            .map(book => book.id)
+            .filter((book: Book) => progressList.some((prog: ReadingProgress) => prog.bookId === book.id))
+            .map((book: Book) => book.id)
             .slice(0, 9);
           setShelfBookIds(defaultShelf);
           localStorage.setItem("profile-shelf", JSON.stringify(defaultShelf));
@@ -292,6 +312,33 @@ export function Profile() {
             </div>
           </div>
         )}
+
+        {/* Configurações */}
+        <div className="bg-white/60 backdrop-blur-md rounded-[2.5rem] p-6 border border-white/50 shadow-sm animate-fade-in" style={{ animationDelay: "0.7s" }}>
+          <h2 className="text-[var(--text-main)] font-black text-xl flex items-center gap-2 mb-6">
+            <Settings className="w-6 h-6 text-[var(--lavender)] animate-spin-slow" /> Configurações
+          </h2>
+          <div className="flex items-center justify-between bg-white/80 p-4 rounded-3xl border border-white/80 shadow-sm transition-all hover:shadow-md">
+            <div className="pr-4 text-left">
+              <h4 className="text-[var(--text-main)] text-sm font-black">Modo Offline (LocalStorage)</h4>
+              <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wider mt-0.5">
+                Leia e importe livros locais sem internet
+              </p>
+            </div>
+            <button
+              onClick={handleToggleOffline}
+              className={`relative w-12 h-7 rounded-full transition-all duration-300 shadow-inner flex-shrink-0 cursor-pointer ${
+                isOffline ? "bg-gradient-to-r from-[var(--primary)] to-[var(--mint)]" : "bg-gray-200"
+              }`}
+            >
+              <div
+                className={`absolute top-0.5 w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-md transform ${
+                  isOffline ? "translate-x-5" : "translate-x-0.5"
+                }`}
+              />
+            </button>
+          </div>
+        </div>
 
         <div className="pt-8 text-center animate-fade-in" style={{ animationDelay: "0.8s" }}>
           <button
