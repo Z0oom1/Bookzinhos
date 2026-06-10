@@ -20,6 +20,7 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [showMenu, setShowMenu] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [localProgress, setLocalProgress] = useState(initialProgress);
@@ -28,6 +29,9 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
   const touchStartPos = useRef({ x: 0, y: 0 });
 
   const startPress = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    if ("button" in e && e.button !== 0) {
+      return;
+    }
     longPressedRef.current = false;
     
     if ('touches' in e) {
@@ -41,11 +45,17 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
       setShowMenu(true);
       searchParams.set("hideNav", "true");
       setSearchParams(searchParams);
+      if ('touches' in e) {
+        setMenuPos({ x: e.touches[0].clientX, y: e.touches[0].clientY });
+      } else {
+        setMenuPos({ x: e.clientX, y: e.clientY });
+      }
     }, 500);
   }, [searchParams, setSearchParams]);
 
   const handleCloseMenu = () => {
     setShowMenu(false);
+    setMenuPos(null);
     searchParams.delete("hideNav");
     setSearchParams(searchParams);
   };
@@ -58,6 +68,9 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
     clearTimeout(timerRef.current);
     
     if (!longPressedRef.current) {
+      if ("button" in e && e.button !== 0) {
+        return;
+      }
       let endX, endY;
       if ('changedTouches' in e) {
         endX = e.changedTouches[0].clientX;
@@ -117,7 +130,15 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
     onTouchStart: startPress,
     onTouchEnd: endPress,
     onTouchMove: cancelPress,
-    onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
+    onContextMenu: (e: React.MouseEvent) => {
+      e.preventDefault();
+      clearTimeout(timerRef.current);
+      longPressedRef.current = true;
+      setShowMenu(true);
+      searchParams.set("hideNav", "true");
+      setSearchParams(searchParams);
+      setMenuPos({ x: e.clientX, y: e.clientY });
+    },
   };
 
   if (variant === "small") {
@@ -147,6 +168,7 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
             onDelete={() => { handleCloseMenu(); setShowDeleteConfirm(true); }}
             onFeedback={() => { handleCloseMenu(); navigate(`/notes?bookId=${book.id}`); }}
             onPause={localProgress ? handlePause : undefined}
+            menuPos={menuPos}
           />
         )}
         {showEdit && <EditBookModal book={book} onClose={() => setShowEdit(false)} onSaved={handleEdited} />}
@@ -198,6 +220,7 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
             onDelete={() => { handleCloseMenu(); setShowDeleteConfirm(true); }}
             onFeedback={() => { handleCloseMenu(); navigate(`/notes?bookId=${book.id}`); }}
             onPause={localProgress ? handlePause : undefined}
+            menuPos={menuPos}
           />
         )}
         {showEdit && <EditBookModal book={book} onClose={() => setShowEdit(false)} onSaved={handleEdited} />}
@@ -235,6 +258,7 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
             onDelete={() => { handleCloseMenu(); setShowDeleteConfirm(true); }}
             onFeedback={() => { handleCloseMenu(); navigate(`/notes?bookId=${book.id}`); }}
             onPause={localProgress ? handlePause : undefined}
+            menuPos={menuPos}
           />
         )}
         {showEdit && <EditBookModal book={book} onClose={() => setShowEdit(false)} onSaved={handleEdited} />}
@@ -271,6 +295,7 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
           onDelete={() => { handleCloseMenu(); setShowDeleteConfirm(true); }}
           onFeedback={() => { handleCloseMenu(); navigate(`/notes?bookId=${book.id}`); }}
           onPause={localProgress ? handlePause : undefined}
+          menuPos={menuPos}
         />
       )}
       {showEdit && <EditBookModal book={book} onClose={() => setShowEdit(false)} onSaved={handleEdited} />}

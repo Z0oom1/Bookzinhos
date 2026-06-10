@@ -214,6 +214,16 @@ app.post("/books", upload.fields([{ name: "pdf", maxCount: 1 }, { name: "cover",
     const { title, author, description, genre, isPublic, coverColor } = req.body;
     if (!title) return res.status(400).json({ error: "Título é obrigatório" });
 
+    // Check duplicate book (same title and author, case-insensitive)
+    const [existing] = await db.query(sql`
+      SELECT id FROM books 
+      WHERE LOWER(TRIM(title)) = LOWER(TRIM(${title})) 
+        AND LOWER(TRIM(author)) = LOWER(TRIM(${author || ""}))
+    `);
+    if (existing) {
+      return res.status(400).json({ error: "Você já possui um livro com este título e autor!" });
+    }
+
     const id = `user-${Date.now()}`;
     const pdfFile = req.files?.pdf?.[0];
     const coverFile = req.files?.cover?.[0];

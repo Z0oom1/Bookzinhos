@@ -389,6 +389,28 @@ async function initDB() {
   } catch (err) {
     console.error("Erro ao semear livros:", err);
   }
+
+  // Deletar duplicatas da tabela de livros (mantendo apenas o mais antigo)
+  try {
+    console.log("🧹 Removendo livros duplicados da base de dados (mantendo o mais antigo)...");
+    await db.query(sql`
+      DELETE FROM books
+      WHERE id NOT IN (
+        SELECT b1.id
+        FROM books b1
+        WHERE b1.id = (
+          SELECT b2.id
+          FROM books b2
+          WHERE LOWER(TRIM(b1.title)) = LOWER(TRIM(b2.title))
+            AND LOWER(TRIM(b1.author)) = LOWER(TRIM(b2.author))
+          ORDER BY b2.added_at ASC, b2.id ASC
+          LIMIT 1
+        )
+      )
+    `);
+  } catch (err) {
+    console.error("Erro ao limpar livros duplicados:", err);
+  }
 }
 
 // ─── SEED ────────────────────────────────────────────────────────────────────

@@ -210,7 +210,22 @@ export async function fetchBooks() {
       booksStr = JSON.stringify(INITIAL_LOCAL_BOOKS);
     }
     const parsed = JSON.parse(booksStr);
-    return resolveBooksPaths(parsed);
+
+    // Clean up offline duplicates (keeping oldest)
+    const uniqueMap = new Map<string, any>();
+    const sorted = [...parsed].sort((a: any, b: any) => a.addedAt - b.addedAt);
+    sorted.forEach((book: any) => {
+      const key = `${book.title.trim().toLowerCase()}|${(book.author || "").trim().toLowerCase()}`;
+      if (!uniqueMap.has(key)) {
+        uniqueMap.set(key, book);
+      }
+    });
+    const cleaned = Array.from(uniqueMap.values());
+    if (cleaned.length !== parsed.length) {
+      localStorage.setItem("local-books", JSON.stringify(cleaned));
+    }
+
+    return resolveBooksPaths(cleaned);
   }
   return request("GET", "/books");
 }
@@ -240,6 +255,23 @@ export async function uploadBook(data: {
   pdfFile: File;
   coverFile?: File;
 }) {
+  // Check for duplicate title and author first
+  try {
+    const existingBooks = await fetchBooks();
+    const duplicate = existingBooks.find(
+      (b: any) => 
+        b.title.trim().toLowerCase() === data.title.trim().toLowerCase() &&
+        (b.author || "").trim().toLowerCase() === (data.author || "").trim().toLowerCase()
+    );
+    if (duplicate) {
+      throw new Error("Você já possui um livro com este título e autor!");
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.includes("Você já possui")) {
+      throw err;
+    }
+  }
+
   if (isOfflineMode()) {
     const id = "local_" + Date.now();
     await storeOfflineFile(`${id}_pdf`, data.pdfFile);
