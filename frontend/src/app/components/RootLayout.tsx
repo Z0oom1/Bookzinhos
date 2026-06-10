@@ -103,11 +103,12 @@ export function RootLayout() {
         </div>
 
         {/* Desktop View */}
-        <div className={`hidden lg:flex items-center justify-center w-screen h-screen overflow-hidden select-none ${
-          isFullScreen 
-            ? "bg-background" 
-            : "bg-gradient-to-tr from-[#1e3a8a] via-[#3b82f6] to-[#ec4899] p-8"
-        }`}>
+        <div 
+          style={isFullScreen ? {} : { backgroundImage: "url('/mac_wallpaper.png')", backgroundSize: "cover", backgroundPosition: "center" }}
+          className={`hidden lg:flex items-center justify-center w-screen h-screen overflow-hidden select-none ${
+            isFullScreen ? "bg-background" : "p-8"
+          }`}
+        >
           <div 
             style={isFullScreen ? {} : { width: windowSize.width, height: windowSize.height }}
             className={`bg-white flex flex-col overflow-hidden backdrop-blur-xl relative ${
@@ -201,11 +202,12 @@ export function RootLayout() {
       </div>
 
       {/* Desktop-only View */}
-      <div className={`hidden lg:flex items-center justify-center w-screen h-screen overflow-hidden select-none ${
-        isFullScreen 
-          ? "bg-background" 
-          : "bg-gradient-to-tr from-[#1e3a8a] via-[#3b82f6] to-[#ec4899] p-8"
-      }`}>
+      <div 
+        style={isFullScreen ? {} : { backgroundImage: "url('/mac_wallpaper.png')", backgroundSize: "cover", backgroundPosition: "center" }}
+        className={`hidden lg:flex items-center justify-center w-screen h-screen overflow-hidden select-none ${
+          isFullScreen ? "bg-background" : "p-8"
+        }`}
+      >
         <div 
           style={isFullScreen ? {} : { width: windowSize.width, height: windowSize.height }}
           className={`bg-white flex flex-col overflow-hidden backdrop-blur-xl relative transition-all duration-100 ${
