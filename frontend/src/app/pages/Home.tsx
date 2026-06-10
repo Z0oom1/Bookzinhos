@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Heart, BookOpen, Edit3, Send, Sparkles, Clock, UserCheck } from "lucide-react";
+import { Search, BookOpen, Edit3, Send, Sparkles, Clock, UserCheck, Layout, Bookmark } from "lucide-react";
 import { Link } from "react-router";
 import { fetchBooks, fetchAllProgress, fetchSavedIds, fetchGlobalStatus, updateGlobalStatus } from "../lib/api";
 import { getCoverGradient, getFullUrl } from "../lib/types";
@@ -13,6 +13,7 @@ export function Home() {
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [desktopTab, setDesktopTab] = useState("geral");
   const [isLoading, setIsLoading] = useState(true);
   
   const [status, setStatus] = useState<GlobalStatus | null>(null);
@@ -37,9 +38,9 @@ export function Home() {
             updated_at: Date.now() 
           }))
         ]);
-        setBooks(b);
-        setProgress(p);
-        setSavedIds(s);
+        setBooks(b || []);
+        setProgress(p || []);
+        setSavedIds(s || []);
         setStatus(st);
         setStatusInput(st.content);
         setStatusEmote(st.emote);
@@ -100,10 +101,19 @@ export function Home() {
     );
   }
 
+  // Sidebar Menu on Desktop
+  const desktopSidebarMenu = [
+    { key: "geral", label: "Painel Geral", icon: Layout },
+    { key: "lendo", label: "Leitura Atual", icon: BookOpen, disabled: !currentBook },
+    { key: "recomendados", label: "Recomendados", icon: Sparkles },
+    { key: "recentes", label: "Mais Recentes", icon: Clock },
+    { key: "especial", label: `Especial ${featuredAuthor}`, icon: UserCheck, disabled: authorBooks.length === 0 },
+  ];
+
   return (
-    <div className="min-h-screen bg-transparent pb-32">
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-8">
-        
+    <div className="min-h-screen lg:min-h-0 lg:h-full bg-transparent overflow-x-hidden no-scrollbar">
+      {/* Mobile-only View */}
+      <div className="lg:hidden max-w-2xl mx-auto px-4 py-6 space-y-8 no-scrollbar">
         {/* Cabeçalho */}
         <div className="animate-fade-in flex justify-between items-center px-1 pt-2">
           <div>
@@ -253,7 +263,6 @@ export function Home() {
           </section>
         ) : (
           <>
-            {/* Continue Lendo */}
             {currentBook && currentlyReading && (
               <section className="animate-fade-in space-y-3">
                 <div className="flex items-center justify-between px-1">
@@ -297,7 +306,6 @@ export function Home() {
               </section>
             )}
 
-            {/* Livros Recomendados */}
             <section className="animate-fade-in space-y-4">
               <div className="flex items-center gap-1.5 px-1">
                 <Sparkles className="w-4 h-4 text-[var(--primary)]" />
@@ -311,7 +319,6 @@ export function Home() {
               </div>
             </section>
 
-            {/* Adicionados Recentemente */}
             <section className="animate-fade-in space-y-4">
               <div className="flex items-center gap-1.5 px-1">
                 <Clock className="w-4 h-4 text-[var(--primary)]" />
@@ -329,7 +336,6 @@ export function Home() {
               </div>
             </section>
 
-            {/* Livros do Autor em Destaque */}
             {authorBooks.length > 0 && (
               <section className="animate-fade-in space-y-4">
                 <div className="flex items-center gap-1.5 px-1">
@@ -346,6 +352,311 @@ export function Home() {
             )}
           </>
         )}
+      </div>
+
+      {/* Desktop Widescreen Layout (>=lg) */}
+      <div className="hidden lg:flex flex-row h-full min-h-[calc(85vh-3.5rem)] bg-slate-50/10 overflow-hidden no-scrollbar">
+        {/* Left Sidebar */}
+        <aside className="w-64 border-r border-slate-100 bg-white p-6 flex flex-col justify-between flex-shrink-0 no-scrollbar">
+          <div className="space-y-6">
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Início</h2>
+            
+            <nav className="space-y-1">
+              {desktopSidebarMenu.map((item) => {
+                const Icon = item.icon;
+                if (item.disabled) return null;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => {
+                      setDesktopTab(item.key);
+                      setSearch("");
+                    }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                      desktopTab === item.key
+                        ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 opacity-80" />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+
+            <hr className="border-slate-100" />
+            
+            {/* Quick Categories */}
+            <div className="space-y-2">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider px-3">Gêneros</p>
+              <div className="flex flex-col gap-1">
+                {CATEGORIES.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => {
+                      setActiveCategory(activeCategory === cat ? null : cat);
+                      setDesktopTab("geral");
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
+                      activeCategory === cat || (cat === "Todos" && !activeCategory)
+                        ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                    }`}
+                  >
+                    # {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* Right content page */}
+        <main className="flex-1 p-8 overflow-y-auto space-y-8 bg-slate-50/30 no-scrollbar">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <h1 className="text-2xl font-black text-slate-800 tracking-tight">Olá, {userName}! 👋</h1>
+              <p className="text-xs text-slate-400 font-bold">Explore o painel principal da sua estante mágica</p>
+            </div>
+
+            {/* Search Bar */}
+            <div className="relative w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar livros, autores..."
+                className="w-full pl-9 pr-4 py-2 bg-white rounded-xl border border-slate-200 outline-none focus:border-[var(--primary)]/30 focus:ring-2 focus:ring-[var(--primary)]/5 transition-all text-xs font-semibold text-slate-700 placeholder:text-slate-400"
+              />
+            </div>
+          </div>
+
+          {/* Search results or selected tabs */}
+          {searchResults ? (
+            <div className="space-y-4">
+              <h2 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                <Search className="w-4 h-4 text-[var(--primary)]" />
+                Resultados da Busca
+              </h2>
+              {searchResults.length === 0 ? (
+                <div className="text-center py-20 text-slate-400 bg-white/50 border border-slate-100 rounded-3xl">
+                  <p className="font-bold text-xs">Nenhum livro mágico encontrado.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
+                  {searchResults.map((book) => {
+                    const prog = progress.find((p) => p.bookId === book.id);
+                    return <BookCard key={book.id} book={book} progress={prog} />;
+                  })}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* Generalized view tab */}
+              {desktopTab === "geral" && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in">
+                  {/* Left Column (Banner + Status Shoutbox) */}
+                  <div className="md:col-span-2 space-y-6">
+                    {/* banner */}
+                    <div className="relative h-48 rounded-[2.25rem] overflow-hidden bg-[var(--blush)]/70 shadow-sm border border-white/45 flex items-center p-8">
+                      <div className="space-y-2">
+                        <span className="text-[9px] font-extrabold text-[var(--primary)] bg-white/95 uppercase tracking-widest px-3 py-1 rounded-full">
+                          Destaque
+                        </span>
+                        <h2 className="text-2xl font-black text-slate-800 leading-tight">Explore Histórias e<br />Mundos Encantados ✨</h2>
+                      </div>
+                      <div className="absolute bottom-4 right-8 text-9xl opacity-10 select-none pointer-events-none">📖</div>
+                    </div>
+
+                    {/* Shoutbox widget */}
+                    <div className="bg-white/70 backdrop-blur-xl p-6 rounded-[2rem] border border-white/80 shadow-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest">Shoutbox / Status Recente</h3>
+                        {!isEditingStatus && (
+                          <button 
+                            onClick={() => setIsEditingStatus(true)}
+                            className="text-[10px] font-bold text-[var(--primary)] uppercase tracking-wider hover:opacity-85 cursor-pointer"
+                          >
+                            Atualizar
+                          </button>
+                        )}
+                      </div>
+
+                      {!isEditingStatus ? (
+                        <div className="flex items-center gap-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
+                          <div className="w-12 h-12 bg-[var(--blush)]/50 rounded-xl flex items-center justify-center text-3xl shadow-inner select-none">
+                            {status?.emote || "🐼"}
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-700 font-semibold italic">"{status?.content}"</p>
+                            <p className="text-[9px] font-black text-[var(--primary)] uppercase tracking-widest mt-1.5">{status?.username}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                            {EMOTES.map(e => (
+                              <button 
+                                key={e}
+                                onClick={() => setStatusEmote(e)}
+                                className={`text-xl p-2 rounded-xl transition-all cursor-pointer ${statusEmote === e ? "bg-[var(--primary)]/10 scale-110" : "hover:bg-slate-50"}`}
+                              >
+                                {e}
+                              </button>
+                            ))}
+                          </div>
+                          <textarea
+                            value={statusInput}
+                            onChange={(e) => setStatusInput(e.target.value)}
+                            maxLength={100}
+                            placeholder="Como você está se sentindo? ✨"
+                            className="w-full bg-slate-50 p-4 rounded-2xl border-none outline-none text-xs text-[var(--text-main)] h-20 resize-none font-semibold placeholder:text-[var(--text-muted)]"
+                          />
+                          <div className="flex gap-2">
+                            <button 
+                              onClick={() => setIsEditingStatus(false)}
+                              className="flex-grow py-2.5 rounded-xl bg-slate-50 font-bold text-[var(--text-muted)] text-[10px] uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors"
+                            >
+                              Cancelar
+                            </button>
+                            <button 
+                              onClick={handleUpdateStatus}
+                              disabled={!statusInput.trim()}
+                              className={`flex-grow py-2.5 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer ${
+                                !statusInput.trim()
+                                  ? "bg-slate-100 text-slate-300 cursor-not-allowed shadow-none"
+                                  : "bg-[var(--primary)] text-white shadow-md shadow-[var(--primary)]/10"
+                              }`}
+                            >
+                              Enviar
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right Column (Currently Reading) */}
+                  <div className="space-y-6">
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Em Leitura</h3>
+                    {currentBook && currentlyReading ? (
+                      <Link to={`/read/${currentBook.id}`} className="block">
+                        <div className="bg-white rounded-[2.25rem] p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow flex flex-col gap-4 group">
+                          <div className="w-full aspect-[2/3] rounded-2xl overflow-hidden shadow-sm border border-slate-100 flex items-center justify-center relative bg-slate-50">
+                            {currentBook.coverImagePath ? (
+                              <img src={getFullUrl(currentBook.coverImagePath)!} className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300" />
+                            ) : (
+                              <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient(currentBook)} flex items-center justify-center`}>
+                                <BookOpen className="w-12 h-12 text-white opacity-40" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="space-y-3">
+                            <div>
+                              <h4 className="font-extrabold text-slate-800 text-xs line-clamp-1 leading-snug">{currentBook.title}</h4>
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mt-0.5">{currentBook.author}</p>
+                            </div>
+                            
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between items-center text-[9px] font-extrabold text-slate-500">
+                                <span>{currentlyReading.progress}% concluído</span>
+                              </div>
+                              <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden shadow-inner">
+                                <div className="bg-[var(--primary)] h-full rounded-full" style={{ width: `${currentlyReading.progress}%` }} />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    ) : (
+                      <div className="bg-white/50 rounded-[2.25rem] p-8 text-center border-2 border-dashed border-slate-200">
+                        <p className="text-xs text-slate-400 font-bold">Nenhuma leitura ativa.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Lendo Tab */}
+              {desktopTab === "lendo" && currentBook && currentlyReading && (
+                <div className="max-w-md mx-auto animate-fade-in">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Leitura Atual</h3>
+                  <Link to={`/read/${currentBook.id}`}>
+                    <div className="bg-white rounded-[2.5rem] p-6 shadow-md border border-slate-100 flex gap-6 group hover:shadow-lg transition-all">
+                      <div className="w-32 aspect-[2/3] rounded-2xl overflow-hidden shadow-md flex-shrink-0">
+                        {currentBook.coverImagePath ? (
+                          <img src={getFullUrl(currentBook.coverImagePath)!} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient(currentBook)} flex items-center justify-center`}>
+                            <BookOpen className="w-12 h-12 text-white opacity-40" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 py-2 flex flex-col justify-between">
+                        <div>
+                          <h4 className="font-extrabold text-slate-800 text-sm">{currentBook.title}</h4>
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider mt-0.5">{currentBook.author}</p>
+                          <p className="text-xs text-slate-500 line-clamp-3 mt-3 font-medium leading-relaxed">{currentBook.description}</p>
+                        </div>
+                        <div className="space-y-2.5 pt-4">
+                          <div className="flex justify-between items-center text-[10px] font-extrabold text-slate-500">
+                            <span className="bg-[var(--primary)]/10 text-[var(--primary)] px-2.5 py-0.5 rounded-md">{currentlyReading.progress}% lido</span>
+                            <span>Pág. {currentlyReading.currentPage + 1} de {currentlyReading.totalPages}</span>
+                          </div>
+                          <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden shadow-inner">
+                            <div className="bg-[var(--primary)] h-full rounded-full" style={{ width: `${currentlyReading.progress}%` }} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                </div>
+              )}
+
+              {/* Recomendados Tab */}
+              {desktopTab === "recomendados" && (
+                <div className="space-y-4 animate-fade-in">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Recomendados para Você</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {recommended.map((book) => {
+                      const prog = progress.find((p) => p.bookId === book.id);
+                      return <BookCard key={book.id} book={book} progress={prog} />;
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Recentes Tab */}
+              {desktopTab === "recentes" && (
+                <div className="space-y-4 animate-fade-in">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Livros Recentes</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {recent.map((book) => {
+                      const prog = progress.find((p) => p.bookId === book.id);
+                      return <BookCard key={book.id} book={book} progress={prog} />;
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Especial Tab */}
+              {desktopTab === "especial" && (
+                <div className="space-y-4 animate-fade-in">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">Especial do Autor: {featuredAuthor}</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {authorBooks.map((book) => {
+                      const prog = progress.find((p) => p.bookId === book.id);
+                      return <BookCard key={book.id} book={book} progress={prog} />;
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </main>
       </div>
     </div>
   );
