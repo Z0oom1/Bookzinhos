@@ -30,6 +30,14 @@ export function BookReader() {
   const touchStartRef = useRef<{ x: number, y: number, time: number } | null>(null);
   const initialPinchDistRef = useRef<number | null>(null);
 
+  // Zoom & Pan State
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const panStartRef = useRef({ x: 0, y: 0 });
+  const hasDraggedRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   // PDF State
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasRightRef = useRef<HTMLCanvasElement>(null);
@@ -101,10 +109,16 @@ export function BookReader() {
             const wrapperWidth = Math.min(screenWidth, 512); 
             const containerWidth = bookMode ? (wrapperWidth - 48) / 2 : wrapperWidth - 32;
             const scale = containerWidth / viewport.width;
-            const scaledViewport = page.getViewport({ scale: Math.max(scale, 0.5) });
+            
+            // Render at high-DPI (2.5x multiplier)
+            const dpr = Math.max(window.devicePixelRatio || 1, 2.5);
+            const renderScale = scale * dpr;
+            const scaledViewport = page.getViewport({ scale: renderScale });
             
             canvas.width = scaledViewport.width;
             canvas.height = scaledViewport.height;
+            canvas.style.width = `${containerWidth}px`;
+            canvas.style.height = `${containerWidth * (viewport.height / viewport.width)}px`;
             
             renderTaskLeft = page.render({ canvasContext: ctx, viewport: scaledViewport });
             await renderTaskLeft.promise;
@@ -128,10 +142,16 @@ export function BookReader() {
             const wrapperWidth = Math.min(screenWidth, 512); 
             const containerWidth = (wrapperWidth - 48) / 2;
             const scale = containerWidth / viewport.width;
-            const scaledViewport = page.getViewport({ scale: Math.max(scale, 0.5) });
+            
+            // Render at high-DPI (2.5x multiplier)
+            const dpr = Math.max(window.devicePixelRatio || 1, 2.5);
+            const renderScale = scale * dpr;
+            const scaledViewport = page.getViewport({ scale: renderScale });
             
             canvas.width = scaledViewport.width;
             canvas.height = scaledViewport.height;
+            canvas.style.width = `${containerWidth}px`;
+            canvas.style.height = `${containerWidth * (viewport.height / viewport.width)}px`;
             
             renderTaskRight = page.render({ canvasContext: ctx, viewport: scaledViewport });
             await renderTaskRight.promise;
@@ -170,6 +190,78 @@ export function BookReader() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [currentPage, total, bookMode]);
+
+  // Scroll wheel zooming
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const zoomFactor = 0.08;
+      const delta = -e.deltaY;
+      setZoomScale((prev) => {
+        const next = prev + (delta > 0 ? zoomFactor : -zoomFactor);
+        const clamped = Math.min(Math.max(next, 1), 5);
+        if (clamped === 1) {
+          setPanOffset({ x: 0, y: 0 });
+        }
+        return clamped;
+      });
+    };
+
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      el.removeEventListener("wheel", handleWheel);
+    };
+  }, []);
+
+  // Global mousemove/mouseup listener for responsive drag panning
+  useEffect(() => {
+    if (!isPanning) return;
+
+    const handleWindowMouseMove = (e: MouseEvent) => {
+      const dx = e.clientX - dragStartRef.current.x;
+      const dy = e.clientY - dragStartRef.current.y;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        hasDraggedRef.current = true;
+      }
+      if (zoomScale > 1) {
+        setPanOffset({
+          x: panStartRef.current.x + dx,
+          y: panStartRef.current.y + dy
+        });
+      }
+    };
+
+    const handleWindowMouseUp = () => {
+      setIsPanning(false);
+    };
+
+    window.addEventListener("mousemove", handleWindowMouseMove);
+    window.addEventListener("mouseup", handleWindowMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleWindowMouseMove);
+      window.removeEventListener("mouseup", handleWindowMouseUp);
+    };
+  }, [isPanning, zoomScale]);
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button !== 0) return; // Only drag with left mouse button
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    panStartRef.current = { ...panOffset };
+    hasDraggedRef.current = false;
+    setIsPanning(true);
+    if (zoomScale > 1) {
+      e.preventDefault();
+    }
+  };
+
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (!hasDraggedRef.current) {
+      setShowMenu(prev => !prev);
+    }
+  };
 
   const themeStyles: Record<Theme, string> = {
     light: "bg-white text-slate-900",
@@ -249,6 +341,11 @@ export function BookReader() {
         y: e.touches[0].clientY,
         time: Date.now()
       };
+      if (zoomScale > 1) {
+        dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        panStartRef.current = { ...panOffset };
+        setIsPanning(true);
+      }
     } else if (e.touches.length === 2) {
       const dist = Math.hypot(
         e.touches[0].clientX - e.touches[1].clientX,
@@ -265,12 +362,27 @@ export function BookReader() {
         e.touches[0].clientY - e.touches[1].clientY
       );
       const delta = dist / initialPinchDistRef.current;
-      setZoomScale(prev => Math.min(Math.max(prev * delta, 1), 5));
+      setZoomScale(prev => {
+        const next = Math.min(Math.max(prev * delta, 1), 5);
+        if (next === 1) {
+          setPanOffset({ x: 0, y: 0 });
+        }
+        return next;
+      });
       initialPinchDistRef.current = dist;
+    } else if (e.touches.length === 1 && isPanning && zoomScale > 1) {
+      const dx = e.touches[0].clientX - dragStartRef.current.x;
+      const dy = e.touches[0].clientY - dragStartRef.current.y;
+      setPanOffset({
+        x: panStartRef.current.x + dx,
+        y: panStartRef.current.y + dy
+      });
+      hasDraggedRef.current = true;
     }
   };
 
   const handleTouchEnd = (e: React.TouchEvent) => {
+    setIsPanning(false);
     if (touchStartRef.current && e.changedTouches.length === 1 && zoomScale === 1) {
       const deltaX = e.changedTouches[0].clientX - touchStartRef.current.x;
       const deltaY = e.changedTouches[0].clientY - touchStartRef.current.y;
@@ -289,10 +401,19 @@ export function BookReader() {
   };
 
   const handleZoom = (delta: number) => {
-    setZoomScale(prev => Math.min(Math.max(prev + delta, 1), 5));
+    setZoomScale(prev => {
+      const next = Math.min(Math.max(prev + delta, 1), 5);
+      if (next === 1) {
+        setPanOffset({ x: 0, y: 0 });
+      }
+      return next;
+    });
   };
 
-  const resetZoom = () => setZoomScale(1);
+  const resetZoom = () => {
+    setZoomScale(1);
+    setPanOffset({ x: 0, y: 0 });
+  };
 
   if (isLoading) {
     return (
@@ -317,18 +438,22 @@ export function BookReader() {
   return (
     <div className={`min-h-screen ${themeStyles[theme]} transition-colors duration-300 relative select-none overflow-hidden font-medium`}>
       <div 
-        onClick={() => setShowMenu(!showMenu)} 
+        ref={containerRef}
+        onMouseDown={handleMouseDown}
+        onMouseUp={handleMouseUp}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className="min-h-screen flex flex-col items-center justify-start px-4 py-20 cursor-pointer"
+        className={`min-h-screen flex flex-col items-center justify-start px-4 py-20 transition-all ${
+          zoomScale > 1 ? (isPanning ? "cursor-grabbing" : "cursor-grab") : "cursor-pointer"
+        }`}
       >
         <div
           className={`w-full ${bookMode ? "max-w-4xl" : "max-w-2xl"} leading-relaxed transition-all ${isTransitioning ? (transitionDirection === "next" ? "page-flip-next" : "page-flip-prev") : "opacity-100 animate-fade-in"}`}
           style={{ 
             fontSize: `${fontSize}px`,
-            transform: `scale(${zoomScale})`,
-            transformOrigin: 'top center'
+            transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomScale})`,
+            transformOrigin: 'center center'
           }}
         >
           {pdfUrl ? (
