@@ -128,7 +128,7 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
           className="flex-shrink-0 w-28 cursor-pointer select-none"
         >
           <div className="bg-white/70 backdrop-blur-xl border border-white/80 rounded-2xl p-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.01)] hover:shadow-[0_12px_30px_rgba(0,0,0,0.03)] hover:-translate-y-0.5 transition-all active:scale-95">
-            <div className="w-full h-36 rounded-xl overflow-hidden mb-2 shadow-sm border border-slate-100/50">{coverContent}</div>
+            <div className="w-full aspect-[2/3] rounded-xl overflow-hidden mb-2 shadow-sm border border-slate-100/50">{coverContent}</div>
             <p className="text-xs font-bold text-[var(--text-main)] line-clamp-2 leading-relaxed">{book.title}</p>
             <div className="flex mt-1">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -250,7 +250,7 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
         {...pressHandlers}
         className="bg-white/70 backdrop-blur-xl border border-white/80 rounded-[2rem] p-3.5 shadow-[0_8px_30px_rgba(0,0,0,0.01)] hover:shadow-[0_12px_30px_rgba(0,0,0,0.03)] hover:-translate-y-0.5 transition-all cursor-pointer select-none"
       >
-        <div className="w-full h-40 rounded-2xl overflow-hidden mb-3.5 shadow-sm border border-slate-100/50">{coverContent}</div>
+        <div className="w-full aspect-[2/3] rounded-2xl overflow-hidden mb-3.5 shadow-sm border border-slate-100/50">{coverContent}</div>
         <h4 className="text-xs font-extrabold text-[var(--text-main)] line-clamp-2 mb-2 leading-relaxed">{book.title}</h4>
         {localProgress && (
           <div className="space-y-1.5 pt-0.5">
