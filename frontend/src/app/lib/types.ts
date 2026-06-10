@@ -107,7 +107,7 @@ export function getCoverGradient(book: Pick<Book, "id" | "coverColor">): string 
 export function getFullUrl(path?: string | null): string | null {
   if (!path) return null;
   // Supabase and other full URLs - return as-is
-  if (path.startsWith("http")) return path;
+  if (path.startsWith("http") || path.startsWith("blob:") || path.startsWith("data:")) return path;
   // Legacy local paths - point to Railway server
   const base = "https://bookzinhos-production.up.railway.app";
   return `${base}${path.startsWith("/") ? "" : "/"}${path}`;

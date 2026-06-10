@@ -107,26 +107,26 @@ export function Home() {
         {/* Cabeçalho */}
         <div className="animate-fade-in flex justify-between items-center px-1 pt-2">
           <div>
-            <h1 className="text-2xl font-black text-[var(--text-main)] leading-tight">Olá, {userName}! 👋</h1>
-            <p className="text-[var(--text-muted)] text-xs font-bold uppercase tracking-wider mt-0.5">Sua estante mágica te espera</p>
+            <h1 className="text-2xl font-extrabold text-[var(--text-main)] tracking-tight">Olá, {userName}! 👋</h1>
+            <p className="text-[var(--text-muted)] text-[10px] font-bold uppercase tracking-widest mt-1">Sua estante mágica te espera</p>
           </div>
           <Link to="/profile">
-            <div className="w-12 h-12 rounded-[1.25rem] bg-gradient-to-br from-[var(--lavender)]/30 to-[var(--blush)]/30 flex items-center justify-center text-2xl shadow-inner hover:scale-105 active:scale-95 transition-all border border-[var(--lavender)]/20">
+            <div className="w-12 h-12 rounded-[1.25rem] bg-gradient-to-br from-[var(--lavender)]/40 to-[var(--blush)]/40 flex items-center justify-center text-2xl shadow-sm hover:scale-105 active:scale-95 transition-all border border-white/80">
               🐼
             </div>
           </Link>
         </div>
 
         {/* Banner Principal */}
-        <div className="relative h-40 rounded-[2rem] overflow-hidden bg-gradient-to-tr from-[var(--lavender)] via-[var(--peach)] to-[var(--blush)] shadow-[0_10px_30px_rgba(243,168,184,0.2)] animate-scale-in border border-white/20">
-          <div className="absolute inset-0 bg-black/5 backdrop-blur-[0.5px]" />
-          <div className="absolute top-6 left-6 z-10 space-y-2">
-            <span className="text-[10px] font-black text-white bg-white/20 uppercase tracking-widest px-3 py-1 rounded-full backdrop-blur-md">
+        <div className="relative h-44 rounded-[2.25rem] overflow-hidden bg-gradient-to-tr from-[var(--lavender)] via-[var(--peach)] to-[var(--blush)] shadow-[0_12px_40px_rgba(244,63,94,0.12)] animate-scale-in border border-white/30">
+          <div className="absolute inset-0 bg-black/[0.02] backdrop-blur-[0.5px]" />
+          <div className="absolute top-8 left-8 z-10 space-y-2.5">
+            <span className="text-[9px] font-extrabold text-[var(--primary)] bg-white/95 uppercase tracking-widest px-3.5 py-1.5 rounded-full shadow-sm">
               Descoberta
             </span>
-            <h2 className="text-xl font-black text-white drop-shadow-sm">Explore Histórias e Mundos ✨</h2>
+            <h2 className="text-2xl font-extrabold text-slate-800 tracking-tight leading-tight">Explore Histórias e<br />Mundos Encantados ✨</h2>
           </div>
-          <div className="absolute bottom-4 right-6 text-7xl opacity-20 animate-float">📖</div>
+          <div className="absolute bottom-4 right-8 text-8xl opacity-15 animate-float select-none pointer-events-none">📖</div>
         </div>
 
         {/* Status Recente */}
@@ -134,38 +134,38 @@ export function Home() {
           {!isEditingStatus ? (
             <div 
               onClick={() => setIsEditingStatus(true)}
-              className="bg-white/60 hover:bg-white/95 backdrop-blur-xl p-4 rounded-[2rem] border border-white/60 shadow-sm hover:shadow-md transition-all cursor-pointer group active:scale-[0.99] relative overflow-hidden"
+              className="bg-white/70 hover:bg-white/90 backdrop-blur-xl p-4.5 rounded-[2rem] border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_30px_rgba(0,0,0,0.04)] transition-all cursor-pointer group active:scale-[0.99] relative overflow-hidden"
             >
               <div className="flex items-center gap-4 relative z-10">
-                <div className="w-12 h-12 bg-gradient-to-br from-[var(--lavender)]/20 to-[var(--blush)]/20 rounded-[1.2rem] flex items-center justify-center text-3xl shadow-inner group-hover:scale-105 transition-transform duration-300">
+                <div className="w-12 h-12 bg-gradient-to-br from-[var(--lavender)]/30 to-[var(--blush)]/30 rounded-[1.2rem] flex items-center justify-center text-3xl shadow-inner group-hover:scale-105 transition-transform duration-300">
                   {status?.emote || "🐼"}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-[var(--text-main)] font-bold truncate">
+                  <p className="text-xs text-[var(--text-main)] font-semibold truncate leading-relaxed">
                     "{status?.content}"
                   </p>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-[9px] font-black text-[var(--primary)] uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="text-[9px] font-extrabold text-[var(--primary)] uppercase tracking-widest">
                       {status?.username}
                     </span>
-                    <span className="text-[9px] text-[var(--text-muted)] italic">
+                    <span className="text-[9px] text-[var(--text-muted)] font-medium">
                       • {status ? new Date(status.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
                     </span>
                   </div>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity border border-[var(--lavender)]/10">
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity border border-slate-100">
                   <Edit3 className="w-3.5 h-3.5 text-[var(--primary)]" />
                 </div>
               </div>
             </div>
           ) : (
-            <div className="bg-white p-5 rounded-[2rem] border-2 border-[var(--lavender)]/20 shadow-xl space-y-3.5 animate-in zoom-in-95 duration-200">
-              <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1">
+            <div className="bg-white p-5 rounded-[2.25rem] border border-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.08)] space-y-4 animate-in zoom-in-95 duration-200">
+              <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
                 {EMOTES.map(e => (
                   <button 
                     key={e}
                     onClick={() => setStatusEmote(e)}
-                    className={`text-xl p-1.5 rounded-lg transition-all ${statusEmote === e ? "bg-[var(--lavender)]/20 scale-110" : "hover:bg-gray-50"}`}
+                    className={`text-xl p-2 rounded-xl transition-all cursor-pointer ${statusEmote === e ? "bg-[var(--primary)]/10 scale-110" : "hover:bg-slate-50"}`}
                   >
                     {e}
                   </button>
@@ -176,22 +176,22 @@ export function Home() {
                 onChange={(e) => setStatusInput(e.target.value)}
                 maxLength={100}
                 placeholder="Como você está se sentindo? ✨"
-                className="w-full bg-[var(--bg-pastel)] p-3.5 rounded-xl border-none outline-none text-xs text-[var(--text-main)] h-20 resize-none font-bold placeholder:text-[var(--text-muted)]"
+                className="w-full bg-slate-50 p-4 rounded-2xl border-none outline-none text-xs text-[var(--text-main)] h-20 resize-none font-semibold placeholder:text-[var(--text-muted)]"
               />
               <div className="flex gap-2">
                 <button 
                   onClick={() => setIsEditingStatus(false)}
-                  className="flex-1 py-2.5 rounded-xl bg-gray-50 font-black text-[var(--text-muted)] text-xs uppercase tracking-wider"
+                  className="flex-1 py-3 rounded-xl bg-slate-50 font-bold text-[var(--text-muted)] text-[10px] uppercase tracking-widest cursor-pointer hover:bg-slate-100 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button 
                   onClick={handleUpdateStatus}
                   disabled={!statusInput.trim()}
-                  className={`flex-1 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-md flex items-center justify-center gap-1.5 ${
+                  className={`flex-1 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer ${
                     !statusInput.trim()
-                      ? "bg-gray-100 text-gray-300 cursor-not-allowed shadow-none"
-                      : "bg-[var(--primary)] text-white shadow-[var(--primary)]/20"
+                      ? "bg-slate-100 text-slate-300 cursor-not-allowed shadow-none"
+                      : "bg-[var(--primary)] text-white shadow-[var(--primary)]/10 hover:shadow-[var(--primary)]/20 active:scale-[0.98]"
                   }`}
                 >
                   <Send className="w-3.5 h-3.5" /> Enviar
@@ -204,13 +204,13 @@ export function Home() {
         {/* Busca e Categorias */}
         <div className="space-y-4 animate-fade-in">
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--primary)] opacity-70" />
+            <Search className="absolute left-4.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--primary)] opacity-70" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar livros, autores..."
-              className="w-full pl-11 pr-4 py-3 bg-white/70 backdrop-blur-sm rounded-[1.5rem] outline-none border border-white/60 focus:border-[var(--primary)]/40 focus:ring-4 focus:ring-[var(--primary)]/5 transition-all shadow-sm text-xs text-[var(--text-main)] font-bold placeholder:text-[var(--text-muted)]"
+              className="w-full pl-12 pr-4.5 py-3.5 bg-white/70 backdrop-blur-xl rounded-[1.75rem] outline-none border border-white/80 focus:border-[var(--primary)]/30 focus:ring-[3px] focus:ring-[var(--primary)]/5 transition-all shadow-[0_8px_30px_rgba(0,0,0,0.01)] text-xs text-[var(--text-main)] font-semibold placeholder:text-[var(--text-muted)]"
             />
           </div>
           
@@ -219,10 +219,10 @@ export function Home() {
               <button
                 key={cat}
                 onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
-                className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-[10px] font-black transition-all border uppercase tracking-wider active:scale-95 ${
+                className={`flex-shrink-0 px-4 py-2 rounded-full text-[10px] font-extrabold transition-all border uppercase tracking-widest active:scale-95 cursor-pointer ${
                   activeCategory === cat || (cat === "Todos" && !activeCategory)
                     ? "bg-gradient-to-r from-[var(--lavender)] to-[var(--primary)] text-white shadow-sm border-transparent"
-                    : "bg-white/60 text-[var(--text-muted)] border-white/80 hover:bg-white"
+                    : "bg-white/70 text-[var(--text-muted)] border-white/90 hover:bg-white hover:border-slate-200"
                 }`}
               >
                 {cat}
@@ -234,12 +234,12 @@ export function Home() {
         {/* Listagem de Resultados ou Home Padrão */}
         {searchResults ? (
           <section className="animate-fade-in space-y-4">
-            <h2 className="text-sm font-black text-[var(--text-main)] uppercase tracking-widest flex items-center gap-2 px-1">
+            <h2 className="text-xs font-extrabold text-[var(--text-main)] uppercase tracking-widest flex items-center gap-2 px-1">
               <Search className="w-4 h-4 text-[var(--primary)]" />
               Resultados da Busca
             </h2>
             {searchResults.length === 0 ? (
-              <div className="text-center py-10 bg-white/40 rounded-3xl border border-white/50">
+              <div className="text-center py-12 bg-white/50 rounded-[2rem] border border-white/80">
                 <p className="text-xs text-[var(--text-muted)] font-bold">Nenhum livro mágico encontrado. 🐾</p>
               </div>
             ) : (
@@ -258,12 +258,12 @@ export function Home() {
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-1.5">
                     <BookOpen className="w-4 h-4 text-[var(--primary)]" />
-                    <h2 className="text-xs font-black text-[var(--text-main)] uppercase tracking-widest">Leitura Atual</h2>
+                    <h2 className="text-[10px] font-extrabold text-[var(--text-main)] uppercase tracking-widest">Leitura Atual</h2>
                   </div>
                 </div>
                 <Link to={`/read/${currentBook.id}`}>
-                  <div className="bg-white/70 hover:bg-white/90 backdrop-blur-xl rounded-[2rem] p-4 shadow-sm border border-white/80 flex gap-4 group relative overflow-hidden transition-all active:scale-[0.99]">
-                    <div className="flex-shrink-0 w-20 h-28 rounded-xl overflow-hidden shadow-md group-hover:scale-102 transition-transform border border-white/50">
+                  <div className="bg-white/75 hover:bg-white/90 backdrop-blur-xl rounded-[2rem] p-4.5 shadow-[0_8px_30px_rgba(0,0,0,0.02)] border border-white/80 flex gap-5 group relative overflow-hidden transition-all active:scale-[0.99]">
+                    <div className="flex-shrink-0 w-20 h-28 rounded-2xl overflow-hidden shadow-md group-hover:scale-[1.02] transition-transform border border-white/50">
                       {currentBook.coverImagePath ? (
                         <img src={getFullUrl(currentBook.coverImagePath)!} className="w-full h-full object-cover" />
                       ) : (
@@ -274,18 +274,18 @@ export function Home() {
                     </div>
                     <div className="flex-1 py-1 flex flex-col justify-between min-w-0">
                       <div>
-                        <h3 className="font-black text-[var(--text-main)] text-sm line-clamp-1 mb-0.5">{currentBook.title}</h3>
-                        <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wider">{currentBook.author}</p>
+                        <h3 className="font-extrabold text-[var(--text-main)] text-sm line-clamp-1 mb-1">{currentBook.title}</h3>
+                        <p className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-wider">{currentBook.author}</p>
                       </div>
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between items-center text-[9px] font-black">
-                          <span className="text-[var(--primary)] bg-[var(--primary)]/5 px-2 py-0.5 rounded-md">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center text-[9px] font-extrabold">
+                          <span className="text-[var(--primary)] bg-[var(--primary)]/10 px-2 py-0.5 rounded-md">
                             {currentlyReading.progress}% lido
                           </span>
                         </div>
-                        <div className="w-full bg-[var(--bg-pastel)] h-2 rounded-full overflow-hidden shadow-inner">
+                        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden shadow-inner">
                           <div 
-                            className="bg-gradient-to-r from-[var(--primary)] to-[var(--lavender)] h-full transition-all duration-500" 
+                            className="bg-gradient-to-r from-[var(--primary)] to-[var(--lavender)] h-full transition-all duration-500 rounded-full" 
                             style={{ width: `${currentlyReading.progress}%` }} 
                           />
                         </div>
@@ -297,10 +297,10 @@ export function Home() {
             )}
 
             {/* Livros Recomendados */}
-            <section className="animate-fade-in space-y-3">
+            <section className="animate-fade-in space-y-4">
               <div className="flex items-center gap-1.5 px-1">
                 <Sparkles className="w-4 h-4 text-[var(--primary)]" />
-                <h2 className="text-xs font-black text-[var(--text-main)] uppercase tracking-widest">Recomendados</h2>
+                <h2 className="text-[10px] font-extrabold text-[var(--text-main)] uppercase tracking-widest">Recomendados</h2>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 {recommended.map((book) => (
@@ -310,10 +310,10 @@ export function Home() {
             </section>
 
             {/* Adicionados Recentemente */}
-            <section className="animate-fade-in space-y-3">
+            <section className="animate-fade-in space-y-4">
               <div className="flex items-center gap-1.5 px-1">
                 <Clock className="w-4 h-4 text-[var(--primary)]" />
-                <h2 className="text-xs font-black text-[var(--text-main)] uppercase tracking-widest">Recentes</h2>
+                <h2 className="text-[10px] font-extrabold text-[var(--text-main)] uppercase tracking-widest">Recentes</h2>
               </div>
               <div className="flex gap-4 overflow-x-auto no-scrollbar pb-3 px-1">
                 {recent.map((book) => (
@@ -326,10 +326,10 @@ export function Home() {
 
             {/* Livros do Autor em Destaque */}
             {authorBooks.length > 0 && (
-              <section className="animate-fade-in space-y-3">
+              <section className="animate-fade-in space-y-4">
                 <div className="flex items-center gap-1.5 px-1">
                   <UserCheck className="w-4 h-4 text-[var(--primary)]" />
-                  <h2 className="text-xs font-black text-[var(--text-main)] uppercase tracking-widest">Especial {featuredAuthor}</h2>
+                  <h2 className="text-[10px] font-extrabold text-[var(--text-main)] uppercase tracking-widest">Especial {featuredAuthor}</h2>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   {authorBooks.map((book) => (

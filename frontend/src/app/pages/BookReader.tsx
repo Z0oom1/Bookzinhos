@@ -4,6 +4,8 @@ import { ArrowLeft, Settings, ChevronLeft, ChevronRight, PenLine, PauseCircle, P
 import { fetchBook, fetchProgress, saveProgress } from "../lib/api";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import type { Book, ReadingProgress } from "../lib/types";
+// @ts-ignore
+import pdfjsWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
 
 type Theme = "light" | "cream" | "sepia";
 
@@ -14,6 +16,7 @@ export function BookReader() {
   const [currentPage, setCurrentPage] = useState(0);
   const [showMenu, setShowMenu] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState(18);
   const [theme, setTheme] = useState<Theme>("cream");
   const [isTransitioning, setIsTransitioning] = useState(false);
@@ -53,12 +56,23 @@ export function BookReader() {
     const loadPdf = async () => {
       try {
         const pdfjs = await import("pdfjs-dist");
-        pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.mjs", import.meta.url).toString();
-        const doc = await pdfjs.getDocument(pdfUrl).promise;
+        pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+        
+        let doc;
+        if (pdfUrl.startsWith("blob:") || pdfUrl.startsWith("data:")) {
+          const response = await fetch(pdfUrl);
+          const arrayBuffer = await response.arrayBuffer();
+          doc = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+        } else {
+          doc = await pdfjs.getDocument(pdfUrl).promise;
+        }
+        
         setPdfDoc(doc);
         setPdfTotalPages(doc.numPages);
       } catch (err) {
         console.error("Failed to load PDF", err);
+        setErrorMessage("Erro ao carregar o PDF. Verifique se o arquivo está disponível.");
+        setPdfDoc(null);
       }
     };
     loadPdf();
@@ -100,14 +114,14 @@ export function BookReader() {
 
   useEffect(() => {
     if (!showMenu) return;
-    const t = setTimeout(() => setShowMenu(false), 5000); // Increased timeout
+    const t = setTimeout(() => setShowMenu(false), 5000);
     return () => clearTimeout(t);
   }, [showMenu]);
 
   const themeStyles: Record<Theme, string> = {
     light: "bg-white text-slate-900",
     cream: "bg-[#FFF9F0] text-[#433422]",
-    sepia: "bg-[#704214] text-[#F5E6D3]",
+    sepia: "bg-[#2b1f15] text-[#F5E6D3]",
   };
 
   const updateProgress = async (pageNum: number, forceStatus?: ReadingProgress["status"]) => {
@@ -120,7 +134,9 @@ export function BookReader() {
       currentPage: pageNum,
       totalPages: total,
       progress: Math.min(Math.round(p), 100),
-      status
+      status,
+      startedAt: Date.now(), // Fallback required properties
+      lastReadAt: Date.now()
     });
     
     if (status === "finalizado") setIsFinished(true);
@@ -166,7 +182,6 @@ export function BookReader() {
     await updateProgress(currentPage, nextStatus);
     setIsFinished(!isFinished);
     if (!isFinished) {
-      // If marking as finished, go to last page
       setCurrentPage(total - 1);
     }
   };
@@ -205,7 +220,6 @@ export function BookReader() {
       const deltaY = e.changedTouches[0].clientY - touchStartRef.current.y;
       const deltaTime = Date.now() - touchStartRef.current.time;
 
-      // Swipe detected: distance > 50px, time < 300ms, horizontal move > vertical move
       if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) && deltaTime < 300) {
         if (deltaX < 0) {
           goNext();
@@ -237,15 +251,15 @@ export function BookReader() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center space-y-4 p-8">
           <div className="text-4xl">📚</div>
-          <h2 className="text-foreground">Livro não encontrado</h2>
-          <button onClick={() => navigate(-1)} className="px-6 py-3 bg-primary text-white rounded-[16px] active:scale-95 transition-all">Voltar</button>
+          <h2 className="text-foreground font-extrabold text-lg">Livro não encontrado</h2>
+          <button onClick={() => navigate(-1)} className="px-6 py-3 bg-[var(--primary)] text-white rounded-2xl active:scale-95 transition-all cursor-pointer font-extrabold text-xs uppercase tracking-widest">Voltar</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen ${themeStyles[theme]} transition-colors relative select-none overflow-hidden`}>
+    <div className={`min-h-screen ${themeStyles[theme]} transition-colors duration-300 relative select-none overflow-hidden font-medium`}>
       <div 
         onClick={() => setShowMenu(!showMenu)} 
         onTouchStart={handleTouchStart}
@@ -254,7 +268,7 @@ export function BookReader() {
         className="min-h-screen flex flex-col items-center justify-start px-4 py-20 cursor-pointer"
       >
         <div
-          className={`w-full max-w-2xl leading-relaxed transition-all ${isTransitioning ? "opacity-0 scale-95" : "opacity-100 animate-fade-in"}`}
+          className={`w-full max-w-2xl leading-relaxed transition-all duration-300 ${isTransitioning ? "opacity-0 scale-95" : "opacity-100 animate-fade-in"}`}
           style={{ 
             fontSize: `${fontSize}px`,
             transform: `scale(${zoomScale})`,
@@ -264,78 +278,82 @@ export function BookReader() {
           {pdfUrl ? (
             <div className="flex justify-center w-full">
               {!pdfDoc ? (
-                 <div className="text-center mt-20 animate-pulse-soft text-[var(--text-muted)]">Carregando PDF... 🐾</div>
+                errorMessage ? (
+                  <div className="text-center mt-20 text-red-500 font-bold text-sm">{errorMessage}</div>
+                ) : (
+                  <div className="text-center mt-20 animate-pulse-soft text-xs font-extrabold uppercase tracking-widest">Carregando PDF... 🐾</div>
+                )
               ) : (
-                 <canvas ref={canvasRef} className="max-w-full shadow-lg rounded-[12px]" />
+                <canvas ref={canvasRef} className="max-w-full shadow-lg rounded-2xl border border-slate-100/50" />
               )}
             </div>
           ) : (
-            <div className="whitespace-pre-wrap">{pages[currentPage]}</div>
+            <div className="whitespace-pre-wrap leading-loose px-2">{pages[currentPage]}</div>
           )}
         </div>
       </div>
 
       {/* Top Menu */}
-      <div className={`fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-b border-border/50 transition-all shadow-lg z-40 ${showMenu ? "translate-y-0" : "-translate-y-full"}`}>
-        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
-          <button onClick={() => navigate(-1)} className="p-2 hover:bg-[var(--peach)]/20 rounded-full transition-all active:scale-95">
-            <ArrowLeft className="w-5 h-5 text-foreground" />
+      <div className={`fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-b border-slate-100 transition-all duration-350 shadow-md z-40 ${showMenu ? "translate-y-0" : "-translate-y-full"}`}>
+        <div className="max-w-2xl mx-auto px-4 py-3.5 flex items-center justify-between">
+          <button onClick={() => navigate(-1)} className="p-2.5 hover:bg-slate-100 rounded-full transition-all active:scale-95 cursor-pointer">
+            <ArrowLeft className="w-5 h-5 text-[var(--text-main)]" />
           </button>
-          <h3 className="text-foreground truncate px-2 font-black text-sm">{book.title}</h3>
-          <div className="flex items-center gap-1">
-            <button onClick={() => handleZoom(0.2)} className="p-2 hover:bg-[var(--peach)]/20 rounded-full transition-all active:scale-95">
-              <ZoomIn className="w-4 h-4 text-foreground" />
+          <h3 className="text-[var(--text-main)] truncate px-4 font-extrabold text-sm">{book?.title}</h3>
+          <div className="flex items-center gap-1.5">
+            <button onClick={() => handleZoom(0.2)} className="p-2 hover:bg-slate-100 rounded-full transition-all active:scale-95 cursor-pointer">
+              <ZoomIn className="w-4 h-4 text-[var(--text-main)]" />
             </button>
-            <button onClick={() => handleZoom(-0.2)} className="p-2 hover:bg-[var(--peach)]/20 rounded-full transition-all active:scale-95">
-              <ZoomOut className="w-4 h-4 text-foreground" />
+            <button onClick={() => handleZoom(-0.2)} className="p-2 hover:bg-slate-100 rounded-full transition-all active:scale-95 cursor-pointer">
+              <ZoomOut className="w-4 h-4 text-[var(--text-main)]" />
             </button>
-            <button onClick={resetZoom} className="p-2 hover:bg-[var(--peach)]/20 rounded-full transition-all active:scale-95 flex items-center gap-1 text-[10px] font-bold text-foreground">
+            <button onClick={resetZoom} className="p-2 hover:bg-slate-100 rounded-full transition-all active:scale-95 flex items-center gap-1 text-[9px] font-extrabold text-[var(--text-main)] uppercase tracking-widest cursor-pointer">
               <Maximize2 className="w-4 h-4" /> Normal
             </button>
-            <button onClick={() => setShowSettings(!showSettings)} className="p-2 hover:bg-[var(--lavender)]/20 rounded-full transition-all active:scale-95">
-              <Settings className="w-5 h-5 text-foreground" />
+            <button onClick={() => setShowSettings(!showSettings)} className="p-2 hover:bg-slate-100 rounded-full transition-all active:scale-95 cursor-pointer">
+              <Settings className="w-5 h-5 text-[var(--text-main)]" />
             </button>
           </div>
         </div>
       </div>
 
       {/* Bottom Menu */}
-      <div className={`fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-border/50 transition-all shadow-2xl z-40 px-4 pb-8 pt-4 ${showMenu ? "translate-y-0" : "translate-y-full"}`}>
+      <div className={`fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-100 transition-all duration-350 shadow-[0_-10px_45px_rgba(0,0,0,0.06)] z-40 px-4 pb-8 pt-4 ${showMenu ? "translate-y-0" : "translate-y-full"}`}>
         <div className="max-w-2xl mx-auto space-y-4">
           <div className="flex items-center justify-between gap-4">
-            <button onClick={goPrev} disabled={currentPage === 0} className="p-2 hover:bg-muted rounded-full transition-all active:scale-95 disabled:opacity-30">
-              <ChevronLeft className="w-6 h-6 text-foreground" />
+            <button onClick={goPrev} disabled={currentPage === 0} className="p-2.5 hover:bg-slate-50 border border-transparent hover:border-slate-100 rounded-full transition-all active:scale-90 disabled:opacity-30 cursor-pointer">
+              <ChevronLeft className="w-5 h-5 text-[var(--text-main)]" />
             </button>
             
             <form onSubmit={handleJumpPage} className="flex-1 flex items-center justify-center gap-2">
-               <span className="text-xs font-bold text-muted-foreground">Pg.</span>
+               <span className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest">Pg.</span>
                <input 
                  type="number" 
                  value={jumpPageInput}
                  onChange={e => setJumpPageInput(e.target.value)}
                  placeholder={`${currentPage + 1}`}
-                 className="w-12 bg-gray-100 rounded-lg py-1 px-2 text-center text-sm font-black outline-none focus:ring-2 focus:ring-[var(--lavender)]/50"
+                 className="w-14 bg-slate-50 border border-slate-100 rounded-xl py-1 px-2.5 text-center text-xs font-extrabold outline-none focus:border-[var(--primary)]/30 focus:ring-4 focus:ring-[var(--primary)]/5 transition-all"
                />
-               <span className="text-xs font-bold text-muted-foreground">de {total}</span>
+               <span className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest">de {total}</span>
             </form>
 
-            <button onClick={goNext} disabled={currentPage >= total - 1} className="p-2 hover:bg-muted rounded-full transition-all active:scale-95 disabled:opacity-30">
-              <ChevronRight className="w-6 h-6 text-foreground" />
+            <button onClick={goNext} disabled={currentPage >= total - 1} className="p-2.5 hover:bg-slate-50 border border-transparent hover:border-slate-100 rounded-full transition-all active:scale-90 disabled:opacity-30 cursor-pointer">
+              <ChevronRight className="w-5 h-5 text-[var(--text-main)]" />
             </button>
           </div>
 
-          <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
-            <div className="bg-gradient-to-r from-[var(--peach)] via-[var(--primary)] to-[var(--blush)] h-1.5 rounded-full transition-all" style={{ width: `${((currentPage + 1) / total) * 100}%` }} />
+          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden shadow-inner">
+            <div className="bg-gradient-to-r from-[var(--peach)] via-[var(--primary)] to-[var(--lavender)] h-1.5 rounded-full transition-all" style={{ width: `${((currentPage + 1) / total) * 100}%` }} />
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <button 
               onClick={() => {
                 const next = !isPaused;
                 setIsPaused(next);
                 updateProgress(currentPage, next ? "pausado" : "lendo");
               }} 
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-[1.2rem] transition-all active:scale-95 font-bold text-xs ${isPaused ? "bg-[var(--lavender)] text-white shadow-lg shadow-[var(--lavender)]/20" : "bg-white border-2 border-gray-100 text-[var(--text-main)]"}`}
+              className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl transition-all active:scale-95 font-extrabold text-[10px] uppercase tracking-widest cursor-pointer ${isPaused ? "bg-[var(--primary)] text-white shadow-md shadow-[var(--primary)]/10" : "bg-white border border-slate-200 text-[var(--text-main)] hover:bg-slate-50 shadow-sm"}`}
             >
               {isPaused ? <PlayCircle className="w-4 h-4" /> : <PauseCircle className="w-4 h-4" />}
               {isPaused ? "Retomar" : "Pausar"}
@@ -343,14 +361,14 @@ export function BookReader() {
             
             <button 
               onClick={toggleFinished}
-              className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-[1.2rem] transition-all active:scale-95 font-bold text-xs ${isFinished ? "bg-[var(--mint)] text-white shadow-lg shadow-[var(--mint)]/20" : "bg-white border-2 border-gray-100 text-[var(--text-main)]"}`}
+              className={`flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl transition-all active:scale-95 font-extrabold text-[10px] uppercase tracking-widest cursor-pointer ${isFinished ? "bg-[var(--primary)]/10 border-transparent text-[var(--primary)] shadow-sm" : "bg-white border border-slate-200 text-[var(--text-main)] hover:bg-slate-50 shadow-sm"}`}
             >
               <CheckCircle className={`w-4 h-4 ${isFinished ? "animate-bounce" : ""}`} />
               {isFinished ? "Lido! 🐼" : "Marcar Lido"}
             </button>
 
-            <button onClick={() => navigate("/notes")} className="p-3 bg-[var(--peach)]/20 text-[var(--text-main)] rounded-[1.2rem] active:scale-95 transition-all">
-              <PenLine className="w-5 h-5" />
+            <button onClick={() => navigate(`/notes?bookId=${id}`)} className="p-3.5 bg-slate-50 border border-slate-150 text-[var(--text-main)] rounded-xl active:scale-90 transition-all hover:bg-slate-100 cursor-pointer shadow-sm">
+              <PenLine className="w-4.5 h-4.5" />
             </button>
           </div>
         </div>
@@ -358,33 +376,33 @@ export function BookReader() {
 
       {/* Settings Panel */}
       {showSettings && (
-        <div className="fixed inset-0 bg-black/40 flex items-end z-50 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setShowSettings(false)}>
-          <div className="w-full bg-white rounded-t-[3rem] p-8 space-y-8 shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
-            <div className="w-12 h-1.5 bg-gray-100 rounded-full mx-auto" />
-            <h3 className="text-[var(--text-main)] font-black text-xl text-center">Ajustes de Leitura 🐾</h3>
+        <div className="fixed inset-0 bg-black/30 flex items-end z-50 backdrop-blur-sm animate-fade-in" onClick={() => setShowSettings(false)}>
+          <div className="w-full bg-white rounded-t-[2.5rem] p-8 space-y-8 shadow-2xl animate-slide-up border border-slate-100" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto" />
+            <h3 className="text-[var(--text-main)] font-extrabold text-base text-center uppercase tracking-widest">Ajustes de Leitura 🐾</h3>
             
             {!pdfUrl && (
               <div className="space-y-4">
                 <div className="flex justify-between items-center px-1">
-                  <label className="text-sm font-bold text-[var(--text-muted)]">Tamanho da Letra</label>
-                  <span className="text-xs font-black bg-[var(--lavender)]/10 text-[var(--lavender)] px-2 py-1 rounded-lg">{fontSize}px</span>
+                  <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest">Tamanho da Letra</label>
+                  <span className="text-[10px] font-extrabold bg-[var(--primary)]/10 text-[var(--primary)] px-2.5 py-1 rounded-lg uppercase tracking-widest">{fontSize}px</span>
                 </div>
-                <div className="flex items-center gap-4 bg-[var(--bg-pastel)] p-4 rounded-3xl">
-                  <span className="text-sm font-bold opacity-50">A</span>
-                  <input type="range" min="14" max="32" value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="flex-1 accent-[var(--lavender)]" />
-                  <span className="text-2xl font-bold">A</span>
+                <div className="flex items-center gap-4 bg-slate-50 p-4.5 rounded-2xl border border-slate-100 shadow-inner">
+                  <span className="text-xs font-bold opacity-50 select-none">A</span>
+                  <input type="range" min="14" max="32" value={fontSize} onChange={(e) => setFontSize(Number(e.target.value))} className="flex-1 accent-[var(--primary)]" />
+                  <span className="text-xl font-bold select-none">A</span>
                 </div>
               </div>
             )}
             
             <div className="space-y-4">
-              <label className="text-sm font-bold text-[var(--text-muted)] px-1">Tema Visual</label>
+              <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest px-1">Tema Visual</label>
               <div className="grid grid-cols-3 gap-3">
                 {(["light", "cream", "sepia"] as Theme[]).map((t) => (
                   <button 
                     key={t} 
                     onClick={() => setTheme(t)} 
-                    className={`py-4 rounded-[1.5rem] capitalize transition-all active:scale-95 font-bold text-xs border-2 ${theme === t ? "border-[var(--lavender)] bg-[var(--lavender)]/10 text-[var(--lavender)]" : "border-gray-50 bg-gray-50 text-gray-400"}`}
+                    className={`py-4 rounded-xl capitalize transition-all active:scale-95 font-extrabold text-[10px] uppercase tracking-widest border cursor-pointer ${theme === t ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)] shadow-sm" : "border-slate-200 bg-slate-50 text-slate-400"}`}
                   >
                     {t === "light" ? "Claro" : t === "cream" ? "Creme" : "Sépia"}
                   </button>
@@ -392,7 +410,7 @@ export function BookReader() {
               </div>
             </div>
             
-            <button onClick={() => setShowSettings(false)} className="w-full py-4 bg-[var(--lavender)] text-white font-bold rounded-[1.5rem] shadow-lg shadow-[var(--lavender)]/20 active:scale-95 transition-all">
+            <button onClick={() => setShowSettings(false)} className="w-full py-4 bg-[var(--primary)] text-white font-extrabold text-[10px] uppercase tracking-widest rounded-xl shadow-md shadow-[var(--primary)]/15 active:scale-95 transition-all cursor-pointer">
               Pronto ✨
             </button>
           </div>

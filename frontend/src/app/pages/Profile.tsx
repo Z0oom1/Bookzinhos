@@ -29,7 +29,7 @@ export function Profile() {
     setOfflineMode(next);
     
     const toastElement = document.createElement("div");
-    toastElement.className = "fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#333] text-white text-xs font-black px-6 py-3.5 rounded-[1.2rem] shadow-xl z-[150] animate-bounce-in flex items-center gap-2";
+    toastElement.className = "fixed bottom-24 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs font-bold px-6 py-3.5 rounded-xl shadow-xl z-[150] animate-bounce-in flex items-center gap-2 border border-slate-700";
     toastElement.innerHTML = next 
       ? "<span>🐼 Ativando Modo Offline...</span>"
       : "<span>🌐 Conectando ao Servidor...</span>";
@@ -98,8 +98,6 @@ export function Profile() {
   };
 
   const handleSaveProfile = async (name: string, bio: string, avatar: string) => {
-    // Note: name shouldn't actually change if it's the PK in the DB, 
-    // but we can update bio and avatar.
     try {
       await updateProfile(bio, avatar, shelfBookIds);
       setUserName(name);
@@ -157,39 +155,35 @@ export function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg-pastel)] pb-20 relative overflow-hidden">
-      {/* Decorative Background Elements */}
-      <div className="absolute top-0 left-0 w-full h-72 bg-gradient-to-b from-[var(--blush)]/30 via-[var(--lavender)]/20 to-transparent pointer-events-none" />
-      <div className="absolute top-24 right-8 text-4xl opacity-30 animate-float" style={{ animationDelay: "0s" }}>✨</div>
-      <div className="absolute top-48 left-8 text-3xl opacity-30 animate-float" style={{ animationDelay: "1.5s" }}>💕</div>
-      <div className="absolute top-12 left-1/2 text-2xl opacity-20 animate-float" style={{ animationDelay: "3s" }}>🐼</div>
-
+    <div className="min-h-screen bg-transparent pb-32 relative overflow-hidden">
+      
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-10 relative z-10">
+        
         {/* Header */}
-        <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border border-white/60 text-center animate-scale-in relative mt-12">
+        <div className="bg-white/70 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-[0_12px_40px_rgba(0,0,0,0.02)] border border-white/80 text-center animate-scale-in relative mt-12">
           <button 
             onClick={() => setIsEditingProfile(true)}
-            className="absolute right-4 top-4 p-3 bg-[var(--lavender)]/10 text-[var(--lavender)] rounded-2xl shadow-sm hover:shadow-md hover:bg-[var(--lavender)]/20 hover:-translate-y-1 transition-all"
+            className="absolute right-4.5 top-4.5 p-3 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-2xl hover:-translate-y-0.5 active:scale-95 transition-all border border-slate-100 cursor-pointer shadow-sm"
             title="Editar Perfil"
           >
-            <Pencil className="w-5 h-5" />
+            <Pencil className="w-4 h-4" />
           </button>
           
           <div className="relative inline-block mb-4 -mt-20">
-            <div className="absolute inset-0 bg-gradient-to-br from-[var(--lavender)] to-[var(--blush)] rounded-[2.5rem] blur-xl opacity-50 animate-pulse-soft" />
-            <div className="w-32 h-32 relative rounded-[2.5rem] bg-gradient-to-br from-[var(--blush)] via-[var(--peach)] to-[var(--lavender)] mx-auto flex items-center justify-center text-6xl shadow-xl border-4 border-white transform hover:rotate-3 hover:scale-105 transition-all duration-300">
+            <div className="absolute inset-0 bg-gradient-to-br from-[var(--lavender)] to-[var(--blush)] rounded-[2.5rem] blur-xl opacity-40 animate-pulse-soft" />
+            <div className="w-32 h-32 relative rounded-[2.25rem] bg-gradient-to-br from-[var(--blush)] via-[var(--peach)] to-[var(--lavender)] mx-auto flex items-center justify-center text-6xl shadow-md border-4 border-white select-none">
               {userAvatar}
             </div>
             <div
-              className="absolute -bottom-2 -right-2 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg border-2 border-[var(--bg-pastel)] animate-scale-in"
-              style={{ animationDelay: "0.3s" }}
+              className="absolute -bottom-2 -right-2 w-9 h-9 bg-white rounded-full flex items-center justify-center shadow-md border border-slate-100 select-none animate-scale-in"
+              style={{ animationDelay: "0.2s" }}
             >
-              <span className="text-xl">✨</span>
+              <span className="text-lg">✨</span>
             </div>
           </div>
           
-          <h1 className="text-3xl font-black text-[var(--text-main)] mb-2">{userName}</h1>
-          <p className="text-[15px] text-[var(--text-muted)] italic px-4">
+          <h1 className="text-2xl font-extrabold text-[var(--text-main)] mb-2 tracking-tight">{userName}</h1>
+          <p className="text-xs text-[var(--text-muted)] font-medium italic px-6 leading-relaxed">
             "{userBio}"
           </p>
         </div>
@@ -199,31 +193,31 @@ export function Profile() {
           {statCards.map(({ icon: Icon, label, value }, idx) => (
             <div
               key={label}
-              className="bg-white/80 backdrop-blur-md border border-[var(--lavender)]/20 rounded-[2rem] p-4 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all text-center flex flex-col items-center justify-center gap-2 animate-scale-in group"
-              style={{ animationDelay: `${0.2 + idx * 0.1}s` }}
+              className="bg-white/70 backdrop-blur-xl border border-white/80 rounded-[2rem] p-4 shadow-[0_8px_30px_rgba(0,0,0,0.01)] hover:shadow-[0_12px_30px_rgba(0,0,0,0.03)] hover:-translate-y-0.5 transition-all text-center flex flex-col items-center justify-center gap-2 animate-scale-in group"
+              style={{ animationDelay: `${0.1 + idx * 0.05}s` }}
             >
-              <div className="w-12 h-12 bg-gradient-to-br from-[var(--blush)]/20 to-[var(--lavender)]/20 rounded-[1rem] flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Icon className="w-6 h-6 text-[var(--lavender)]" />
+              <div className="w-12 h-12 bg-gradient-to-br from-[var(--blush)]/20 to-[var(--lavender)]/20 rounded-[1.1rem] flex items-center justify-center group-hover:scale-105 transition-transform">
+                <Icon className="w-5 h-5 text-[var(--primary)]" />
               </div>
               <div>
-                <div className="text-2xl font-black text-[var(--text-main)] leading-none mb-1">
+                <div className="text-xl font-extrabold text-[var(--text-main)] leading-none mb-1">
                   {value}
                 </div>
-                <div className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">{label}</div>
+                <div className="text-[9px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest">{label}</div>
               </div>
             </div>
           ))}
         </div>
 
         {/* Bookshelf */}
-        <div className="bg-white/60 backdrop-blur-md rounded-[2.5rem] p-6 border border-white/50 shadow-sm animate-fade-in" style={{ animationDelay: "0.4s" }}>
+        <div className="bg-white/70 backdrop-blur-xl rounded-[2.25rem] p-6 border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.02)] animate-fade-in" style={{ animationDelay: "0.2s" }}>
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-[var(--text-main)] font-black text-xl flex items-center gap-2">
-              <BookOpen className="w-6 h-6 text-[var(--blush)]" /> Minha Estante
+            <h2 className="text-[var(--text-main)] font-extrabold text-base flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-[var(--primary)]" /> Minha Estante
             </h2>
             <button 
               onClick={() => setIsEditingShelf(true)}
-              className="text-xs font-bold text-[var(--lavender)] bg-[var(--lavender)]/10 px-4 py-2 rounded-xl hover:bg-[var(--lavender)]/20 active:scale-95 transition-all flex items-center gap-1"
+              className="text-[10px] font-extrabold text-[var(--primary)] bg-[var(--primary)]/10 px-4 py-2 rounded-xl hover:bg-[var(--primary)]/20 active:scale-95 transition-all flex items-center gap-1.5 uppercase tracking-widest cursor-pointer"
             >
               <Pencil className="w-3 h-3" /> Editar
             </button>
@@ -238,18 +232,18 @@ export function Profile() {
                     key={book.id}
                     to={`/book/${book.id}`}
                     className="group relative aspect-[2/3] rounded-2xl bg-white shadow-md overflow-hidden border border-white/50 cursor-pointer animate-fade-in block"
-                    style={{ animationDelay: `${0.5 + idx * 0.05}s` }}
+                    style={{ animationDelay: `${0.3 + idx * 0.05}s` }}
                   >
                     {coverUrl ? (
-                      <img src={coverUrl} alt={book.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                      <img src={coverUrl} alt={book.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
                     ) : (
-                      <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient(book)} flex items-center justify-center p-3 text-xs text-center font-bold text-white transition-transform duration-500 group-hover:scale-105`}>
+                      <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient(book)} flex items-center justify-center p-3 text-[10px] text-center font-extrabold text-white transition-transform duration-500 group-hover:scale-105 leading-relaxed`}>
                         {book.title}
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                      <div className="bg-white/90 p-2 rounded-full transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
-                        <BookOpen className="w-5 h-5 text-[var(--primary)]" />
+                    <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                      <div className="bg-white/90 p-2.5 rounded-full transform translate-y-3 group-hover:translate-y-0 transition-transform duration-300 shadow-md">
+                        <BookOpen className="w-4 h-4 text-[var(--primary)]" />
                       </div>
                     </div>
                   </Link>
@@ -257,12 +251,12 @@ export function Profile() {
               })}
             </div>
           ) : (
-            <div className="bg-[var(--bg-pastel)]/50 border-2 border-dashed border-[var(--lavender)]/30 rounded-[2rem] p-8 text-center space-y-4">
-              <div className="text-5xl opacity-50 grayscale mx-auto">🪴</div>
-              <p className="text-sm font-bold text-[var(--text-muted)]">Sua estante está vazia.</p>
+            <div className="bg-slate-50/50 border-2 border-dashed border-slate-200 rounded-[2rem] p-8 text-center space-y-4">
+              <div className="text-4xl opacity-50 grayscale mx-auto select-none pointer-events-none">🪴</div>
+              <p className="text-xs font-bold text-[var(--text-muted)]">Sua estante está vazia.</p>
               <button 
                 onClick={() => setIsEditingShelf(true)}
-                className="text-sm font-black text-[var(--primary)] hover:text-[var(--lavender)] transition-colors underline"
+                className="text-xs font-extrabold text-[var(--primary)] hover:text-[var(--primary)]/80 transition-colors underline uppercase tracking-widest cursor-pointer"
               >
                 Adicionar livros mágicos ✨
               </button>
@@ -272,9 +266,9 @@ export function Profile() {
 
         {/* Recent Activity */}
         {recentActivity.length > 0 && (
-          <div className="space-y-4 animate-fade-in" style={{ animationDelay: "0.6s" }}>
-            <h2 className="text-[var(--text-main)] font-black text-xl flex items-center gap-2 px-2">
-              <span className="text-2xl animate-spin-slow">💫</span> Atividade Recente
+          <div className="space-y-4 animate-fade-in" style={{ animationDelay: "0.3s" }}>
+            <h2 className="text-[var(--text-main)] font-extrabold text-base flex items-center gap-2 px-1">
+              <span className="text-xl animate-spin-slow select-none pointer-events-none">💫</span> Atividade Recente
             </h2>
             <div className="space-y-3">
               {recentActivity.map((activity, idx) => {
@@ -284,23 +278,23 @@ export function Profile() {
                   <Link
                     key={idx}
                     to={`/book/${activity.book.id}`}
-                    className="flex bg-white/80 backdrop-blur-md rounded-[2rem] p-3 shadow-sm border border-white hover:border-[var(--lavender)]/30 hover:shadow-md transition-all animate-fade-in gap-4 items-center group active:scale-[0.98]"
-                    style={{ animationDelay: `${0.7 + idx * 0.1}s` }}
+                    className="flex bg-white/70 backdrop-blur-xl rounded-[2rem] p-3 shadow-[0_8px_30px_rgba(0,0,0,0.01)] border border-white/80 hover:border-slate-200 hover:shadow-[0_12px_30px_rgba(0,0,0,0.02)] transition-all animate-fade-in gap-4 items-center group active:scale-[0.99]"
+                    style={{ animationDelay: `${0.4 + idx * 0.05}s` }}
                   >
                     <div className="w-14 h-20 rounded-xl overflow-hidden flex-shrink-0 shadow-sm bg-gradient-to-br from-[var(--lavender)]/20 to-[var(--blush)]/20 relative">
-                      {coverUrl ? <img src={coverUrl} className="w-full h-full object-cover" /> : <BookOpen className="absolute inset-0 m-auto w-6 h-6 text-[var(--lavender)]/50" />}
+                      {coverUrl ? <img src={coverUrl} className="w-full h-full object-cover" /> : <BookOpen className="absolute inset-0 m-auto w-5 h-5 text-[var(--primary)]/45" />}
                     </div>
                     <div className="flex-1 min-w-0 py-1">
                       <div className="flex justify-between items-start mb-2">
-                        <h4 className="text-sm font-bold text-[var(--text-main)] truncate pr-2 group-hover:text-[var(--lavender)] transition-colors">{activity.book.title}</h4>
-                        <span className="text-[10px] text-[var(--text-muted)] bg-[var(--bg-pastel)] px-2 py-1 rounded-lg font-bold flex-shrink-0">{activity.dateStr}</span>
+                        <h4 className="text-xs font-extrabold text-[var(--text-main)] truncate pr-2 group-hover:text-[var(--primary)] transition-colors">{activity.book.title}</h4>
+                        <span className="text-[9px] text-[var(--text-muted)] bg-slate-50 px-2.5 py-1 rounded-lg font-bold flex-shrink-0 border border-slate-100">{activity.dateStr}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-black uppercase tracking-wide px-3 py-1 rounded-xl ${activity.label === 'Finalizou' ? 'bg-[var(--mint)]/20 text-[var(--mint)]' : activity.label === 'Lendo' ? 'bg-[var(--peach)]/20 text-[var(--peach)]' : 'bg-gray-100 text-gray-500'}`}>
+                        <span className={`text-[9px] font-extrabold uppercase tracking-widest px-3 py-1 rounded-full border ${activity.label === 'Finalizou' ? 'bg-[var(--mint)]/20 text-[var(--mint)] border-[var(--mint)]/20' : activity.label === 'Lendo' ? 'bg-[var(--peach)]/25 text-[var(--peach)] border-[var(--peach)]/20' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
                           {activity.label}
                         </span>
                         {activity.progress.status === "lendo" && (
-                          <span className="text-[11px] font-black text-[var(--lavender)] bg-[var(--lavender)]/10 px-2 py-1 rounded-lg">
+                          <span className="text-[10px] font-extrabold text-[var(--primary)] bg-[var(--primary)]/10 px-2.5 py-1 rounded-lg">
                             {activity.progress.progress}%
                           </span>
                         )}
@@ -314,21 +308,21 @@ export function Profile() {
         )}
 
         {/* Configurações */}
-        <div className="bg-white/60 backdrop-blur-md rounded-[2.5rem] p-6 border border-white/50 shadow-sm animate-fade-in" style={{ animationDelay: "0.7s" }}>
-          <h2 className="text-[var(--text-main)] font-black text-xl flex items-center gap-2 mb-6">
-            <Settings className="w-6 h-6 text-[var(--lavender)] animate-spin-slow" /> Configurações
+        <div className="bg-white/70 backdrop-blur-xl rounded-[2.25rem] p-6 border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.02)] animate-fade-in" style={{ animationDelay: "0.4s" }}>
+          <h2 className="text-[var(--text-main)] font-extrabold text-base flex items-center gap-2 mb-6">
+            <Settings className="w-5 h-5 text-[var(--primary)] animate-spin-slow" /> Configurações
           </h2>
-          <div className="flex items-center justify-between bg-white/80 p-4 rounded-3xl border border-white/80 shadow-sm transition-all hover:shadow-md">
+          <div className="flex items-center justify-between bg-slate-50/50 p-4.5 rounded-[2rem] border border-slate-100 hover:bg-slate-50 transition-colors">
             <div className="pr-4 text-left">
-              <h4 className="text-[var(--text-main)] text-sm font-black">Modo Offline (LocalStorage)</h4>
-              <p className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wider mt-0.5">
+              <h4 className="text-[var(--text-main)] text-sm font-extrabold">Modo Offline (LocalStorage)</h4>
+              <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-widest mt-0.5 leading-normal">
                 Leia e importe livros locais sem internet
               </p>
             </div>
             <button
               onClick={handleToggleOffline}
               className={`relative w-12 h-7 rounded-full transition-all duration-300 shadow-inner flex-shrink-0 cursor-pointer ${
-                isOffline ? "bg-gradient-to-r from-[var(--primary)] to-[var(--mint)]" : "bg-gray-200"
+                isOffline ? "bg-gradient-to-r from-[var(--primary)] to-[var(--mint)]" : "bg-slate-200"
               }`}
             >
               <div
@@ -340,10 +334,10 @@ export function Profile() {
           </div>
         </div>
 
-        <div className="pt-8 text-center animate-fade-in" style={{ animationDelay: "0.8s" }}>
+        <div className="pt-8 text-center animate-fade-in" style={{ animationDelay: "0.5s" }}>
           <button
             onClick={handleLogout}
-            className="text-xs text-red-500 font-bold px-6 py-3 rounded-2xl bg-red-50 hover:bg-red-100 hover:scale-105 active:scale-95 transition-all shadow-sm"
+            className="text-[10px] text-red-500 font-extrabold px-6 py-3 rounded-xl bg-red-50/50 border border-red-100 hover:bg-red-50 hover:scale-103 active:scale-95 transition-all shadow-sm uppercase tracking-widest cursor-pointer"
           >
             Sair da Conta 🐾
           </button>
@@ -378,27 +372,27 @@ function EditProfileModal({ initialName, initialBio, initialAvatar, onClose, onS
   const [avatar, setAvatar] = useState(initialAvatar);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-6" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-6 animate-fade-in" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
       <div 
-        className="relative bg-card rounded-t-[32px] sm:rounded-[32px] w-full max-w-md p-6 space-y-6 shadow-2xl animate-slide-up"
+        className="relative bg-white rounded-t-[2.5rem] sm:rounded-[2.5rem] w-full max-w-md p-6 space-y-6 shadow-2xl animate-slide-up border border-slate-100"
         onClick={e => e.stopPropagation()}
       >
-        <div className="w-12 h-1.5 bg-border rounded-full mx-auto sm:hidden mb-2" />
+        <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto sm:hidden mb-2" />
         <div className="flex justify-between items-center">
-          <h3 className="text-lg font-bold text-foreground">Editar Perfil</h3>
-          <button onClick={onClose} className="p-2 bg-muted rounded-full hover:bg-border transition-colors"><X className="w-4 h-4" /></button>
+          <h3 className="text-base font-extrabold text-[var(--text-main)] uppercase tracking-widest">Editar Perfil</h3>
+          <button onClick={onClose} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"><X className="w-4 h-4 text-slate-500" /></button>
         </div>
 
         <div className="space-y-4">
           <div className="space-y-2 text-center">
-            <label className="text-sm font-medium text-muted-foreground block">Avatar</label>
-            <div className="flex flex-wrap justify-center gap-3">
+            <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest block">Escolha seu Avatar</label>
+            <div className="flex flex-wrap justify-center gap-2.5">
               {AVATARS.map(a => (
                 <button
                   key={a}
                   onClick={() => setAvatar(a)}
-                  className={`w-12 h-12 text-2xl flex items-center justify-center rounded-full transition-all active:scale-95 ${avatar === a ? 'bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/30 scale-110' : 'bg-muted hover:bg-border'}`}
+                  className={`w-12 h-12 text-2xl flex items-center justify-center rounded-2xl transition-all active:scale-95 cursor-pointer ${avatar === a ? 'bg-[var(--primary)]/10 border-2 border-[var(--primary)] scale-105' : 'bg-slate-50 hover:bg-slate-100 border border-slate-100'}`}
                 >
                   {a}
                 </button>
@@ -407,21 +401,21 @@ function EditProfileModal({ initialName, initialBio, initialAvatar, onClose, onS
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground pl-1">Nome</label>
+            <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest pl-1">Nome</label>
             <input 
               value={name} 
               onChange={e => setName(e.target.value)} 
-              className="w-full bg-muted border-none rounded-[16px] px-4 py-3.5 focus:ring-2 focus:ring-[var(--primary)] text-foreground font-medium"
+              className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 focus:border-[var(--primary)]/30 focus:ring-4 focus:ring-[var(--primary)]/5 outline-none text-xs text-[var(--text-main)] font-semibold transition-all"
               placeholder="Seu nome"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-muted-foreground pl-1">Biografia</label>
+            <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest pl-1">Biografia</label>
             <textarea 
               value={bio} 
               onChange={e => setBio(e.target.value)} 
-              className="w-full bg-muted border-none rounded-[16px] px-4 py-3.5 focus:ring-2 focus:ring-[var(--primary)] text-foreground resize-none h-24"
+              className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 focus:border-[var(--primary)]/30 focus:ring-4 focus:ring-[var(--primary)]/5 outline-none text-xs text-[var(--text-main)] font-semibold resize-none h-24 transition-all"
               placeholder="Fale um pouco sobre você..."
               maxLength={100}
             />
@@ -431,13 +425,13 @@ function EditProfileModal({ initialName, initialBio, initialAvatar, onClose, onS
         <button 
           onClick={() => onSave(name, bio, avatar)}
           disabled={!name.trim() || !bio.trim()}
-          className={`w-full py-4 font-bold rounded-[16px] transition-all flex justify-center items-center gap-2 ${
+          className={`w-full py-4 font-bold rounded-2xl transition-all flex justify-center items-center gap-2 cursor-pointer shadow-md ${
             !name.trim() || !bio.trim()
-              ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
-              : "bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/30 active:scale-95"
+              ? "bg-slate-100 text-slate-300 cursor-not-allowed shadow-none"
+              : "bg-[var(--primary)] text-white shadow-[var(--primary)]/10 hover:shadow-[var(--primary)]/20 active:scale-95"
           }`}
         >
-          <Check className="w-5 h-5" /> Salvar Perfil
+          <Check className="w-4 h-4" /> Salvar Perfil
         </button>
       </div>
     </div>
@@ -455,20 +449,20 @@ function EditShelfModal({ books, initialIds, onClose, onSave }: any) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-6" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-6 animate-fade-in" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
       <div 
-        className="relative bg-card rounded-t-[32px] sm:rounded-[32px] w-full max-w-lg h-[80vh] sm:h-auto sm:max-h-[85vh] flex flex-col shadow-2xl animate-slide-up"
+        className="relative bg-white rounded-t-[2.5rem] sm:rounded-[2.5rem] w-full max-w-lg h-[80vh] sm:h-auto sm:max-h-[85vh] flex flex-col shadow-2xl animate-slide-up border border-slate-100"
         onClick={e => e.stopPropagation()}
       >
-        <div className="p-6 pb-4 border-b border-border/50 flex-shrink-0">
-          <div className="w-12 h-1.5 bg-border rounded-full mx-auto sm:hidden mb-4" />
+        <div className="p-6 pb-4 border-b border-slate-100 flex-shrink-0">
+          <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto sm:hidden mb-4" />
           <div className="flex justify-between items-center">
             <div>
-              <h3 className="text-lg font-bold text-foreground">Editar Estante</h3>
-              <p className="text-sm text-muted-foreground">Escolha quais livros exibir na sua estante ({selectedIds.size} selecionados)</p>
+              <h3 className="text-base font-extrabold text-[var(--text-main)] uppercase tracking-widest">Editar Estante</h3>
+              <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-widest">Escolha quais livros exibir ({selectedIds.size} selecionados)</p>
             </div>
-            <button onClick={onClose} className="p-2 bg-muted rounded-full hover:bg-border transition-colors"><X className="w-4 h-4" /></button>
+            <button onClick={onClose} className="p-2 bg-slate-50 hover:bg-slate-100 rounded-full transition-colors cursor-pointer"><X className="w-4 h-4 text-slate-500" /></button>
           </div>
         </div>
 
@@ -480,31 +474,31 @@ function EditShelfModal({ books, initialIds, onClose, onSave }: any) {
               <div 
                 key={book.id}
                 onClick={() => toggleBook(book.id)}
-                className={`flex items-center gap-4 p-3 rounded-[16px] cursor-pointer transition-all ${isSelected ? 'bg-[var(--blush)]/20 border border-[var(--primary)]/30' : 'hover:bg-muted border border-transparent'}`}
+                className={`flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-all border ${isSelected ? 'bg-[var(--primary)]/5 border-[var(--primary)]/20' : 'hover:bg-slate-50 border-transparent'}`}
               >
-                <div className="w-12 h-16 rounded overflow-hidden flex-shrink-0 shadow-sm bg-gradient-to-br from-muted to-muted/50">
-                  {coverUrl ? <img src={coverUrl} className="w-full h-full object-cover" /> : <BookOpen className="w-full h-full p-3 text-muted-foreground/30" />}
+                <div className="w-12 h-16 rounded-xl overflow-hidden flex-shrink-0 shadow-sm bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200">
+                  {coverUrl ? <img src={coverUrl} className="w-full h-full object-cover" /> : <BookOpen className="w-full h-full p-3.5 text-slate-300" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-sm font-medium text-foreground truncate">{book.title}</h4>
-                  <p className="text-xs text-muted-foreground truncate">{book.author}</p>
+                  <h4 className="text-xs font-bold text-[var(--text-main)] truncate">{book.title}</h4>
+                  <p className="text-[10px] text-[var(--text-muted)] truncate font-semibold mt-0.5">{book.author}</p>
                 </div>
-                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${isSelected ? 'bg-[var(--primary)] border-[var(--primary)] text-white' : 'border-border'}`}>
-                  {isSelected && <Check className="w-4 h-4" />}
+                <div className={`w-5.5 h-5.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${isSelected ? 'bg-[var(--primary)] border-[var(--primary)] text-white' : 'border-slate-200'}`}>
+                  {isSelected && <Check className="w-3.5 h-3.5" />}
                 </div>
               </div>
             );
           })}
         </div>
 
-        <div className="p-4 border-t border-border/50 flex-shrink-0 bg-background/50 backdrop-blur-md rounded-b-[32px]">
+        <div className="p-4 border-t border-slate-100 flex-shrink-0 bg-white rounded-b-[2.5rem]">
           <button 
             onClick={() => onSave(Array.from(selectedIds))}
             disabled={selectedIds.size === 0}
-            className={`w-full py-4 font-bold rounded-[16px] transition-all ${
+            className={`w-full py-4 font-bold rounded-2xl transition-all shadow-md cursor-pointer ${
               selectedIds.size === 0
-                ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
-                : "bg-gradient-to-r from-[var(--primary)] to-[var(--peach)] text-white shadow-lg shadow-[var(--primary)]/30 active:scale-95"
+                ? "bg-slate-100 text-slate-300 cursor-not-allowed shadow-none"
+                : "bg-gradient-to-r from-[var(--primary)] to-[var(--peach)] text-white shadow-[var(--primary)]/10 hover:shadow-[var(--primary)]/25 active:scale-95"
             }`}
           >
             Salvar Estante
