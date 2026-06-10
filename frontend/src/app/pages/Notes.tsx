@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Search, BookOpen, Send, Trash2, Edit3 } from "lucide-react";
 import { useSearchParams } from "react-router";
 import { fetchBooks, fetchBookNotes, addNote, deleteNote } from "../lib/api";
+import { getCoverGradient, getFullUrl } from "../lib/types";
 import type { Book, Note } from "../lib/types";
 
 const quickFeedback = ["Amei ❤️", "Confuso 🤔", "Viciante 🔥", "Emocionante 😭", "Chocante 😱"];
