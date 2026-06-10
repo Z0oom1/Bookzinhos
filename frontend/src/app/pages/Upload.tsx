@@ -215,17 +215,22 @@ export function Upload() {
             <div className="flex-1 space-y-1.5">
               <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest pl-1">Arquivo PDF *</label>
               <div 
-                onDragOver={handlePdfDragOver}
-                onDragLeave={handlePdfDragLeave}
-                onDrop={handlePdfDrop}
                 className={`border border-dashed rounded-2xl p-5 text-center transition-all shadow-sm relative ${
                   isDragOverPdf 
                     ? "border-[var(--primary)] bg-[var(--primary)]/5 scale-[1.02]" 
-                    : "border-slate-200 bg-white hover:bg-slate-50"
+                    : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300"
                 }`}
               >
-                <input type="file" accept=".pdf" onChange={handlePdfChange} className="hidden" id="pdf-upload" />
-                <label htmlFor="pdf-upload" className="cursor-pointer flex flex-col items-center gap-2">
+                <input 
+                  type="file" 
+                  accept=".pdf" 
+                  onChange={handlePdfChange} 
+                  onDragOver={handlePdfDragOver}
+                  onDragLeave={handlePdfDragLeave}
+                  onDrop={handlePdfDrop}
+                  className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full h-full" 
+                />
+                <div className="flex flex-col items-center gap-2 pointer-events-none">
                   <div className="w-12 h-12 bg-[var(--primary)]/10 rounded-2xl flex items-center justify-center">
                     <UploadIcon className="w-5 h-5 text-[var(--primary)]" />
                   </div>
@@ -234,42 +239,47 @@ export function Upload() {
                   ) : (
                     <p className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest">Selecionar ou Arrastar PDF</p>
                   )}
-                </label>
+                </div>
               </div>
             </div>
 
             {/* Cover Preview */}
             <div className="space-y-1.5">
               <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest pl-1">Capa</label>
-              <button
-                type="button"
-                onClick={() => coverInputRef.current?.click()}
-                onDragOver={handleCoverDragOver}
-                onDragLeave={handleCoverDragLeave}
-                onDrop={handleCoverDrop}
-                className={`relative w-24 h-36 rounded-2xl overflow-hidden shadow-sm border transition-all group cursor-pointer bg-white ${
+              <div
+                className={`relative w-24 h-36 rounded-2xl overflow-hidden shadow-sm border transition-all group bg-white ${
                   isDragOverCover 
                     ? "border-[var(--primary)] ring-4 ring-[var(--primary)]/10 scale-105" 
                     : "border-slate-200 hover:border-slate-300"
                 }`}
               >
-                {isExtractingCover ? (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <div className="w-5 h-5 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
-                  </div>
-                ) : coverPreview ? (
-                  <img src={coverPreview} className="w-full h-full object-cover" alt="capa" />
-                ) : (
-                  <div className="w-full h-full bg-[var(--lavender)]/15 flex flex-col items-center justify-center gap-1">
-                    <span className="text-xl select-none">🖼️</span>
-                    <span className="text-[9px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest text-center px-1">Trocar</span>
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleCoverChange} 
+                  onDragOver={handleCoverDragOver}
+                  onDragLeave={handleCoverDragLeave}
+                  onDrop={handleCoverDrop}
+                  className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full h-full"
+                />
+                <div className="w-full h-full flex flex-col items-center justify-center gap-1 pointer-events-none">
+                  {isExtractingCover ? (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="w-5 h-5 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : coverPreview ? (
+                    <img src={coverPreview} className="w-full h-full object-cover" alt="capa" />
+                  ) : (
+                    <div className="w-full h-full bg-[var(--lavender)]/15 flex flex-col items-center justify-center gap-1">
+                      <span className="text-xl select-none">🖼️</span>
+                      <span className="text-[9px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest text-center px-1">Trocar</span>
+                    </div>
+                  )}
+                </div>
+                <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
                   <span className="text-white text-[10px] font-extrabold uppercase tracking-widest">Alterar</span>
                 </div>
-              </button>
-              <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
+              </div>
             </div>
           </div>
 
