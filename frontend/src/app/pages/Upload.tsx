@@ -9,34 +9,60 @@ import pdfjsWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
 const GENRES = ["Romance", "Suspense", "Ficção", "Distopia", "Autoconhecimento", "Desenvolvimento", "História", "Outros"];
 
 async function extractPdfCover(pdfFile: File): Promise<{ cover: File | null; numPages: number } | null> {
-  try {
-    const pdfjs = await import("pdfjs-dist");
-    pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+  const extractionPromise = (async () => {
+    try {
+      const pdfjs = await import("pdfjs-dist");
+      pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
-    const arrayBuffer = await pdfFile.arrayBuffer();
-    const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-    const numPages = pdf.numPages;
-    const page = await pdf.getPage(1);
-    const viewport = page.getViewport({ scale: 1.5 });
-    const canvas = document.createElement("canvas");
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const ctx = canvas.getContext("2d")!;
-    await page.render({ canvasContext: ctx, viewport }).promise;
+      const arrayBuffer = await pdfFile.arrayBuffer();
+      const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+      const numPages = pdf.numPages;
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 1.5 });
+      const canvas = document.createElement("canvas");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext("2d")!;
+      await page.render({ canvasContext: ctx, viewport }).promise;
 
-    return new Promise((resolve) => {
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) { resolve({ cover: null, numPages }); return; }
-          resolve({ cover: new File([blob], "cover.jpg", { type: "image/jpeg" }), numPages });
-        },
-        "image/jpeg",
-        0.85
-      );
-    });
-  } catch {
-    return null;
-  }
+      return new Promise<{ cover: File | null; numPages: number }>((resolve) => {
+        try {
+          canvas.toBlob(
+            (blob) => {
+              try {
+                if (!blob) {
+                  resolve({ cover: null, numPages });
+                  return;
+                }
+                const coverFile = new File([blob], "cover.jpg", { type: "image/jpeg" });
+                resolve({ cover: coverFile, numPages });
+              } catch (e) {
+                console.error("Error creating File in canvas.toBlob callback:", e);
+                resolve({ cover: null, numPages });
+              }
+            },
+            "image/jpeg",
+            0.85
+          );
+        } catch (e) {
+          console.error("Error executing canvas.toBlob:", e);
+          resolve({ cover: null, numPages });
+        }
+      });
+    } catch (err) {
+      console.error("PDF cover extraction failed:", err);
+      return null;
+    }
+  })();
+
+  const timeoutPromise = new Promise<{ cover: File | null; numPages: number } | null>((resolve) =>
+    setTimeout(() => {
+      console.warn("PDF cover extraction timed out (4s fallback limit hit)");
+      resolve(null);
+    }, 4000)
+  );
+
+  return Promise.race([extractionPromise, timeoutPromise]);
 }
 
 export function Upload() {
@@ -51,31 +77,90 @@ export function Upload() {
   const [error, setError] = useState<string | null>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
+  // Drag and Drop States
+  const [isDragOverPdf, setIsDragOverPdf] = useState(false);
+  const [isDragOverCover, setIsDragOverCover] = useState(false);
+
   const handlePdfChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    processPdfFile(file);
+  };
+
+  const processPdfFile = async (file: File) => {
     setPdfFile(file);
     if (!formData.title) {
       const name = file.name.replace(/\.pdf$/i, "").replace(/[-_]/g, " ");
       setFormData((f) => ({ ...f, title: name }));
     }
     setIsExtractingCover(true);
-    const result = await extractPdfCover(file);
-    if (result) {
-      if (result.cover) {
-        setCoverFile(result.cover);
-        setCoverPreview(URL.createObjectURL(result.cover));
+    try {
+      const result = await extractPdfCover(file);
+      if (result) {
+        if (result.cover) {
+          setCoverFile(result.cover);
+          setCoverPreview(URL.createObjectURL(result.cover));
+        }
+        setTotalPages(result.numPages);
       }
-      setTotalPages(result.numPages);
+    } catch (err) {
+      console.error("Error processing PDF file cover:", err);
+    } finally {
+      setIsExtractingCover(false);
     }
-    setIsExtractingCover(false);
+  };
+
+  const handlePdfDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOverPdf(true);
+  };
+
+  const handlePdfDragLeave = () => {
+    setIsDragOverPdf(false);
+  };
+
+  const handlePdfDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOverPdf(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+      processPdfFile(file);
+    } else {
+      setError("Por favor, selecione um arquivo PDF válido.");
+    }
   };
 
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    processCoverFile(file);
+  };
+
+  const processCoverFile = (file: File) => {
     setCoverFile(file);
     setCoverPreview(URL.createObjectURL(file));
+  };
+
+  const handleCoverDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOverCover(true);
+  };
+
+  const handleCoverDragLeave = () => {
+    setIsDragOverCover(false);
+  };
+
+  const handleCoverDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOverCover(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    if (file.type.startsWith("image/")) {
+      processCoverFile(file);
+    } else {
+      setError("Por favor, selecione uma imagem válida para a capa.");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -129,7 +214,16 @@ export function Upload() {
             {/* PDF Upload */}
             <div className="flex-1 space-y-1.5">
               <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest pl-1">Arquivo PDF *</label>
-              <div className="border border-slate-200 border-dashed rounded-2xl p-5 text-center bg-white hover:bg-slate-50 transition-colors shadow-sm relative">
+              <div 
+                onDragOver={handlePdfDragOver}
+                onDragLeave={handlePdfDragLeave}
+                onDrop={handlePdfDrop}
+                className={`border border-dashed rounded-2xl p-5 text-center transition-all shadow-sm relative ${
+                  isDragOverPdf 
+                    ? "border-[var(--primary)] bg-[var(--primary)]/5 scale-[1.02]" 
+                    : "border-slate-200 bg-white hover:bg-slate-50"
+                }`}
+              >
                 <input type="file" accept=".pdf" onChange={handlePdfChange} className="hidden" id="pdf-upload" />
                 <label htmlFor="pdf-upload" className="cursor-pointer flex flex-col items-center gap-2">
                   <div className="w-12 h-12 bg-[var(--primary)]/10 rounded-2xl flex items-center justify-center">
@@ -138,7 +232,7 @@ export function Upload() {
                   {pdfFile ? (
                     <p className="text-xs text-[var(--text-main)] font-semibold truncate max-w-[180px]">{pdfFile.name}</p>
                   ) : (
-                    <p className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest">Selecionar PDF</p>
+                    <p className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest">Selecionar ou Arrastar PDF</p>
                   )}
                 </label>
               </div>
@@ -150,7 +244,14 @@ export function Upload() {
               <button
                 type="button"
                 onClick={() => coverInputRef.current?.click()}
-                className="relative w-24 h-36 rounded-2xl overflow-hidden shadow-sm border border-slate-200 hover:border-slate-300 transition-all group cursor-pointer bg-white"
+                onDragOver={handleCoverDragOver}
+                onDragLeave={handleCoverDragLeave}
+                onDrop={handleCoverDrop}
+                className={`relative w-24 h-36 rounded-2xl overflow-hidden shadow-sm border transition-all group cursor-pointer bg-white ${
+                  isDragOverCover 
+                    ? "border-[var(--primary)] ring-4 ring-[var(--primary)]/10 scale-105" 
+                    : "border-slate-200 hover:border-slate-300"
+                }`}
               >
                 {isExtractingCover ? (
                   <div className="w-full h-full flex items-center justify-center">

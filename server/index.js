@@ -70,13 +70,22 @@ async function uploadFileToCloud(buffer, filename, mimetype) {
   } else if (supabase) {
     return await uploadToSupabase(buffer, filename, mimetype);
   } else {
-    throw new Error("Nenhum cliente de armazenamento (S3/Supabase) configurado");
+    console.log("📂 Usando armazenamento local para upload:", filename);
+    const uploadsDir = path.join(__dirname, "uploads");
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+    const safeFilename = filename.replace(/\//g, "-");
+    const filePath = path.join(uploadsDir, safeFilename);
+    fs.writeFileSync(filePath, buffer);
+    return `http://localhost:${PORT}/uploads/${safeFilename}`;
   }
 }
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
 app.use(cors({ origin: "*" }));
 app.use(express.json());
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ─── UPLOAD ───────────────────────────────────────────────────────────────────
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
