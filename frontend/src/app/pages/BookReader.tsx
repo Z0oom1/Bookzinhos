@@ -417,7 +417,7 @@ export function BookReader() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="h-screen lg:h-full bg-background flex items-center justify-center">
         <div className="text-5xl animate-bounce-in">🐼</div>
       </div>
     );
@@ -425,7 +425,7 @@ export function BookReader() {
 
   if (!book) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="h-screen lg:h-full bg-background flex items-center justify-center">
         <div className="text-center space-y-4 p-8">
           <div className="text-4xl">📚</div>
           <h2 className="text-foreground font-extrabold text-lg">Livro não encontrado</h2>
@@ -436,7 +436,7 @@ export function BookReader() {
   }
 
   return (
-    <div className={`min-h-screen ${themeStyles[theme]} transition-colors duration-300 relative select-none overflow-hidden font-medium`}>
+    <div className={`h-screen lg:h-full ${themeStyles[theme]} transition-colors duration-300 relative select-none overflow-hidden font-medium`}>
       <div 
         ref={containerRef}
         onMouseDown={handleMouseDown}
@@ -444,71 +444,79 @@ export function BookReader() {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        className={`min-h-screen flex flex-col items-center justify-start px-4 py-20 transition-all ${
+        className={`h-full w-full flex flex-col items-center justify-center px-4 py-20 transition-all ${
           zoomScale > 1 ? (isPanning ? "cursor-grabbing" : "cursor-grab") : "cursor-pointer"
         }`}
       >
+        {/* Container externo para zoom e pan */}
         <div
-          className={`w-full ${bookMode ? "max-w-4xl" : "max-w-2xl"} leading-relaxed transition-all ${isTransitioning ? (transitionDirection === "next" ? "page-flip-next" : "page-flip-prev") : "opacity-100 animate-fade-in"}`}
           style={{ 
-            fontSize: `${fontSize}px`,
             transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomScale})`,
             transformOrigin: 'center center'
           }}
+          className={`w-full ${bookMode ? "max-w-4xl" : "max-w-2xl"} transition-all duration-100`}
         >
-          {pdfUrl ? (
-            bookMode ? (
-              <div className="flex gap-4.5 justify-center w-full">
-                {!pdfDoc ? (
-                  errorMessage ? (
-                    <div className="text-center mt-20 text-red-500 font-bold text-sm">{errorMessage}</div>
-                  ) : (
-                    <div className="text-center mt-20 animate-pulse-soft text-xs font-extrabold uppercase tracking-widest">Carregando PDF... 🐾</div>
-                  )
-                ) : (
-                  <>
-                    <canvas ref={canvasRef} className="w-1/2 max-w-[50%] shadow-lg rounded-2xl border border-slate-100/50 bg-white" />
-                    {currentPage + 1 < total ? (
-                      <canvas ref={canvasRightRef} className="w-1/2 max-w-[50%] shadow-lg rounded-2xl border border-slate-100/50 bg-white" />
+          {/* Container interno para transição de virada de página */}
+          <div
+            className={`w-full leading-relaxed transition-all ${isTransitioning ? (transitionDirection === "next" ? "page-flip-next" : "page-flip-prev") : "opacity-100 animate-fade-in"}`}
+            style={{ 
+              fontSize: `${fontSize}px`
+            }}
+          >
+            {pdfUrl ? (
+              bookMode ? (
+                <div className="flex gap-4.5 justify-center w-full">
+                  {!pdfDoc ? (
+                    errorMessage ? (
+                      <div className="text-center mt-20 text-red-500 font-bold text-sm">{errorMessage}</div>
                     ) : (
-                      <div className="w-1/2 max-w-[50%] rounded-2xl border border-dashed border-slate-200/20 bg-slate-50/5 flex items-center justify-center text-[10px] uppercase font-bold tracking-wider text-slate-400">Fim do Livro 🏁</div>
-                    )}
-                  </>
-                )}
-              </div>
-            ) : (
-              <div className="flex justify-center w-full">
-                {!pdfDoc ? (
-                  errorMessage ? (
-                    <div className="text-center mt-20 text-red-500 font-bold text-sm">{errorMessage}</div>
+                      <div className="text-center mt-20 animate-pulse-soft text-xs font-extrabold uppercase tracking-widest">Carregando PDF... 🐾</div>
+                    )
                   ) : (
-                    <div className="text-center mt-20 animate-pulse-soft text-xs font-extrabold uppercase tracking-widest">Carregando PDF... 🐾</div>
-                  )
-                ) : (
-                  <canvas ref={canvasRef} className="max-w-full shadow-lg rounded-2xl border border-slate-100/50" />
-                )}
-              </div>
-            )
-          ) : (
-            bookMode ? (
-              <div className="flex gap-6 w-full">
-                <div className="flex-1 whitespace-pre-wrap leading-loose px-2">{pages[currentPage]}</div>
-                {currentPage + 1 < pages.length ? (
-                  <div className="flex-1 whitespace-pre-wrap leading-loose px-2">{pages[currentPage + 1]}</div>
-                ) : (
-                  <div className="flex-1 whitespace-pre-wrap leading-loose px-2 border-l border-slate-200/30 flex items-center justify-center text-[10px] uppercase font-bold tracking-wider text-slate-400">Fim do Livro 🏁</div>
-                )}
-              </div>
+                    <>
+                      <canvas ref={canvasRef} className="w-1/2 max-w-[50%] shadow-lg rounded-2xl border border-slate-100/50 bg-white" />
+                      {currentPage + 1 < total ? (
+                        <canvas ref={canvasRightRef} className="w-1/2 max-w-[50%] shadow-lg rounded-2xl border border-slate-100/50 bg-white" />
+                      ) : (
+                        <div className="w-1/2 max-w-[50%] rounded-2xl border border-dashed border-slate-200/20 bg-slate-50/5 flex items-center justify-center text-[10px] uppercase font-bold tracking-wider text-slate-400">Fim do Livro 🏁</div>
+                      )}
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div className="flex justify-center w-full">
+                  {!pdfDoc ? (
+                    errorMessage ? (
+                      <div className="text-center mt-20 text-red-500 font-bold text-sm">{errorMessage}</div>
+                    ) : (
+                      <div className="text-center mt-20 animate-pulse-soft text-xs font-extrabold uppercase tracking-widest">Carregando PDF... 🐾</div>
+                    )
+                  ) : (
+                    <canvas ref={canvasRef} className="max-w-full shadow-lg rounded-2xl border border-slate-100/50" />
+                  )}
+                </div>
+              )
             ) : (
-              <div className="whitespace-pre-wrap leading-loose px-2">{pages[currentPage]}</div>
-            )
-          )}
+              bookMode ? (
+                <div className="flex gap-6 w-full">
+                  <div className="flex-1 whitespace-pre-wrap leading-loose px-2">{pages[currentPage]}</div>
+                  {currentPage + 1 < pages.length ? (
+                    <div className="flex-1 whitespace-pre-wrap leading-loose px-2">{pages[currentPage + 1]}</div>
+                  ) : (
+                    <div className="flex-1 whitespace-pre-wrap leading-loose px-2 border-l border-slate-200/30 flex items-center justify-center text-[10px] uppercase font-bold tracking-wider text-slate-400">Fim do Livro 🏁</div>
+                  )}
+                </div>
+              ) : (
+                <div className="whitespace-pre-wrap leading-loose px-2">{pages[currentPage]}</div>
+              )
+            )}
+          </div>
         </div>
       </div>
 
       {/* Top Menu */}
-      <div className={`fixed top-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-b border-slate-100 transition-all duration-350 shadow-md z-40 ${showMenu ? "translate-y-0" : "-translate-y-full"}`}>
-        <div className="max-w-2xl mx-auto px-4 py-3.5 flex items-center justify-between">
+      <div className={`absolute top-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-b border-slate-100 transition-all duration-350 shadow-md z-[9998] pointer-events-none ${showMenu ? "translate-y-0" : "-translate-y-full"}`}>
+        <div className="max-w-2xl mx-auto px-4 py-3.5 flex items-center justify-between pointer-events-auto">
           <button onClick={() => navigate(-1)} className="p-2.5 hover:bg-slate-100 rounded-full transition-all active:scale-95 cursor-pointer">
             <ArrowLeft className="w-5 h-5 text-[var(--text-main)]" />
           </button>
@@ -531,7 +539,7 @@ export function BookReader() {
       </div>
 
       {/* Bottom Menu */}
-      <div className={`fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-100 transition-all duration-350 shadow-[0_-10px_45px_rgba(0,0,0,0.06)] z-40 px-4 pb-8 pt-4 ${showMenu ? "translate-y-0" : "translate-y-full"}`}>
+      <div className={`absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-100 transition-all duration-350 shadow-[0_-10px_45px_rgba(0,0,0,0.06)] z-40 px-4 pb-8 pt-4 ${showMenu ? "translate-y-0" : "translate-y-full"}`}>
         <div className="max-w-2xl mx-auto space-y-4">
           <div className="flex items-center justify-between gap-4">
             <button onClick={goPrev} disabled={currentPage === 0} className="p-2.5 hover:bg-slate-50 border border-transparent hover:border-slate-100 rounded-full transition-all active:scale-90 disabled:opacity-30 cursor-pointer">
@@ -589,7 +597,7 @@ export function BookReader() {
 
       {/* Settings Panel */}
       {showSettings && (
-        <div className="fixed inset-0 bg-black/30 flex items-end z-50 backdrop-blur-sm animate-fade-in" onClick={() => setShowSettings(false)}>
+        <div className="absolute inset-0 bg-black/30 flex items-end z-50 backdrop-blur-sm animate-fade-in" onClick={() => setShowSettings(false)}>
           <div className="w-full bg-white rounded-t-[2.5rem] p-8 space-y-8 shadow-2xl animate-slide-up border border-slate-100" onClick={e => e.stopPropagation()}>
             <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto" />
             <h3 className="text-[var(--text-main)] font-extrabold text-base text-center uppercase tracking-widest">Ajustes de Leitura 🐾</h3>

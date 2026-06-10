@@ -1,10 +1,11 @@
-import { Outlet, useLocation, Link } from "react-router";
+import { Outlet, useLocation, Link, useNavigate } from "react-router";
 import { Home, Library, Heart, PenLine, User, Users } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { fetchNotifications } from "../lib/api";
 
 export function RootLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
   const [userAvatar, setUserAvatar] = useState("🐼");
   const [currentDateString, setCurrentDateString] = useState("");
@@ -213,7 +214,8 @@ export function RootLayout() {
   ];
 
   const isChat = location.pathname.startsWith("/chat/");
-  const hideNav = new URLSearchParams(location.search).get("hideNav") === "true" || isChat;
+  const isRead = location.pathname.startsWith("/read/");
+  const hideNav = new URLSearchParams(location.search).get("hideNav") === "true" || isChat || isRead;
 
   // Mobile layout for hideNav
   if (hideNav) {
@@ -251,7 +253,10 @@ export function RootLayout() {
           >
             {/* macOS top buttons floating overlay for reader view */}
             <div onMouseDown={(e) => e.stopPropagation()} className="absolute top-4.5 left-5 z-[9999] flex gap-1.5 opacity-40 hover:opacity-100 transition-opacity">
-              <span className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] cursor-pointer" />
+              <span 
+                onClick={() => navigate(-1)}
+                className="w-3 h-3 rounded-full bg-[#ff5f56] border border-[#e0443e] cursor-pointer" 
+              />
               <span className="w-3 h-3 rounded-full bg-[#ffbd2e] border border-[#dea123] cursor-pointer" />
               <span 
                 onClick={() => setIsFullScreen(prev => !prev)}

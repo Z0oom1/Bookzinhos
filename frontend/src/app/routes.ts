@@ -32,11 +32,8 @@ export const router = createBrowserRouter([
           { path: "social", Component: Social },
           { path: "user/:username", Component: UserProfile },
           { path: "chat/:otherUser", Component: Chat },
+          { path: "read/:id", Component: BookReader },
         ],
-      },
-      {
-        path: "/read/:id",
-        Component: BookReader,
       },
     ],
   },
