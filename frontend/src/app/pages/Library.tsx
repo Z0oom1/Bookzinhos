@@ -4,6 +4,7 @@ import {
   Layers, FileText, Grid, List 
 } from "lucide-react";
 import { fetchBooks, fetchSavedIds, toggleSaved, fetchAllProgress } from "../lib/api";
+import { Link } from "react-router";
 import { BookCard } from "../components/BookCard";
 import type { Book, ReadingProgress } from "../lib/types";
 
@@ -176,9 +177,15 @@ export function Library() {
     <div className="min-h-screen lg:min-h-0 lg:h-full bg-transparent overflow-x-hidden">
       {/* Mobile view (<lg) */}
       <div className="lg:hidden max-w-2xl mx-auto px-4 py-8 space-y-8 relative z-10">
-        <div className="text-center mb-6 animate-fade-in">
+        <div className="text-center mb-6 animate-fade-in relative">
           <h1 className="text-3xl font-extrabold text-[var(--text-main)] tracking-tight mb-1">A Biblioteca 📚</h1>
           <p className="text-[var(--text-muted)] text-[11px] font-bold uppercase tracking-widest mt-1.5">Encontre sua próxima aventura</p>
+          <Link 
+            to="/upload" 
+            className="absolute right-0 top-1/2 -translate-y-1/2 px-3.5 py-2 bg-[var(--primary)] text-white rounded-xl font-extrabold text-[9px] uppercase tracking-widest shadow-md hover:scale-102 active:scale-95 transition-all cursor-pointer"
+          >
+            + Adicionar
+          </Link>
         </div>
 
         <div className="relative animate-fade-in mx-1">
@@ -320,7 +327,15 @@ export function Library() {
         <main className="flex-1 p-8 overflow-y-auto space-y-8 bg-slate-50/30">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
-              <h1 className="text-2xl font-black text-slate-800 tracking-tight">Minha Biblioteca</h1>
+              <div className="flex items-center gap-3.5">
+                <h1 className="text-2xl font-black text-slate-800 tracking-tight">Minha Biblioteca</h1>
+                <Link 
+                  to="/upload" 
+                  className="px-3.5 py-1.5 bg-[var(--primary)] text-white rounded-xl font-extrabold text-[9px] uppercase tracking-widest shadow-md hover:shadow-lg active:scale-95 transition-all cursor-pointer"
+                >
+                  + Adicionar Livro
+                </Link>
+              </div>
               <p className="text-xs text-slate-400 font-bold">{filteredBooksByCategory.length} livros</p>
             </div>
 
