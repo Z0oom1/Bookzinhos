@@ -86,7 +86,7 @@ export function Notes() {
       
       {/* Header */}
       <div className="bg-white/70 backdrop-blur-xl sticky top-0 z-20 px-4 py-4.5 flex items-center justify-between border-b border-white/60 shadow-sm animate-fade-in">
-        <h1 className="text-xl font-extrabold text-[var(--text-main)] bg-clip-text text-transparent bg-gradient-to-r from-[var(--primary)] to-[var(--lavender)] tracking-tight">Notinhas ✨</h1>
+        <h1 className="text-xl font-extrabold text-[var(--text-main)] tracking-tight">Notinhas ✨</h1>
       </div>
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-6 relative z-10">
@@ -116,7 +116,7 @@ export function Notes() {
                 onClick={() => setSelectedBookId(book.id)}
                 className={`snap-start flex-shrink-0 px-4 py-2.5 rounded-full text-[10px] font-extrabold whitespace-nowrap transition-all border uppercase tracking-widest cursor-pointer ${
                   selectedBookId === book.id
-                    ? "bg-gradient-to-r from-[var(--lavender)] to-[var(--primary)] text-white border-transparent shadow-sm"
+                    ? "bg-[var(--primary)] text-white border-transparent shadow-sm"
                     : "bg-white text-[var(--text-muted)] hover:bg-slate-50 border-slate-200"
                 }`}
               >
@@ -145,7 +145,7 @@ export function Notes() {
                       onClick={() => setFeedback(f)}
                       className={`px-4.5 py-2 rounded-full text-[10px] font-extrabold transition-all border uppercase tracking-widest cursor-pointer ${
                         feedback === f
-                          ? "bg-gradient-to-r from-[var(--primary)] to-[var(--peach)] text-white border-transparent shadow-sm"
+                          ? "bg-[var(--primary)] text-white border-transparent shadow-sm"
                           : "bg-white text-[var(--text-muted)] hover:bg-slate-50 border-slate-200"
                       }`}
                     >

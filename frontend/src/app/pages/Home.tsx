@@ -111,14 +111,14 @@ export function Home() {
             <p className="text-[var(--text-muted)] text-[10px] font-bold uppercase tracking-widest mt-1">Sua estante mágica te espera</p>
           </div>
           <Link to="/profile">
-            <div className="w-12 h-12 rounded-[1.25rem] bg-gradient-to-br from-[var(--lavender)]/40 to-[var(--blush)]/40 flex items-center justify-center text-2xl shadow-sm hover:scale-105 active:scale-95 transition-all border border-white/80">
+            <div className="w-12 h-12 rounded-[1.25rem] bg-[var(--lavender)]/40 flex items-center justify-center text-2xl shadow-sm hover:scale-105 active:scale-95 transition-all border border-white/80">
               🐼
             </div>
           </Link>
         </div>
 
         {/* Banner Principal */}
-        <div className="relative h-44 rounded-[2.25rem] overflow-hidden bg-gradient-to-tr from-[var(--lavender)] via-[var(--peach)] to-[var(--blush)] shadow-[0_12px_40px_rgba(244,63,94,0.12)] animate-scale-in border border-white/30">
+        <div className="relative h-44 rounded-[2.25rem] overflow-hidden bg-[var(--blush)]/70 shadow-[0_12px_40px_rgba(244,63,94,0.05)] animate-scale-in border border-white/30">
           <div className="absolute inset-0 bg-black/[0.02] backdrop-blur-[0.5px]" />
           <div className="absolute top-8 left-8 z-10 space-y-2.5">
             <span className="text-[9px] font-extrabold text-[var(--primary)] bg-white/95 uppercase tracking-widest px-3.5 py-1.5 rounded-full shadow-sm">
@@ -137,7 +137,7 @@ export function Home() {
               className="bg-white/70 hover:bg-white/90 backdrop-blur-xl p-4.5 rounded-[2rem] border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.02)] hover:shadow-[0_12px_30px_rgba(0,0,0,0.04)] transition-all cursor-pointer group active:scale-[0.99] relative overflow-hidden"
             >
               <div className="flex items-center gap-4 relative z-10">
-                <div className="w-12 h-12 bg-gradient-to-br from-[var(--lavender)]/30 to-[var(--blush)]/30 rounded-[1.2rem] flex items-center justify-center text-3xl shadow-inner group-hover:scale-105 transition-transform duration-300">
+                <div className="w-12 h-12 bg-[var(--blush)]/50 rounded-[1.2rem] flex items-center justify-center text-3xl shadow-inner group-hover:scale-105 transition-transform duration-300">
                   {status?.emote || "🐼"}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -221,7 +221,7 @@ export function Home() {
                 onClick={() => setActiveCategory(activeCategory === cat ? null : cat)}
                 className={`flex-shrink-0 px-4 py-2 rounded-full text-[10px] font-extrabold transition-all border uppercase tracking-widest active:scale-95 cursor-pointer ${
                   activeCategory === cat || (cat === "Todos" && !activeCategory)
-                    ? "bg-gradient-to-r from-[var(--lavender)] to-[var(--primary)] text-white shadow-sm border-transparent"
+                    ? "bg-[var(--primary)] text-white shadow-sm border-transparent"
                     : "bg-white/70 text-[var(--text-muted)] border-white/90 hover:bg-white hover:border-slate-200"
                 }`}
               >
@@ -285,7 +285,7 @@ export function Home() {
                         </div>
                         <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden shadow-inner">
                           <div 
-                            className="bg-gradient-to-r from-[var(--primary)] to-[var(--lavender)] h-full transition-all duration-500 rounded-full" 
+                            className="bg-[var(--primary)] h-full transition-all duration-500 rounded-full" 
                             style={{ width: `${currentlyReading.progress}%` }} 
                           />
                         </div>

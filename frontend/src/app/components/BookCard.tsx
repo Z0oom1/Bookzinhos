@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { BookOpen } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router";
 import { getCoverGradient, getFullUrl } from "../lib/types";
@@ -279,8 +280,8 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
 }
 
 function DeleteConfirmDialog({ book, onConfirm, onCancel }: { book: Book; onConfirm: () => void; onCancel: () => void }) {
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 animate-fade-in" onClick={onCancel}>
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 animate-fade-in" onClick={onCancel}>
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
       <div
         className="relative bg-white rounded-[2rem] p-6 space-y-4 shadow-2xl w-full max-w-sm border border-slate-100 animate-bounce-in"
@@ -302,6 +303,7 @@ function DeleteConfirmDialog({ book, onConfirm, onCancel }: { book: Book; onConf
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

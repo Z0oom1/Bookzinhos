@@ -73,12 +73,12 @@ export function MyBooks() {
       
       {/* Cabeçalho */}
       <div className="bg-white/70 backdrop-blur-xl sticky top-0 z-20 px-4 py-4.5 flex items-center justify-between border-b border-white/60 shadow-sm animate-fade-in">
-        <h1 className="text-xl font-extrabold text-[var(--text-main)] bg-clip-text text-transparent bg-gradient-to-r from-[var(--primary)] to-[var(--lavender)] tracking-tight">
+        <h1 className="text-xl font-extrabold text-[var(--text-main)] tracking-tight">
           Minha Estante 📚
         </h1>
         <Link 
           to="/upload" 
-          className="px-4 py-2 bg-gradient-to-r from-[var(--primary)] to-[var(--peach)] text-white rounded-xl font-extrabold shadow-md hover:shadow-lg active:scale-95 transition-all text-[10px] uppercase tracking-widest"
+          className="px-4 py-2 bg-[var(--primary)] text-white rounded-xl font-extrabold shadow-md hover:shadow-lg active:scale-95 transition-all text-[10px] uppercase tracking-widest"
         >
           + Adicionar
         </Link>
@@ -89,7 +89,7 @@ export function MyBooks() {
         {/* Livro Lendo no Momento */}
         {currentBook && currentReading && activeTab !== "favoritos" ? (
           <div className="bg-white/70 backdrop-blur-xl rounded-[2.25rem] p-5 shadow-[0_8px_30px_rgba(0,0,0,0.02)] border border-white/80 group relative overflow-hidden animate-fade-in">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[var(--mint)]/20 to-transparent rounded-bl-full pointer-events-none opacity-50 group-hover:scale-105 transition-transform" />
+            <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--mint)]/10 rounded-bl-full pointer-events-none opacity-50 group-hover:scale-105 transition-transform" />
             <p className="text-[9px] font-extrabold text-[var(--text-main)] mb-3 flex items-center gap-1.5 uppercase tracking-widest">
               <span className="w-5 h-5 rounded-full bg-[var(--mint)]/20 flex items-center justify-center">
                 <BookOpen className="w-3 h-3 text-[var(--mint)]" />
@@ -114,7 +114,7 @@ export function MyBooks() {
                   </div>
                   <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner">
                     <div 
-                      className="bg-gradient-to-r from-[var(--mint)] to-[var(--sky)] h-full transition-all duration-500 rounded-full" 
+                      className="bg-[var(--mint)] h-full transition-all duration-500 rounded-full" 
                       style={{ width: `${currentReading.progress}%` }} 
                     />
                   </div>
@@ -123,7 +123,7 @@ export function MyBooks() {
             </div>
             <Link 
               to={`/read/${currentBook.id}`} 
-              className="relative z-10 flex items-center justify-center gap-1.5 w-full py-3.5 bg-gradient-to-r from-[var(--primary)] to-[var(--mint)] text-white rounded-xl font-extrabold text-[10px] uppercase tracking-widest transition-all active:scale-[0.98] shadow-md hover:shadow-lg"
+              className="relative z-10 flex items-center justify-center gap-1.5 w-full py-3.5 bg-[var(--primary)] text-white rounded-xl font-extrabold text-[10px] uppercase tracking-widest transition-all active:scale-[0.98] shadow-md hover:shadow-lg"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
               Continuar
@@ -135,7 +135,7 @@ export function MyBooks() {
             <p className="text-[10px] text-[var(--text-muted)] font-extrabold uppercase tracking-widest mb-4">Nenhum livro em leitura ativa</p>
             <Link 
               to="/library" 
-              className="inline-flex px-6 py-3 bg-gradient-to-r from-[var(--lavender)] to-[var(--sky)] text-white font-extrabold text-[10px] uppercase tracking-widest rounded-xl shadow-md transition-all active:scale-95 hover:scale-102"
+              className="inline-flex px-6 py-3 bg-[var(--primary)] text-white font-extrabold text-[10px] uppercase tracking-widest rounded-xl shadow-md transition-all active:scale-95 hover:scale-102"
             >
               Ver Biblioteca
             </Link>

@@ -56,13 +56,13 @@ export function Social() {
           >
             <ArrowLeft className="w-4.5 h-4.5" />
           </button>
-          <h1 className="text-xl font-extrabold text-[var(--text-main)] bg-clip-text text-transparent bg-gradient-to-r from-[var(--primary)] to-[var(--lavender)] tracking-tight">
+          <h1 className="text-xl font-extrabold text-[var(--primary)] tracking-tight">
             Comunidade ✨
           </h1>
         </div>
         <div 
           onClick={() => navigate('/profile')}
-          className="w-9 h-9 bg-gradient-to-br from-[var(--lavender)]/40 to-[var(--blush)]/40 rounded-xl flex items-center justify-center text-xl shadow-inner cursor-pointer hover:scale-105 transition-transform border border-white"
+          className="w-9 h-9 bg-slate-100 rounded-xl flex items-center justify-center text-xl shadow-inner cursor-pointer hover:scale-105 transition-transform border border-slate-200/50"
         >
           🐼
         </div>
@@ -90,7 +90,7 @@ export function Social() {
                   className="group bg-white/70 hover:bg-white/90 backdrop-blur-xl p-4.5 rounded-[2.25rem] border border-white shadow-[0_8px_30px_rgba(0,0,0,0.01)] hover:shadow-[0_12px_30px_rgba(0,0,0,0.03)] transition-all duration-300 cursor-pointer flex items-center gap-4 active:scale-[0.99]"
                 >
                   <div className="relative flex-shrink-0">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[var(--lavender)]/30 to-[var(--blush)]/30 flex items-center justify-center text-3xl shadow-inner group-hover:scale-103 transition-transform duration-300 select-none">
+                    <div className="w-14 h-14 rounded-2xl bg-slate-100 flex items-center justify-center text-3xl shadow-inner group-hover:scale-103 transition-transform duration-300 select-none">
                       {user.avatar || "👤"}
                     </div>
                     {unreadCount > 0 && (
@@ -122,7 +122,7 @@ export function Social() {
                         e.stopPropagation();
                         navigate(`/chat/${user.username}`);
                       }}
-                      className="w-10 h-10 bg-gradient-to-r from-[var(--primary)] to-[var(--lavender)] rounded-xl flex items-center justify-center shadow-md active:scale-90 transition-all text-white hover:scale-105 cursor-pointer"
+                      className="w-10 h-10 bg-[var(--primary)] rounded-xl flex items-center justify-center shadow-md active:scale-90 transition-all text-white hover:scale-105 cursor-pointer"
                     >
                       <MessageCircle className="w-4.5 h-4.5" />
                     </button>
@@ -137,9 +137,9 @@ export function Social() {
       {/* Caixa de Regras/Recompensas */}
       <div className="p-4 max-w-2xl mx-auto relative z-10">
         <div className="bg-white/60 backdrop-blur-xl p-5 rounded-[2.25rem] border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.01)] relative overflow-hidden group">
-          <div className="absolute inset-0 bg-gradient-to-r from-[var(--blush)]/5 to-[var(--lavender)]/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="absolute inset-0 bg-slate-50/10 opacity-0 group-hover:opacity-100 transition-opacity" />
           <div className="flex items-center gap-4 relative z-10">
-            <div className="w-12 h-12 bg-gradient-to-br from-[var(--peach)]/30 to-[var(--blush)]/30 rounded-2xl flex items-center justify-center text-2xl shadow-inner transform group-hover:rotate-6 transition-transform select-none">
+            <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-2xl shadow-inner transform group-hover:rotate-6 transition-transform select-none">
               🐼
             </div>
             <div>

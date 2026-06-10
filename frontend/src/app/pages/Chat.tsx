@@ -142,7 +142,7 @@ export function Chat() {
             <div key={msg.id || idx} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
               <div className={`max-w-[80%] rounded-[2rem] p-4 shadow-sm border ${
                 isMe 
-                  ? "bg-gradient-to-br from-[var(--primary)] to-[var(--primary)]/80 text-white rounded-br-none border-transparent shadow-[var(--primary)]/10" 
+                  ? "bg-[var(--primary)] text-white rounded-br-none border-transparent shadow-[var(--primary)]/10" 
                   : "bg-white text-[var(--text-main)] rounded-bl-none border-slate-100"
               }`}>
                 {book && (

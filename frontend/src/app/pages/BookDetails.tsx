@@ -222,13 +222,13 @@ export function BookDetails() {
         {/* Botões de ação e Progresso */}
         <div className="space-y-4 animate-fade-in" style={{ animationDelay: "0.2s" }}>
           {progress && (progress.status === "lendo" || progress.status === "pausado") && (
-            <div className="space-y-2 bg-gradient-to-r from-white/70 to-[var(--peach)]/10 p-4.5 rounded-[2.25rem] border border-white shadow-[0_8px_30px_rgba(0,0,0,0.01)]">
+            <div className="space-y-2 bg-white/70 p-4.5 rounded-[2.25rem] border border-white shadow-[0_8px_30px_rgba(0,0,0,0.01)]">
               <div className="flex justify-between items-center text-[10px] font-extrabold text-[var(--text-main)] uppercase tracking-widest">
                 <span>Progresso atual</span>
                 <span className="text-[var(--primary)]">{progress.progress}% lido</span>
               </div>
               <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner">
-                <div className="bg-gradient-to-r from-[var(--peach)] via-[var(--primary)] to-[var(--lavender)] h-2 rounded-full transition-all" style={{ width: `${progress.progress}%` }} />
+                <div className="bg-[var(--primary)] h-2 rounded-full transition-all" style={{ width: `${progress.progress}%` }} />
               </div>
             </div>
           )}
@@ -244,7 +244,7 @@ export function BookDetails() {
             {(book.pages && book.pages.length > 0) || book.pdfPath ? (
               <button
                 onClick={() => navigate(`/read/${id}`)}
-                className="flex-1 flex items-center justify-center gap-2 py-4 bg-gradient-to-r from-[var(--primary)] to-[var(--mint)] text-white rounded-2xl font-extrabold text-[10px] uppercase tracking-widest transition-all active:scale-[0.98] shadow-md hover:shadow-lg hover:shadow-[var(--primary)]/15 relative overflow-hidden group cursor-pointer"
+                className="flex-1 flex items-center justify-center gap-2 py-4 bg-[var(--primary)] text-white rounded-2xl font-extrabold text-[10px] uppercase tracking-widest transition-all active:scale-[0.98] shadow-md hover:shadow-lg hover:shadow-[var(--primary)]/15 relative overflow-hidden group cursor-pointer"
               >
                 <Play className="w-4 h-4 fill-current animate-pulse-soft" />
                 <span className="relative z-10">{progress ? "Continuar leitura" : "Ler agora"}</span>
@@ -275,7 +275,7 @@ export function BookDetails() {
               onClick={handleToggleSave}
               className={`px-4.5 py-4 rounded-2xl font-extrabold transition-all active:scale-[0.98] flex items-center justify-center cursor-pointer ${
                 isSaved
-                  ? "bg-gradient-to-br from-[var(--peach)] to-[var(--primary)] text-white shadow-md shadow-[var(--primary)]/10 border-transparent"
+                  ? "bg-[var(--primary)] text-white shadow-md shadow-[var(--primary)]/10 border-transparent"
                   : "bg-white text-slate-400 border border-slate-200 hover:bg-slate-50 shadow-sm"
               }`}
             >

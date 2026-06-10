@@ -25,11 +25,14 @@ export function BookReader() {
   const [isFinished, setIsFinished] = useState(false);
   const [jumpPageInput, setJumpPageInput] = useState("");
   const [zoomScale, setZoomScale] = useState(1);
+  const [bookMode, setBookMode] = useState(false);
+  const [transitionDirection, setTransitionDirection] = useState<"next" | "prev">("next");
   const touchStartRef = useRef<{ x: number, y: number, time: number } | null>(null);
   const initialPinchDistRef = useRef<number | null>(null);
 
   // PDF State
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRightRef = useRef<HTMLCanvasElement>(null);
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [pdfTotalPages, setPdfTotalPages] = useState(1);
 
@@ -80,43 +83,93 @@ export function BookReader() {
 
   // Render PDF Page
   useEffect(() => {
-    if (!pdfDoc || !canvasRef.current) return;
-    let renderTask: any = null;
-    const renderPage = async () => {
-      try {
-        const page = await pdfDoc.getPage(currentPage + 1);
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return;
-        
-        const viewport = page.getViewport({ scale: 1 });
-        const screenWidth = window.innerWidth;
-        const scale = (screenWidth - 32) / viewport.width;
-        const scaledViewport = page.getViewport({ scale: Math.max(scale, 1) });
-        
-        canvas.width = scaledViewport.width;
-        canvas.height = scaledViewport.height;
-        
-        renderTask = page.render({ canvasContext: ctx, viewport: scaledViewport });
-        await renderTask.promise;
-      } catch (err) {
-        if ((err as Error).name !== 'RenderingCancelledException') {
-          console.error("Failed to render page", err);
+    if (!pdfDoc) return;
+    let renderTaskLeft: any = null;
+    let renderTaskRight: any = null;
+
+    const renderPages = async () => {
+      // 1. Render Left Page (currentPage + 1)
+      if (canvasRef.current) {
+        try {
+          const page = await pdfDoc.getPage(currentPage + 1);
+          const canvas = canvasRef.current;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            const viewport = page.getViewport({ scale: 1 });
+            const screenWidth = window.innerWidth;
+            // Limit width when simulating app container layout
+            const wrapperWidth = Math.min(screenWidth, 512); 
+            const containerWidth = bookMode ? (wrapperWidth - 48) / 2 : wrapperWidth - 32;
+            const scale = containerWidth / viewport.width;
+            const scaledViewport = page.getViewport({ scale: Math.max(scale, 0.5) });
+            
+            canvas.width = scaledViewport.width;
+            canvas.height = scaledViewport.height;
+            
+            renderTaskLeft = page.render({ canvasContext: ctx, viewport: scaledViewport });
+            await renderTaskLeft.promise;
+          }
+        } catch (err) {
+          if ((err as Error).name !== 'RenderingCancelledException') {
+            console.error("Failed to render left page", err);
+          }
+        }
+      }
+
+      // 2. Render Right Page (currentPage + 2) if in bookMode
+      if (bookMode && canvasRightRef.current && (currentPage + 1 < pdfTotalPages)) {
+        try {
+          const page = await pdfDoc.getPage(currentPage + 2);
+          const canvas = canvasRightRef.current;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            const viewport = page.getViewport({ scale: 1 });
+            const screenWidth = window.innerWidth;
+            const wrapperWidth = Math.min(screenWidth, 512); 
+            const containerWidth = (wrapperWidth - 48) / 2;
+            const scale = containerWidth / viewport.width;
+            const scaledViewport = page.getViewport({ scale: Math.max(scale, 0.5) });
+            
+            canvas.width = scaledViewport.width;
+            canvas.height = scaledViewport.height;
+            
+            renderTaskRight = page.render({ canvasContext: ctx, viewport: scaledViewport });
+            await renderTaskRight.promise;
+          }
+        } catch (err) {
+          if ((err as Error).name !== 'RenderingCancelledException') {
+            console.error("Failed to render right page", err);
+          }
         }
       }
     };
-    renderPage();
+
+    renderPages();
+
     return () => {
-      if (renderTask) renderTask.cancel();
+      if (renderTaskLeft) renderTaskLeft.cancel();
+      if (renderTaskRight) renderTaskRight.cancel();
     };
-  }, [pdfDoc, currentPage]);
+  }, [pdfDoc, currentPage, bookMode, pdfTotalPages]);
 
   useEffect(() => {
     if (!showMenu) return;
     const t = setTimeout(() => setShowMenu(false), 5000);
     return () => clearTimeout(t);
   }, [showMenu]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (document.activeElement?.tagName === "INPUT" || document.activeElement?.tagName === "TEXTAREA") return;
+      if (e.key === "ArrowRight" || e.key === "Right") {
+        goNext();
+      } else if (e.key === "ArrowLeft" || e.key === "Left") {
+        goPrev();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [currentPage, total, bookMode]);
 
   const themeStyles: Record<Theme, string> = {
     light: "bg-white text-slate-900",
@@ -144,26 +197,29 @@ export function BookReader() {
   };
 
   const goNext = () => {
-    if (currentPage < total - 1) {
+    const step = bookMode ? 2 : 1;
+    if (currentPage < total - step) {
+      setTransitionDirection("next");
       setIsTransitioning(true);
       setTimeout(() => {
-        const next = currentPage + 1;
+        const next = currentPage + step;
         setCurrentPage(next);
         setIsTransitioning(false);
         updateProgress(next);
-      }, 150);
+      }, 250);
     }
   };
 
   const goPrev = () => {
     if (currentPage > 0) {
+      setTransitionDirection("prev");
       setIsTransitioning(true);
       setTimeout(() => {
-        const prev = currentPage - 1;
+        const prev = Math.max(0, currentPage - (bookMode ? 2 : 1));
         setCurrentPage(prev);
         setIsTransitioning(false);
         updateProgress(prev);
-      }, 150);
+      }, 250);
     }
   };
 
@@ -268,7 +324,7 @@ export function BookReader() {
         className="min-h-screen flex flex-col items-center justify-start px-4 py-20 cursor-pointer"
       >
         <div
-          className={`w-full max-w-2xl leading-relaxed transition-all duration-300 ${isTransitioning ? "opacity-0 scale-95" : "opacity-100 animate-fade-in"}`}
+          className={`w-full ${bookMode ? "max-w-4xl" : "max-w-2xl"} leading-relaxed transition-all ${isTransitioning ? (transitionDirection === "next" ? "page-flip-next" : "page-flip-prev") : "opacity-100 animate-fade-in"}`}
           style={{ 
             fontSize: `${fontSize}px`,
             transform: `scale(${zoomScale})`,
@@ -276,19 +332,51 @@ export function BookReader() {
           }}
         >
           {pdfUrl ? (
-            <div className="flex justify-center w-full">
-              {!pdfDoc ? (
-                errorMessage ? (
-                  <div className="text-center mt-20 text-red-500 font-bold text-sm">{errorMessage}</div>
+            bookMode ? (
+              <div className="flex gap-4.5 justify-center w-full">
+                {!pdfDoc ? (
+                  errorMessage ? (
+                    <div className="text-center mt-20 text-red-500 font-bold text-sm">{errorMessage}</div>
+                  ) : (
+                    <div className="text-center mt-20 animate-pulse-soft text-xs font-extrabold uppercase tracking-widest">Carregando PDF... 🐾</div>
+                  )
                 ) : (
-                  <div className="text-center mt-20 animate-pulse-soft text-xs font-extrabold uppercase tracking-widest">Carregando PDF... 🐾</div>
-                )
-              ) : (
-                <canvas ref={canvasRef} className="max-w-full shadow-lg rounded-2xl border border-slate-100/50" />
-              )}
-            </div>
+                  <>
+                    <canvas ref={canvasRef} className="w-1/2 max-w-[50%] shadow-lg rounded-2xl border border-slate-100/50 bg-white" />
+                    {currentPage + 1 < total ? (
+                      <canvas ref={canvasRightRef} className="w-1/2 max-w-[50%] shadow-lg rounded-2xl border border-slate-100/50 bg-white" />
+                    ) : (
+                      <div className="w-1/2 max-w-[50%] rounded-2xl border border-dashed border-slate-200/20 bg-slate-50/5 flex items-center justify-center text-[10px] uppercase font-bold tracking-wider text-slate-400">Fim do Livro 🏁</div>
+                    )}
+                  </>
+                )}
+              </div>
+            ) : (
+              <div className="flex justify-center w-full">
+                {!pdfDoc ? (
+                  errorMessage ? (
+                    <div className="text-center mt-20 text-red-500 font-bold text-sm">{errorMessage}</div>
+                  ) : (
+                    <div className="text-center mt-20 animate-pulse-soft text-xs font-extrabold uppercase tracking-widest">Carregando PDF... 🐾</div>
+                  )
+                ) : (
+                  <canvas ref={canvasRef} className="max-w-full shadow-lg rounded-2xl border border-slate-100/50" />
+                )}
+              </div>
+            )
           ) : (
-            <div className="whitespace-pre-wrap leading-loose px-2">{pages[currentPage]}</div>
+            bookMode ? (
+              <div className="flex gap-6 w-full">
+                <div className="flex-1 whitespace-pre-wrap leading-loose px-2">{pages[currentPage]}</div>
+                {currentPage + 1 < pages.length ? (
+                  <div className="flex-1 whitespace-pre-wrap leading-loose px-2">{pages[currentPage + 1]}</div>
+                ) : (
+                  <div className="flex-1 whitespace-pre-wrap leading-loose px-2 border-l border-slate-200/30 flex items-center justify-center text-[10px] uppercase font-bold tracking-wider text-slate-400">Fim do Livro 🏁</div>
+                )}
+              </div>
+            ) : (
+              <div className="whitespace-pre-wrap leading-loose px-2">{pages[currentPage]}</div>
+            )
           )}
         </div>
       </div>
@@ -343,7 +431,7 @@ export function BookReader() {
           </div>
 
           <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden shadow-inner">
-            <div className="bg-gradient-to-r from-[var(--peach)] via-[var(--primary)] to-[var(--lavender)] h-1.5 rounded-full transition-all" style={{ width: `${((currentPage + 1) / total) * 100}%` }} />
+            <div className="bg-[var(--primary)] h-1.5 rounded-full transition-all" style={{ width: `${((currentPage + 1) / total) * 100}%` }} />
           </div>
 
           <div className="flex gap-3">
@@ -395,6 +483,27 @@ export function BookReader() {
               </div>
             )}
             
+            <div className="space-y-4">
+              <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest px-1">Layout de Leitura</label>
+              <div className="flex gap-3">
+                <button 
+                  onClick={() => setBookMode(false)}
+                  className={`flex-1 py-4 rounded-xl transition-all active:scale-95 font-extrabold text-[10px] uppercase tracking-widest border cursor-pointer ${!bookMode ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)] shadow-sm" : "border-slate-200 bg-slate-50 text-slate-450"}`}
+                >
+                  Página Única 📄
+                </button>
+                <button 
+                  onClick={() => {
+                    setBookMode(true);
+                    setCurrentPage(prev => prev - (prev % 2));
+                  }}
+                  className={`flex-1 py-4 rounded-xl transition-all active:scale-95 font-extrabold text-[10px] uppercase tracking-widest border cursor-pointer ${bookMode ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)] shadow-sm" : "border-slate-200 bg-slate-50 text-slate-450"}`}
+                >
+                  Modo Livro 📖
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-4">
               <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest px-1">Tema Visual</label>
               <div className="grid grid-cols-3 gap-3">

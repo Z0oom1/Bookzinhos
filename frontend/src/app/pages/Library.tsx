@@ -80,7 +80,7 @@ export function Library() {
               onClick={() => setSelectedGenre(genre)}
               className={`px-4.5 py-2 rounded-full whitespace-nowrap transition-all active:scale-95 font-extrabold text-[10px] border uppercase tracking-widest cursor-pointer ${
                 selectedGenre === genre
-                  ? "bg-gradient-to-r from-[var(--lavender)] to-[var(--primary)] text-white border-transparent shadow-sm"
+                  ? "bg-[var(--primary)] text-white border-transparent shadow-sm"
                   : "bg-white/70 text-[var(--text-muted)] border-white/95 hover:bg-white hover:border-slate-200"
               }`}
             >
@@ -120,13 +120,13 @@ export function Library() {
                   </div>
                 ))}
 
-                {/* The Floating Glass Shelf */}
-                <div className="absolute bottom-0 left-0 right-0 h-2 bg-white/35 backdrop-blur-md rounded-md shadow-[0_8px_32px_rgba(244,63,94,0.06)] z-0 border border-white/50" />
-                <div className="absolute -bottom-1.5 left-4 right-4 h-1 bg-gradient-to-r from-[var(--lavender)]/20 via-[var(--primary)]/30 to-[var(--mint)]/20 rounded-full blur-[2px] z-0" />
+                {/* The Wooden Shelf */}
+                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-b from-[#A0522D] to-[#8B4513] rounded-sm shadow-[0_10px_20px_rgba(0,0,0,0.4)] z-0 border-t border-[#CD853F]" />
+                <div className="absolute -bottom-2 left-1 right-1 h-2 bg-[#5C4033] rounded-b-md shadow-2xl z-0" />
                 
-                {/* Minimalist Metallic Brackets */}
-                <div className="absolute -bottom-3 left-6 w-1.5 h-3.5 bg-slate-300 rounded-b-sm z-0 border-r border-slate-400" />
-                <div className="absolute -bottom-3 right-6 w-1.5 h-3.5 bg-slate-300 rounded-b-sm z-0 border-l border-slate-400" />
+                {/* Shelf Side Brackets (decorative) */}
+                <div className="absolute -bottom-4 left-4 w-2 h-6 bg-[#3E2723] rounded-b-sm shadow-md z-0" />
+                <div className="absolute -bottom-4 right-4 w-2 h-6 bg-[#3E2723] rounded-b-sm shadow-md z-0" />
               </div>
             ))}
           </div>

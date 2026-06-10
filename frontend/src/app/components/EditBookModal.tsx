@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { X, Image } from "lucide-react";
 import { editBook } from "../lib/api";
 import { getFullUrl, getCoverGradient } from "../lib/types";
@@ -45,8 +46,8 @@ export function EditBookModal({ book, onClose, onSaved }: Props) {
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[100] flex flex-col justify-end" onClick={onClose}>
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex flex-col justify-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
       <div
         className="relative bg-gradient-to-b from-card to-[var(--peach)]/10 rounded-t-[28px] p-6 space-y-5 shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto"
@@ -153,6 +154,7 @@ export function EditBookModal({ book, onClose, onSaved }: Props) {
           {isSaving ? "Salvando..." : "Salvar alterações ✨"}
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

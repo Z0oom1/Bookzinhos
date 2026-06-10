@@ -1,4 +1,5 @@
 import { BookOpen, Pencil, Trash2, MessageSquare, X, PauseCircle, PlayCircle, Star, Heart } from "lucide-react";
+import { createPortal } from "react-dom";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import type { Book } from "../lib/types";
 
@@ -15,9 +16,9 @@ interface Props {
 export function BookContextMenu({ book, isPaused, onClose, onRead, onEdit, onDelete, onFeedback, onPause }: Props) {
   const coverUrl = getFullUrl(book.coverImagePath);
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex flex-col justify-end p-4 pb-10"
+      className="fixed inset-0 z-[9999] flex flex-col justify-end p-4 pb-10"
       onClick={onClose}
     >
       {/* Backdrop */}
@@ -136,6 +137,7 @@ export function BookContextMenu({ book, isPaused, onClose, onRead, onEdit, onDel
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

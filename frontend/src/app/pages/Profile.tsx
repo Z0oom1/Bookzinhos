@@ -170,8 +170,8 @@ export function Profile() {
           </button>
           
           <div className="relative inline-block mb-4 -mt-20">
-            <div className="absolute inset-0 bg-gradient-to-br from-[var(--lavender)] to-[var(--blush)] rounded-[2.5rem] blur-xl opacity-40 animate-pulse-soft" />
-            <div className="w-32 h-32 relative rounded-[2.25rem] bg-gradient-to-br from-[var(--blush)] via-[var(--peach)] to-[var(--lavender)] mx-auto flex items-center justify-center text-6xl shadow-md border-4 border-white select-none">
+            <div className="absolute inset-0 bg-[var(--lavender)]/40 rounded-[2.5rem] blur-xl opacity-40 animate-pulse-soft" />
+            <div className="w-32 h-32 relative rounded-[2.25rem] bg-[var(--lavender)] mx-auto flex items-center justify-center text-6xl shadow-md border-4 border-white select-none">
               {userAvatar}
             </div>
             <div
@@ -196,7 +196,7 @@ export function Profile() {
               className="bg-white/70 backdrop-blur-xl border border-white/80 rounded-[2rem] p-4 shadow-[0_8px_30px_rgba(0,0,0,0.01)] hover:shadow-[0_12px_30px_rgba(0,0,0,0.03)] hover:-translate-y-0.5 transition-all text-center flex flex-col items-center justify-center gap-2 animate-scale-in group"
               style={{ animationDelay: `${0.1 + idx * 0.05}s` }}
             >
-              <div className="w-12 h-12 bg-gradient-to-br from-[var(--blush)]/20 to-[var(--lavender)]/20 rounded-[1.1rem] flex items-center justify-center group-hover:scale-105 transition-transform">
+              <div className="w-12 h-12 bg-[var(--lavender)]/15 rounded-[1.1rem] flex items-center justify-center group-hover:scale-105 transition-transform">
                 <Icon className="w-5 h-5 text-[var(--primary)]" />
               </div>
               <div>
@@ -281,7 +281,7 @@ export function Profile() {
                     className="flex bg-white/70 backdrop-blur-xl rounded-[2rem] p-3 shadow-[0_8px_30px_rgba(0,0,0,0.01)] border border-white/80 hover:border-slate-200 hover:shadow-[0_12px_30px_rgba(0,0,0,0.02)] transition-all animate-fade-in gap-4 items-center group active:scale-[0.99]"
                     style={{ animationDelay: `${0.4 + idx * 0.05}s` }}
                   >
-                    <div className="w-14 h-20 rounded-xl overflow-hidden flex-shrink-0 shadow-sm bg-gradient-to-br from-[var(--lavender)]/20 to-[var(--blush)]/20 relative">
+                    <div className="w-14 h-20 rounded-xl overflow-hidden flex-shrink-0 shadow-sm bg-[var(--lavender)]/15 relative">
                       {coverUrl ? <img src={coverUrl} className="w-full h-full object-cover" /> : <BookOpen className="absolute inset-0 m-auto w-5 h-5 text-[var(--primary)]/45" />}
                     </div>
                     <div className="flex-1 min-w-0 py-1">
@@ -322,7 +322,7 @@ export function Profile() {
             <button
               onClick={handleToggleOffline}
               className={`relative w-12 h-7 rounded-full transition-all duration-300 shadow-inner flex-shrink-0 cursor-pointer ${
-                isOffline ? "bg-gradient-to-r from-[var(--primary)] to-[var(--mint)]" : "bg-slate-200"
+                isOffline ? "bg-[var(--primary)]" : "bg-slate-200"
               }`}
             >
               <div
@@ -476,7 +476,7 @@ function EditShelfModal({ books, initialIds, onClose, onSave }: any) {
                 onClick={() => toggleBook(book.id)}
                 className={`flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-all border ${isSelected ? 'bg-[var(--primary)]/5 border-[var(--primary)]/20' : 'hover:bg-slate-50 border-transparent'}`}
               >
-                <div className="w-12 h-16 rounded-xl overflow-hidden flex-shrink-0 shadow-sm bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200">
+                <div className="w-12 h-16 rounded-xl overflow-hidden flex-shrink-0 shadow-sm bg-slate-100 border border-slate-200">
                   {coverUrl ? <img src={coverUrl} className="w-full h-full object-cover" /> : <BookOpen className="w-full h-full p-3.5 text-slate-300" />}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -498,7 +498,7 @@ function EditShelfModal({ books, initialIds, onClose, onSave }: any) {
             className={`w-full py-4 font-bold rounded-2xl transition-all shadow-md cursor-pointer ${
               selectedIds.size === 0
                 ? "bg-slate-100 text-slate-300 cursor-not-allowed shadow-none"
-                : "bg-gradient-to-r from-[var(--primary)] to-[var(--peach)] text-white shadow-[var(--primary)]/10 hover:shadow-[var(--primary)]/25 active:scale-95"
+                : "bg-[var(--primary)] text-white shadow-[var(--primary)]/10 hover:shadow-[var(--primary)]/25 active:scale-95"
             }`}
           >
             Salvar Estante

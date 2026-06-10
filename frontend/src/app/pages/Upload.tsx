@@ -159,7 +159,7 @@ export function Upload() {
                 ) : coverPreview ? (
                   <img src={coverPreview} className="w-full h-full object-cover" alt="capa" />
                 ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-[var(--lavender)]/20 to-[var(--mint)]/20 flex flex-col items-center justify-center gap-1">
+                  <div className="w-full h-full bg-[var(--lavender)]/15 flex flex-col items-center justify-center gap-1">
                     <span className="text-xl select-none">🖼️</span>
                     <span className="text-[9px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest text-center px-1">Trocar</span>
                   </div>
@@ -208,7 +208,7 @@ export function Upload() {
                   onClick={() => setFormData({ ...formData, genre: g })}
                   className={`px-4 py-2 rounded-full text-[10px] font-extrabold transition-all active:scale-95 border cursor-pointer uppercase tracking-widest ${
                     formData.genre === g 
-                      ? "bg-gradient-to-r from-[var(--lavender)] to-[var(--primary)] text-white border-transparent shadow-sm" 
+                      ? "bg-[var(--primary)] text-white border-transparent shadow-sm" 
                       : "bg-white text-[var(--text-muted)] border-slate-200 hover:bg-slate-50"
                   }`}
                 >
@@ -239,7 +239,7 @@ export function Upload() {
             <button
               type="button"
               onClick={() => setFormData({ ...formData, isPublic: !formData.isPublic })}
-              className={`relative w-12 h-7 rounded-full transition-all duration-300 shadow-inner flex-shrink-0 cursor-pointer ${formData.isPublic ? "bg-gradient-to-r from-[var(--primary)] to-[var(--mint)]" : "bg-slate-200"}`}
+              className={`relative w-12 h-7 rounded-full transition-all duration-300 shadow-inner flex-shrink-0 cursor-pointer ${formData.isPublic ? "bg-[var(--primary)]" : "bg-slate-200"}`}
             >
               <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-md transform ${formData.isPublic ? "left-5" : "left-0.5"}`} />
             </button>
@@ -251,7 +251,7 @@ export function Upload() {
             className={`w-full py-4 font-bold rounded-2xl transition-all shadow-md cursor-pointer ${
               !pdfFile || !formData.title || isUploading
                 ? "bg-slate-100 text-slate-300 cursor-not-allowed shadow-none"
-                : "bg-gradient-to-r from-[var(--primary)] to-[var(--mint)] text-white hover:shadow-lg hover:shadow-[var(--primary)]/15 active:scale-[0.98]"
+                : "bg-[var(--primary)] text-white hover:shadow-lg hover:shadow-[var(--primary)]/15 active:scale-[0.98]"
             }`}
           >
             {isUploading ? (

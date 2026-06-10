@@ -24,7 +24,7 @@ export function Welcome({ userName, onComplete }: WelcomeProps) {
   }, [onComplete]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[var(--peach)] via-[var(--lavender)] to-[var(--mint)] flex items-center justify-center p-4 overflow-hidden relative">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 overflow-hidden relative">
       {/* Animated Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {step >= 1 && (

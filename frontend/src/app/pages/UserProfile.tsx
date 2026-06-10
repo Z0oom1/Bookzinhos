@@ -49,12 +49,12 @@ export function UserProfile() {
   return (
     <div className="min-h-screen bg-[var(--bg-pastel)] pb-24 relative overflow-hidden">
       {/* Decorative Background Elements */}
-      <div className="absolute top-0 left-0 w-full h-64 bg-gradient-to-b from-[var(--lavender)]/20 to-transparent pointer-events-none" />
+      <div className="absolute top-0 left-0 w-full h-64 bg-[var(--lavender)]/10 pointer-events-none" />
       <div className="absolute top-20 right-10 text-4xl opacity-30 animate-float" style={{ animationDelay: "0s" }}>✨</div>
       <div className="absolute top-40 left-10 text-3xl opacity-30 animate-float" style={{ animationDelay: "1s" }}>💕</div>
       <div className="absolute top-10 left-1/2 text-2xl opacity-20 animate-float" style={{ animationDelay: "2s" }}>🐼</div>
 
-      <div className="h-56 bg-gradient-to-br from-[var(--blush)]/50 via-[var(--lavender)]/40 to-[var(--peach)]/30 relative shadow-sm">
+      <div className="h-56 bg-[var(--lavender)]/30 relative shadow-sm">
         <button
           onClick={() => navigate(-1)}
           className="absolute top-6 left-6 p-3 bg-white/80 backdrop-blur-md rounded-full shadow-lg hover:shadow-xl hover:bg-white active:scale-95 transition-all z-10"
@@ -66,8 +66,8 @@ export function UserProfile() {
       <div className="px-4 -mt-24 relative z-10 max-w-2xl mx-auto">
         <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border border-white/60 text-center animate-scale-in">
           <div className="relative inline-block mb-6">
-            <div className="absolute inset-0 bg-gradient-to-br from-[var(--lavender)] to-[var(--blush)] rounded-[2.5rem] blur-lg opacity-40 animate-pulse-soft" />
-            <div className="w-36 h-36 relative rounded-[2.5rem] bg-gradient-to-br from-[var(--lavender)] to-[var(--blush)] mx-auto flex items-center justify-center text-7xl shadow-xl border-4 border-white transform hover:rotate-3 hover:scale-105 transition-all duration-300">
+            <div className="absolute inset-0 bg-[var(--lavender)]/40 rounded-[2.5rem] blur-lg opacity-40 animate-pulse-soft" />
+            <div className="w-36 h-36 relative rounded-[2.5rem] bg-[var(--lavender)] mx-auto flex items-center justify-center text-7xl shadow-xl border-4 border-white transform hover:rotate-3 hover:scale-105 transition-all duration-300">
               {profile.avatar || "👤"}
             </div>
           </div>
@@ -78,7 +78,7 @@ export function UserProfile() {
           </p>
 
           <div className="flex justify-center items-stretch gap-3 mb-8">
-            <div className="bg-gradient-to-r from-[var(--peach)]/20 to-[var(--blush)]/20 px-5 py-3 rounded-2xl border border-[var(--peach)]/30 flex items-center gap-2 shadow-sm">
+            <div className="bg-[var(--peach)]/15 px-5 py-3 rounded-2xl border border-[var(--peach)]/30 flex items-center gap-2 shadow-sm">
               <span className="text-2xl animate-bounce-in">🐼</span>
               <div className="flex flex-col items-start">
                 <span className="font-black text-[var(--text-main)] text-sm leading-tight">{profile.pandinhas}</span>
@@ -87,7 +87,7 @@ export function UserProfile() {
             </div>
             <button
               onClick={() => navigate(`/chat/${profile.username}`)}
-              className="flex-1 bg-gradient-to-r from-[var(--primary)] to-[var(--lavender)] text-white rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-[var(--primary)]/30 hover:shadow-xl"
+              className="flex-1 bg-[var(--primary)] text-white rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-[var(--primary)]/30 hover:shadow-xl"
             >
               <MessageCircle className="w-5 h-5" /> Iniciar Chat
             </button>
@@ -115,7 +115,7 @@ export function UserProfile() {
                     {book.coverImagePath ? (
                       <img src={getFullUrl(book.coverImagePath)!} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={book.title} />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-[var(--lavender)]/20 to-[var(--blush)]/20 flex items-center justify-center p-3 text-xs text-center font-bold text-[var(--text-main)] transition-transform duration-500 group-hover:scale-105">
+                      <div className="w-full h-full bg-[var(--lavender)]/15 flex items-center justify-center p-3 text-xs text-center font-bold text-[var(--text-main)] transition-transform duration-500 group-hover:scale-105">
                         {book.title}
                       </div>
                     )}

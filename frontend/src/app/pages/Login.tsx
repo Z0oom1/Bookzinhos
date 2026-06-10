@@ -41,7 +41,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[var(--peach)] via-[var(--lavender)] to-[var(--mint)] flex items-center justify-center p-4 overflow-hidden relative">
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 overflow-hidden relative">
       {/* Floating Books Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-20 left-10 text-6xl opacity-15 animate-float select-none">📚</div>
@@ -56,7 +56,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
         <div className="bg-white/90 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl animate-scale-in border border-white/80">
           {/* Logo */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-[var(--primary)] to-[var(--primary)]/60 rounded-full mb-4 shadow-md animate-bounce-in border-4 border-white">
+            <div className="inline-flex items-center justify-center w-24 h-24 bg-[var(--primary)] rounded-full mb-4 shadow-md animate-bounce-in border-4 border-white">
               <BookHeart className="w-12 h-12 text-white" />
             </div>
             <h1 className="text-3xl font-extrabold text-[var(--text-main)] mb-1 tracking-tight">
@@ -110,7 +110,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
               className={`w-full mt-4 py-4 font-bold rounded-2xl transition-all relative overflow-hidden group animate-fade-in shadow-md cursor-pointer ${
                 !name.trim() || !password.trim() || isLoading
                   ? "bg-slate-150 text-slate-300 cursor-not-allowed shadow-none"
-                  : "bg-gradient-to-r from-[var(--primary)] to-[var(--peach)] text-white hover:shadow-lg hover:shadow-[var(--primary)]/15 active:scale-95"
+                  : "bg-[var(--primary)] text-white hover:shadow-lg hover:shadow-[var(--primary)]/15 active:scale-95"
               }`}
               style={{ animationDelay: "0.5s" }}
             >
