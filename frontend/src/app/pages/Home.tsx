@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Search, Heart, BookOpen, Edit3, Send, Sparkles, Clock, UserCheck } from "lucide-react";
 import { Link } from "react-router";
-import { fetchBooks, fetchAllProgress, fetchSavedIds, fetchGlobalStatus, updateGlobalStatus } from "../lib/api";
+import { fetchBooks, fetchAllProgress, fetchSavedIds, fetchGlobalStatus, updateGlobalStatus, toggleSaved } from "../lib/api";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import { BookCard } from "../components/BookCard";
 import type { Book, ReadingProgress, GlobalStatus } from "../lib/types";
@@ -61,6 +61,56 @@ export function Home() {
     } catch (err: any) {
       alert("Erro ao atualizar status: " + (err.message || "Erro desconhecido"));
     }
+  };
+
+  const handleToggleSave = async (bookId: string) => {
+    const currently = savedIds.includes(bookId);
+    setSavedIds((prev) => currently ? prev.filter((id) => id !== bookId) : [...prev, bookId]);
+    await toggleSaved(bookId, currently);
+  };
+
+  const renderBookShelf = (booksList: Book[], keyPrefix: string) => {
+    const chunked = [];
+    for (let i = 0; i < booksList.length; i += 3) {
+      chunked.push(booksList.slice(i, i + 3));
+    }
+
+    return (
+      <div className="space-y-12 mt-6">
+        {chunked.map((row, rowIndex) => (
+          <div key={`${keyPrefix}-row-${rowIndex}`} className="relative pt-6 px-4 flex justify-around items-end h-[160px] animate-fade-in" style={{ animationDelay: `${rowIndex * 0.15}s` }}>
+            {row.map((book) => {
+              const prog = progress.find((p) => p.bookId === book.id);
+              return (
+                <div key={book.id} className="relative z-10 flex flex-col items-center">
+                  <BookCard
+                    book={book}
+                    progress={prog}
+                    variant="shelf"
+                    onDeleted={(id) => setBooks((b) => b.filter((x) => x.id !== id))}
+                    onEdited={(updated) => setBooks((b) => b.map((x) => x.id === updated.id ? updated : x))}
+                  />
+                  <button
+                    onClick={() => handleToggleSave(book.id)}
+                    className="absolute -top-3.5 -right-3.5 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-md active:scale-90 hover:scale-105 transition-transform border border-slate-100 cursor-pointer text-xs"
+                  >
+                    {savedIds.includes(book.id) ? "❤️" : "🤍"}
+                  </button>
+                </div>
+              );
+            })}
+
+            {/* The Wooden Shelf */}
+            <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-b from-[#A0522D] to-[#8B4513] rounded-sm shadow-[0_10px_20px_rgba(0,0,0,0.4)] z-0 border-t border-[#CD853F]" />
+            <div className="absolute -bottom-2 left-1 right-1 h-2 bg-[#5C4033] rounded-b-md shadow-2xl z-0" />
+            
+            {/* Shelf Side Brackets */}
+            <div className="absolute -bottom-4 left-4 w-2 h-6 bg-[#3E2723] rounded-b-sm shadow-md z-0" />
+            <div className="absolute -bottom-4 right-4 w-2 h-6 bg-[#3E2723] rounded-b-sm shadow-md z-0" />
+          </div>
+        ))}
+      </div>
+    );
   };
 
   const recommended = [...books].sort((a, b) => b.rating - a.rating).slice(0, 6);
@@ -243,11 +293,7 @@ export function Home() {
                 <p className="text-xs text-[var(--text-muted)] font-bold">Nenhum livro mágico encontrado. 🐾</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
-                {searchResults.map((book) => (
-                  <BookCard key={book.id} book={book} />
-                ))}
-              </div>
+              renderBookShelf(searchResults, "search")
             )}
           </section>
         ) : (
@@ -302,11 +348,7 @@ export function Home() {
                 <Sparkles className="w-4 h-4 text-[var(--primary)]" />
                 <h2 className="text-[10px] font-extrabold text-[var(--text-main)] uppercase tracking-widest">Recomendados</h2>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                {recommended.map((book) => (
-                  <BookCard key={book.id} book={book} />
-                ))}
-              </div>
+              {renderBookShelf(recommended, "rec")}
             </section>
 
             {/* Adicionados Recentemente */}
@@ -315,13 +357,7 @@ export function Home() {
                 <Clock className="w-4 h-4 text-[var(--primary)]" />
                 <h2 className="text-[10px] font-extrabold text-[var(--text-main)] uppercase tracking-widest">Recentes</h2>
               </div>
-              <div className="flex gap-4 overflow-x-auto no-scrollbar pb-3 px-1">
-                {recent.map((book) => (
-                  <div key={book.id} className="w-28 flex-shrink-0">
-                    <BookCard book={book} variant="small" />
-                  </div>
-                ))}
-              </div>
+              {renderBookShelf(recent, "recent")}
             </section>
 
             {/* Livros do Autor em Destaque */}
@@ -331,11 +367,7 @@ export function Home() {
                   <UserCheck className="w-4 h-4 text-[var(--primary)]" />
                   <h2 className="text-[10px] font-extrabold text-[var(--text-main)] uppercase tracking-widest">Especial {featuredAuthor}</h2>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  {authorBooks.map((book) => (
-                    <BookCard key={book.id} book={book} />
-                  ))}
-                </div>
+                {renderBookShelf(authorBooks, "author")}
               </section>
             )}
           </>
