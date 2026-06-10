@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-import { 
-  Search, BookOpen, Bookmark, CheckCircle2, Heart, Folder, 
-  Layers, FileText, Grid, List 
+import {
+  Search, BookOpen, Bookmark, CheckCircle2, Heart, Folder,
+  Layers, FileText, Grid, List
 } from "lucide-react";
 import { fetchBooks, fetchSavedIds, toggleSaved, fetchAllProgress } from "../lib/api";
 import { Link } from "react-router";
@@ -49,7 +49,7 @@ export function Library() {
   const lidosBooks = books.filter(b => progress.some(p => p.bookId === b.id && p.status === "finalizado"));
   const queroLerBooks = books.filter(b => savedIds.includes(b.id) && !progress.some(p => p.bookId === b.id && (p.status === "lendo" || p.status === "finalizado")));
   const favoritosBooks = books.filter(b => savedIds.includes(b.id));
-  
+
   const romanceFavoritos = books.filter(b => b.genre.toLowerCase().includes("romance") && savedIds.includes(b.id));
   const aliHazelwood = books.filter(b => b.author.toLowerCase().includes("ali hazelwood"));
   const ficcaoCientifica = books.filter(b => b.genre.toLowerCase().includes("ficção") || b.genre.toLowerCase().includes("científica"));
@@ -79,7 +79,7 @@ export function Library() {
     } else if (selectedCategory === "aesthetic-reads") {
       list = aestheticReads;
     }
-    
+
     return list.filter((b) => {
       const matchesGenre = selectedGenre === "Todos" || b.genre === selectedGenre;
       const matchesSearch = !search.trim() || b.title.toLowerCase().includes(search.toLowerCase()) || b.author.toLowerCase().includes(search.toLowerCase());
@@ -120,7 +120,7 @@ export function Library() {
 
   const renderDesktopShelf = (title: string, booksList: Book[], dotColorClass: string, categoryKey: string) => {
     const displayList = booksList.slice(0, 6);
-    
+
     return (
       <div className="bg-[#faf6f3] rounded-3xl p-6 shadow-sm border border-[#f5ebe6] space-y-5">
         <div className="flex items-center justify-between">
@@ -128,7 +128,7 @@ export function Library() {
             <span className={`w-2.5 h-2.5 rounded-full ${dotColorClass}`} />
             <span className="text-xs font-black text-slate-800 uppercase tracking-wider">{title}</span>
           </div>
-          <button 
+          <button
             onClick={() => setSelectedCategory(categoryKey)}
             className="px-3.5 py-1.5 bg-white border border-[#f0e5de] hover:bg-slate-50 text-slate-600 rounded-xl text-[9px] font-bold uppercase tracking-widest active:scale-95 transition-all cursor-pointer"
           >
@@ -154,7 +154,7 @@ export function Library() {
                       onDeleted={(id) => setBooks((b) => b.filter((x) => x.id !== id))}
                       onEdited={(updated) => setBooks((b) => b.map((x) => x.id === updated.id ? updated : x))}
                     />
-                    
+
                     <button
                       onClick={() => handleToggleSave(book.id)}
                       className="absolute -top-2 -right-2 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-white shadow-md active:scale-90 hover:scale-105 transition-transform border border-slate-100 cursor-pointer text-xs"
@@ -180,8 +180,8 @@ export function Library() {
         <div className="text-center mb-6 animate-fade-in relative">
           <h1 className="text-3xl font-extrabold text-[var(--text-main)] tracking-tight mb-1">A Biblioteca 📚</h1>
           <p className="text-[var(--text-muted)] text-[11px] font-bold uppercase tracking-widest mt-1.5">Encontre sua próxima aventura</p>
-          <Link 
-            to="/upload" 
+          <Link
+            to="/upload"
             className="absolute right-0 top-1/2 -translate-y-1/2 px-3.5 py-2 bg-[var(--primary)] text-white rounded-xl font-extrabold text-[9px] uppercase tracking-widest shadow-md hover:scale-102 active:scale-95 transition-all cursor-pointer"
           >
             + Adicionar
@@ -204,11 +204,10 @@ export function Library() {
             <button
               key={genre}
               onClick={() => setSelectedGenre(genre)}
-              className={`px-4.5 py-2 rounded-full whitespace-nowrap transition-all active:scale-95 font-extrabold text-[10px] border uppercase tracking-widest cursor-pointer ${
-                selectedGenre === genre
+              className={`px-4.5 py-2 rounded-full whitespace-nowrap transition-all active:scale-95 font-extrabold text-[10px] border uppercase tracking-widest cursor-pointer ${selectedGenre === genre
                   ? "bg-[var(--primary)] text-white border-transparent shadow-sm"
                   : "bg-white/70 text-[var(--text-muted)] border-white/95 hover:bg-white hover:border-slate-200"
-              }`}
+                }`}
             >
               {genre}
             </button>
@@ -224,7 +223,7 @@ export function Library() {
           <div className="space-y-12 mt-10">
             {chunkedBooksMobile.map((row, rowIndex) => (
               <div key={rowIndex} className="relative pt-6 px-4 flex justify-around items-end h-[160px] animate-fade-in" style={{ animationDelay: `${rowIndex * 0.15}s` }}>
-                
+
                 {row.map((book) => (
                   <div key={book.id} className="relative z-10 flex flex-col items-center">
                     <BookCard
@@ -233,7 +232,7 @@ export function Library() {
                       onDeleted={(id) => setBooks((b) => b.filter((x) => x.id !== id))}
                       onEdited={(updated) => setBooks((b) => b.map((x) => x.id === updated.id ? updated : x))}
                     />
-                    
+
                     <button
                       onClick={() => handleToggleSave(book.id)}
                       className="absolute -top-3.5 -right-3.5 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-md active:scale-90 hover:scale-105 transition-transform border border-slate-100 cursor-pointer text-xs"
@@ -245,7 +244,7 @@ export function Library() {
 
                 <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-b from-[#A0522D] to-[#8B4513] rounded-sm shadow-[0_10px_20px_rgba(0,0,0,0.4)] z-0 border-t border-[#CD853F]" />
                 <div className="absolute -bottom-2 left-1 right-1 h-2 bg-[#5C4033] rounded-b-md shadow-2xl z-0" />
-                
+
                 <div className="absolute -bottom-4 left-4 w-2 h-6 bg-[#3E2723] rounded-b-sm shadow-md z-0" />
                 <div className="absolute -bottom-4 right-4 w-2 h-6 bg-[#3E2723] rounded-b-sm shadow-md z-0" />
               </div>
@@ -263,7 +262,7 @@ export function Library() {
         <aside className="w-64 border-r border-slate-100 bg-white p-6 flex flex-col justify-between flex-shrink-0">
           <div className="space-y-6">
             <h2 className="text-2xl font-black text-slate-800 tracking-tight">Biblioteca</h2>
-            
+
             <nav className="space-y-1">
               {sidebarMenu.map((item) => {
                 const Icon = item.icon;
@@ -274,19 +273,17 @@ export function Library() {
                       setSelectedCategory(item.key);
                       setSelectedGenre("Todos");
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
-                      selectedCategory === item.key
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${selectedCategory === item.key
                         ? "bg-[var(--primary)]/10 text-[var(--primary)]"
                         : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2.5">
                       <Icon className="w-4 h-4 opacity-80" />
                       <span>{item.label}</span>
                     </div>
-                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md ${
-                      selectedCategory === item.key ? "bg-[var(--primary)]/20" : "bg-slate-100"
-                    }`}>{item.count}</span>
+                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md ${selectedCategory === item.key ? "bg-[var(--primary)]/20" : "bg-slate-100"
+                      }`}>{item.count}</span>
                   </button>
                 );
               })}
@@ -304,19 +301,17 @@ export function Library() {
                       setSelectedCategory(item.key);
                       setSelectedGenre("Todos");
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
-                      selectedCategory === item.key
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${selectedCategory === item.key
                         ? "bg-[var(--primary)]/10 text-[var(--primary)]"
                         : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-2.5">
                       <Folder className="w-4 h-4 opacity-60 text-slate-400" />
                       <span className="truncate max-w-[120px]">{item.label}</span>
                     </div>
-                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md ${
-                      selectedCategory === item.key ? "bg-[var(--primary)]/20" : "bg-slate-100"
-                    }`}>{item.count}</span>
+                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md ${selectedCategory === item.key ? "bg-[var(--primary)]/20" : "bg-slate-100"
+                      }`}>{item.count}</span>
                   </button>
                 ))}
               </nav>
@@ -329,11 +324,11 @@ export function Library() {
             <div className="space-y-1">
               <div className="flex items-center gap-3.5">
                 <h1 className="text-2xl font-black text-slate-800 tracking-tight">Minha Biblioteca</h1>
-                <Link 
-                  to="/upload" 
+                <Link
+                  to="/upload"
                   className="px-3.5 py-1.5 bg-[var(--primary)] text-white rounded-xl font-extrabold text-[9px] uppercase tracking-widest shadow-md hover:shadow-lg active:scale-95 transition-all cursor-pointer"
                 >
-                  + Adicionar Livro
+                  + Add Livro
                 </Link>
               </div>
               <p className="text-xs text-slate-400 font-bold">{filteredBooksByCategory.length} livros</p>
