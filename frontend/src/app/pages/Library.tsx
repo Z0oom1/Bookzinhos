@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Search, BookOpen, Bookmark, CheckCircle2, Heart, Folder,
-  Layers, FileText, Grid, List, Users, Sparkles
+  Layers, FileText, Grid, List, Users, Sparkles, Clock
 } from "lucide-react";
 import { fetchBooks, fetchSavedIds, toggleSaved, fetchAllProgress } from "../lib/api";
 import { Link } from "react-router";
@@ -98,6 +98,7 @@ export function Library() {
 
   const lendoBooks = books.filter(b => progress.some(p => p.bookId === b.id && p.status === "lendo"));
   const lidosBooks = books.filter(b => progress.some(p => p.bookId === b.id && p.status === "finalizado"));
+  const lerDepoisBooks = books.filter(b => progress.some(p => p.bookId === b.id && p.status === "ler-depois"));
   const favoritosBooks = books.filter(b => savedIds.includes(b.id));
 
   const recomendadosBooks = (() => {
@@ -137,6 +138,8 @@ export function Library() {
       list = lendoBooks;
     } else if (selectedCategory === "recomendados") {
       list = recomendadosBooks;
+    } else if (selectedCategory === "ler-depois") {
+      list = lerDepoisBooks;
     } else if (selectedCategory === "lidos") {
       list = lidosBooks;
     } else if (selectedCategory === "favoritos") {
@@ -166,7 +169,9 @@ export function Library() {
 
   const sidebarMenu = [
     { key: "todos", label: "Todos os livros", count: books.length, icon: BookOpen },
+    { key: "minha-biblioteca", label: "Minha Biblioteca", count: lendoBooks.length + lerDepoisBooks.length + lidosBooks.length, icon: Folder },
     { key: "autores", label: "Autores", count: authorGroups.length, icon: Users },
+    { key: "ler-depois", label: "Ler depois", count: lerDepoisBooks.length, icon: Clock },
     { key: "recomendados", label: "Recomendados", count: recomendadosBooks.length, icon: Sparkles },
     { key: "lendo", label: "Lendo", count: lendoBooks.length, icon: Layers },
     { key: "lidos", label: "Lidos", count: lidosBooks.length, icon: CheckCircle2 },
@@ -506,8 +511,6 @@ export function Library() {
 
           {selectedCategory === "todos" && !search.trim() && selectedGenre === "Todos" ? (
             <div className="space-y-8 animate-fade-in">
-              {renderDesktopShelf("Lendo", lendoBooks, "bg-purple-500", "lendo")}
-              {renderDesktopShelf("Recomendados", recomendadosBooks, "bg-amber-500", "recomendados")}
               {renderDesktopShelf(
                 "Todos os Livros",
                 [...books].sort((a, b) => a.title.localeCompare(b.title, "pt")),
@@ -515,6 +518,13 @@ export function Library() {
                 "",
                 true
               )}
+            </div>
+          ) : selectedCategory === "minha-biblioteca" && !search.trim() && selectedGenre === "Todos" ? (
+            <div className="space-y-8 animate-fade-in">
+              {renderDesktopShelf("Lendo", lendoBooks, "bg-purple-500", "lendo")}
+              {renderDesktopShelf("Recomendados", recomendadosBooks, "bg-amber-500", "recomendados")}
+              {renderDesktopShelf("Ler depois", lerDepoisBooks, "bg-blue-500", "ler-depois")}
+              {renderDesktopShelf("Lidos", lidosBooks, "bg-emerald-500", "lidos")}
             </div>
           ) : selectedCategory === "autores" && !search.trim() && selectedGenre === "Todos" ? (
             <div className="space-y-8 animate-fade-in">

@@ -1,4 +1,4 @@
-import { BookOpen, Pencil, Trash2, MessageSquare, X, PauseCircle, PlayCircle, Star } from "lucide-react";
+import { BookOpen, Pencil, Trash2, MessageSquare, X, PauseCircle, PlayCircle, Star, Clock } from "lucide-react";
 import { createPortal } from "react-dom";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import type { Book } from "../lib/types";
@@ -13,6 +13,7 @@ interface Props {
   onDelete: () => void;
   onFeedback: () => void;
   onPause?: () => void;
+  onReadLater?: () => void;
   menuPos?: { x: number; y: number } | null;
 }
 
@@ -122,6 +123,16 @@ export function BookContextMenu({ book, isPaused, onClose, onRead, onEdit, onDel
               <span>Anotações / Diário</span>
             </button>
 
+            {onReadLater && (
+              <button
+                onClick={() => { onReadLater(); onClose(); }}
+                className="flex items-center gap-3 px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-slate-700 hover:bg-[var(--primary)] hover:text-white transition-all group cursor-pointer"
+              >
+                <Clock className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
+                <span>Ler Mais Tarde</span>
+              </button>
+            )}
+
             <button
               onClick={() => { onEdit(); onClose(); }}
               className="flex items-center gap-3 px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-slate-700 hover:bg-[var(--primary)] hover:text-white transition-all group cursor-pointer"
@@ -218,7 +229,7 @@ export function BookContextMenu({ book, isPaused, onClose, onRead, onEdit, onDel
         </button>
 
         {/* Secondary Actions Grid */}
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-5 gap-2">
           {onPause && (
             <button
               onClick={onPause}
@@ -234,6 +245,18 @@ export function BookContextMenu({ book, isPaused, onClose, onRead, onEdit, onDel
               <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
                 {isPaused ? "Retomar" : "Pausar"}
               </span>
+            </button>
+          )}
+
+          {onReadLater && (
+            <button
+              onClick={() => { onReadLater(); onClose(); }}
+              className="flex flex-col items-center gap-2 group"
+            >
+              <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-[1.2rem] flex items-center justify-center group-hover:scale-110 shadow-sm border border-white transition-all duration-300">
+                <Clock className="w-6 h-6" />
+              </div>
+              <span className="text-[10px] font-black text-[var(--text-main)] uppercase tracking-wider">Ler Depois</span>
             </button>
           )}
 

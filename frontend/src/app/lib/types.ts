@@ -32,7 +32,7 @@ export interface ReadingProgress {
   currentPage: number;
   totalPages: number;
   progress: number;
-  status: "lendo" | "finalizado" | "pausado";
+  status: "lendo" | "finalizado" | "pausado" | "ler-depois";
   startedAt: number;
   lastReadAt: number;
 }

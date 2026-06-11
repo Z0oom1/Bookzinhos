@@ -110,6 +110,23 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
     await saveProgress(nextProgress);
   };
 
+  const handleReadLater = async () => {
+    handleCloseMenu();
+    const nextProgress: ReadingProgress = localProgress
+      ? { ...localProgress, status: "ler-depois" }
+      : {
+          bookId: book.id,
+          currentPage: 0,
+          totalPages: 100,
+          progress: 0,
+          status: "ler-depois",
+          startedAt: Date.now(),
+          lastReadAt: Date.now()
+        };
+    setLocalProgress(nextProgress);
+    await saveProgress(nextProgress);
+  };
+
   const coverUrl = getFullUrl(book.coverImagePath);
   const coverContent = coverUrl ? (
     <img src={coverUrl} className="w-full h-full object-cover animate-fade-in" alt={book.title} />
@@ -162,6 +179,7 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
             onDelete={() => { handleCloseMenu(); setShowDeleteConfirm(true); }}
             onFeedback={() => { handleCloseMenu(); navigate(`/notes?bookId=${book.id}`); }}
             onPause={localProgress ? handlePause : undefined}
+            onReadLater={handleReadLater}
             menuPos={menuPos}
           />
         )}
@@ -214,6 +232,7 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
             onDelete={() => { handleCloseMenu(); setShowDeleteConfirm(true); }}
             onFeedback={() => { handleCloseMenu(); navigate(`/notes?bookId=${book.id}`); }}
             onPause={localProgress ? handlePause : undefined}
+            onReadLater={handleReadLater}
             menuPos={menuPos}
           />
         )}
@@ -224,6 +243,7 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
   }
 
   if (variant === "shelf") {
+    const isFinalizado = localProgress?.status === "finalizado";
     return (
       <>
         <div
@@ -231,13 +251,24 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
           className="relative w-24 h-[135px] group cursor-pointer origin-bottom transition-all duration-300 hover:scale-110 hover:-translate-y-2 z-10"
         >
           {/* Main Book Cover */}
-          <div className="absolute inset-0 rounded-[2px] rounded-r-[6px] overflow-hidden shadow-[-2px_0_5px_rgba(0,0,0,0.15)] bg-slate-50 border-l-[3px] border-black/10">
+          <div className={`absolute inset-0 rounded-[2px] rounded-r-[6px] overflow-hidden shadow-[-2px_0_5px_rgba(0,0,0,0.15)] bg-slate-50 border-l-[3px] border-black/10 transition-all ${
+            isFinalizado ? "border-[3px] border-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.55)]" : ""
+          }`}>
             {coverContent}
             {/* Book Spine Highlight */}
             <div className="absolute top-0 bottom-0 left-0 w-2 bg-gradient-to-r from-white/20 to-transparent" />
             {/* Overlay Gradient for realism */}
             <div className="absolute inset-0 bg-gradient-to-br from-black/5 to-black/15 mix-blend-multiply pointer-events-none" />
+            {/* Shimmery golden overlay */}
+            {isFinalizado && (
+              <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/20 via-yellow-400/5 to-amber-500/20 mix-blend-color-dodge pointer-events-none" />
+            )}
           </div>
+          
+          {/* Trophy badge */}
+          {isFinalizado && (
+            <div className="absolute -top-2.5 -right-2.5 bg-gradient-to-r from-amber-400 to-yellow-300 text-[10px] w-5.5 h-5.5 rounded-full flex items-center justify-center shadow-md border border-amber-200 animate-pulse-soft z-20">🏆</div>
+          )}
           
           {/* Shadow behind the book on the shelf */}
           <div className="absolute -bottom-1 -right-2 w-12 h-2 bg-black/20 blur-sm rounded-full -z-10 group-hover:scale-110 transition-transform" />
@@ -252,6 +283,7 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
             onDelete={() => { handleCloseMenu(); setShowDeleteConfirm(true); }}
             onFeedback={() => { handleCloseMenu(); navigate(`/notes?bookId=${book.id}`); }}
             onPause={localProgress ? handlePause : undefined}
+            onReadLater={handleReadLater}
             menuPos={menuPos}
           />
         )}
@@ -289,6 +321,7 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
           onDelete={() => { handleCloseMenu(); setShowDeleteConfirm(true); }}
           onFeedback={() => { handleCloseMenu(); navigate(`/notes?bookId=${book.id}`); }}
           onPause={localProgress ? handlePause : undefined}
+          onReadLater={handleReadLater}
           menuPos={menuPos}
         />
       )}
