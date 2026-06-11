@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Search, BookOpen, Bookmark, CheckCircle2, Heart, Folder,
-  Layers, FileText, Grid, List
+  Layers, FileText, Grid, List, Users
 } from "lucide-react";
 import { fetchBooks, fetchSavedIds, toggleSaved, fetchAllProgress } from "../lib/api";
 import { Link } from "react-router";
@@ -16,7 +16,20 @@ export function Library() {
   const [selectedGenre, setSelectedGenre] = useState("Todos");
   const [selectedCategory, setSelectedCategory] = useState("todos");
   const [search, setSearch] = useState("");
+  const [containerWidth, setContainerWidth] = useState(800);
+  const mainRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!mainRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(mainRef.current);
+    return () => observer.disconnect();
+  }, [isLoading]);
 
   useEffect(() => {
     const loadData = () => {
@@ -129,6 +142,7 @@ export function Library() {
 
   const sidebarMenu = [
     { key: "todos", label: "Todos os livros", count: books.length, icon: BookOpen },
+    { key: "autores", label: "Autores", count: authorGroups.length, icon: Users },
     { key: "quero-ler", label: "Quero ler", count: queroLerBooks.length, icon: Bookmark },
     { key: "lendo", label: "Lendo", count: lendoBooks.length, icon: Layers },
     { key: "lidos", label: "Lidos", count: lidosBooks.length, icon: CheckCircle2 },
@@ -158,7 +172,7 @@ export function Library() {
 
   const renderDesktopShelf = (title: string, booksList: Book[], dotColorClass: string, categoryKey: string, isGrid = false) => {
     if (isGrid) {
-      const chunkSize = 6;
+      const chunkSize = Math.max(Math.floor((containerWidth - 100) / 128), 2);
       const chunks = [];
       for (let i = 0; i < booksList.length; i += chunkSize) {
         chunks.push(booksList.slice(i, i + chunkSize));
@@ -422,7 +436,7 @@ export function Library() {
           </div>
         </aside>
 
-        <main className="flex-1 p-8 overflow-y-auto space-y-8 bg-slate-50/30">
+        <main ref={mainRef} className="flex-1 p-8 overflow-y-auto space-y-8 bg-slate-50/30">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-3.5">
@@ -467,6 +481,18 @@ export function Library() {
           </div>
 
           {selectedCategory === "todos" && !search.trim() && selectedGenre === "Todos" ? (
+            <div className="space-y-8 animate-fade-in">
+              {renderDesktopShelf("Lendo", lendoBooks, "bg-purple-500", "lendo")}
+              {renderDesktopShelf("Quero ler", queroLerBooks, "bg-amber-500", "quero-ler")}
+              {renderDesktopShelf(
+                "Todos os Livros",
+                [...books].sort((a, b) => a.title.localeCompare(b.title, "pt")),
+                "bg-blue-500",
+                "",
+                true
+              )}
+            </div>
+          ) : selectedCategory === "autores" && !search.trim() && selectedGenre === "Todos" ? (
             <div className="space-y-8 animate-fade-in">
               {renderDesktopShelf("Lendo", lendoBooks, "bg-purple-500", "lendo")}
               {renderDesktopShelf("Quero ler", queroLerBooks, "bg-amber-500", "quero-ler")}
