@@ -307,32 +307,7 @@ export function Profile() {
           </div>
         )}
 
-        {/* Configurações */}
-        <div className="bg-white/70 backdrop-blur-xl rounded-[2.25rem] p-6 border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.02)] animate-fade-in" style={{ animationDelay: "0.4s" }}>
-          <h2 className="text-[var(--text-main)] font-extrabold text-base flex items-center gap-2 mb-6">
-            <Settings className="w-5 h-5 text-[var(--primary)] animate-spin-slow" /> Configurações
-          </h2>
-          <div className="flex items-center justify-between bg-slate-50/50 p-4.5 rounded-[2rem] border border-slate-100 hover:bg-slate-50 transition-colors">
-            <div className="pr-4 text-left">
-              <h4 className="text-[var(--text-main)] text-sm font-extrabold">Modo Offline (LocalStorage)</h4>
-              <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-widest mt-0.5 leading-normal">
-                Leia e importe livros locais sem internet
-              </p>
-            </div>
-            <button
-              onClick={handleToggleOffline}
-              className={`relative w-12 h-7 rounded-full transition-all duration-300 shadow-inner flex-shrink-0 cursor-pointer ${
-                isOffline ? "bg-[var(--primary)]" : "bg-slate-200"
-              }`}
-            >
-              <div
-                className={`absolute top-0.5 w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-md transform ${
-                  isOffline ? "translate-x-5" : "translate-x-0.5"
-                }`}
-              />
-            </button>
-          </div>
-        </div>
+
 
         <div className="pt-8 text-center animate-fade-in" style={{ animationDelay: "0.5s" }}>
           <button

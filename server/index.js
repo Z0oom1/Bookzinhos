@@ -315,7 +315,16 @@ app.delete("/books/:id", async (req, res) => {
     if (!row) return res.status(404).json({ error: "Livro não encontrado" });
     if (row.pdf_path && fs.existsSync(row.pdf_path)) fs.unlinkSync(row.pdf_path);
     if (row.cover_image_path && fs.existsSync(row.cover_image_path)) fs.unlinkSync(row.cover_image_path);
+    
+    // Cascata explícita para compatibilidade com Turso/SQLite
+    await db.query(sql`DELETE FROM book_pages WHERE book_id = ${req.params.id}`);
+    await db.query(sql`DELETE FROM book_reviews WHERE book_id = ${req.params.id}`);
+    await db.query(sql`DELETE FROM reading_progress WHERE book_id = ${req.params.id}`);
+    await db.query(sql`DELETE FROM notes WHERE book_id = ${req.params.id}`);
+    await db.query(sql`DELETE FROM saved_books WHERE book_id = ${req.params.id}`);
+    await db.query(sql`DELETE FROM book_recommendations WHERE book_id = ${req.params.id}`);
     await db.query(sql`DELETE FROM books WHERE id = ${req.params.id}`);
+    
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -537,9 +546,8 @@ app.get("/notes", async (req, res) => {
 
 app.get("/notes/book/:bookId", async (req, res) => {
   try {
-    const username = req.headers['x-user-id'] || 'Caio';
-    const rows = await db.query(sql`SELECT * FROM notes WHERE book_id = ${req.params.bookId} AND username = ${username} COLLATE NOCASE ORDER BY created_at DESC`);
-    res.json(rows.map((r) => ({ id: r.id, bookId: r.book_id, date: r.date_label, feedback: r.feedback, rating: r.rating, createdAt: r.created_at })));
+    const rows = await db.query(sql`SELECT * FROM notes WHERE book_id = ${req.params.bookId} ORDER BY created_at DESC`);
+    res.json(rows.map((r) => ({ id: r.id, bookId: r.book_id, username: r.username, date: r.date_label, feedback: r.feedback, rating: r.rating, createdAt: r.created_at })));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

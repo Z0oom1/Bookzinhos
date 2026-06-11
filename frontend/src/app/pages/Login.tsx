@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BookHeart, Sparkles } from "lucide-react";
-import { login, register } from "../lib/api";
+import { login, register, fetchAllUsers } from "../lib/api";
 
 interface LoginProps {
   onLoginSuccess: (name: string) => void;
@@ -12,6 +12,17 @@ export function Login({ onLoginSuccess }: LoginProps) {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [usersList, setUsersList] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchAllUsers()
+      .then((u) => setUsersList(u || []))
+      .catch((err) => console.error("Erro ao obter usuários no login:", err));
+  }, []);
+
+  const matchedUser = usersList.find(
+    (u) => u.username.trim().toLowerCase() === name.trim().toLowerCase()
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,8 +67,12 @@ export function Login({ onLoginSuccess }: LoginProps) {
         <div className="bg-white/90 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl animate-scale-in border border-white/80">
           {/* Logo */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-[var(--primary)] rounded-full mb-4 shadow-md animate-bounce-in border-4 border-white">
-              <BookHeart className="w-12 h-12 text-white" />
+            <div className="inline-flex items-center justify-center w-24 h-24 bg-[var(--primary)] rounded-full mb-4 shadow-md animate-bounce-in border-4 border-white select-none">
+              {matchedUser ? (
+                <span className="text-5xl">{matchedUser.avatar || "👤"}</span>
+              ) : (
+                <BookHeart className="w-12 h-12 text-white" />
+              )}
             </div>
             <h1 className="text-3xl font-extrabold text-[var(--text-main)] mb-1 tracking-tight">
               Books da Helo

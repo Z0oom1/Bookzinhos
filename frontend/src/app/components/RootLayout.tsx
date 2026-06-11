@@ -406,7 +406,7 @@ export function RootLayout() {
                   }`}
                 >
                   <span>{desktopLabel}</span>
-                  {badge && badge > 0 && (
+                  {typeof badge === 'number' && badge > 0 && (
                     <span className="absolute -top-1 -right-1.5 min-w-[14px] h-[14px] bg-red-500 text-white text-[8px] font-black rounded-full flex items-center justify-center px-0.5">
                       {badge}
                     </span>

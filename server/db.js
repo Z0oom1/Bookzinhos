@@ -339,55 +339,21 @@ async function initDB() {
   } catch (err) {}
 
   // Garante livros funcionais padrão
+  // Remove livros fictícios padrão e suas dependências
   try {
-    const seedBooks = [
-      { id: "pequeno-principe", title: "O Pequeno Príncipe", author: "Antoine de Saint-Exupéry", description: "Uma história mágica sobre amizade, amor e o verdadeiro sentido da vida.", genre: "Clássico", cover_color: "sky-mint" },
-      { id: "dom-casmurro", title: "Dom Casmurro", author: "Machado de Assis", description: "O clássico romance brasileiro sobre a história de Bento Santiago e Capitu.", genre: "Romance", cover_color: "peach-lavender" },
-      { id: "amor-perdicao", title: "Amor de Perdição", author: "Camilo Castelo Branco", description: "A ultra-romântica tragédia amorosa entre Simão Botelho e Teresa de Albuquerque.", genre: "Drama", cover_color: "blush-lavender" }
-    ];
-
-    for (const b of seedBooks) {
-      await db.query(sql`
-        INSERT OR IGNORE INTO books (id, title, author, description, genre, rating, review_count, is_public, cover_color, added_at, is_user_book, cover_image_path)
-        VALUES (${b.id}, ${b.title}, ${b.author}, ${b.description}, ${b.genre}, 5, 0, 1, ${b.cover_color}, ${Date.now()}, 0, '/capa-esboco.png')
-      `);
-      await db.query(sql`
-        UPDATE books SET cover_image_path = '/capa-esboco.png' WHERE id = ${b.id}
-      `);
-    }
-
-    const pages = {
-      "pequeno-principe": [
-        "Foi assim que descobri o Pequeno Príncipe. A sua primeira pergunta foi: 'Desenha-me um carneiro!'",
-        "As pessoas grandes não compreendem nada por si mesmas, e é cansativo para as crianças estar sempre a dar-lhes explicações.",
-        "Se tu vens, por exemplo, às quatro da tarde, desde as três eu começarei a ser feliz. Quanto mais a hora for aproximando, mais eu me sentindo feliz.",
-        "O essencial é invisível aos olhos. Tu te tornas eternamente responsável por aquilo que cativas."
-      ],
-      "dom-casmurro": [
-        "Uma noite destas, vindo da cidade para o Engenho Novo, encontrei no trem um rapaz aqui de perto, que eu conheço de vista e de chapéu.",
-        "Capitu era Capitu, isto é, uma criatura mui particular, com olhos de cigana oblíqua e dissimulada.",
-        "Olhos de ressaca? Sim, os olhos dela pareciam trazer aquela força misteriosa de ressaca do mar que tudo arrasta para dentro.",
-        "A terra lhes seja leve, e a nós nos dê a paz de espírito necessária para contar a nossa própria história."
-      ],
-      "amor-perdicao": [
-        "Simão Botelho e Teresa de Albuquerque amavam-se. Era um amor puro, mas condenado pelo ódio secular de suas famílias.",
-        "As famílias odiavam-se há gerações, e as barreiras que os separavam pareciam cada vez mais intransponíveis.",
-        "Teresa foi enclausurada num convento frio, e Simão desesperava no cárcere da prisão, esperando o exílio.",
-        "O amor venceu a própria morte, unindo-os na eternidade do oceano que recebeu suas cinzas."
-      ]
-    };
-
-    for (const [bookId, bookPages] of Object.entries(pages)) {
+    const oldBookIds = ["pequeno-principe", "dom-casmurro", "amor-perdicao"];
+    for (const bookId of oldBookIds) {
       await db.query(sql`DELETE FROM book_pages WHERE book_id = ${bookId}`);
-      for (let i = 0; i < bookPages.length; i++) {
-        await db.query(sql`
-          INSERT INTO book_pages (book_id, page_num, content)
-          VALUES (${bookId}, ${i}, ${bookPages[i]})
-        `);
-      }
+      await db.query(sql`DELETE FROM book_reviews WHERE book_id = ${bookId}`);
+      await db.query(sql`DELETE FROM reading_progress WHERE book_id = ${bookId}`);
+      await db.query(sql`DELETE FROM notes WHERE book_id = ${bookId}`);
+      await db.query(sql`DELETE FROM saved_books WHERE book_id = ${bookId}`);
+      await db.query(sql`DELETE FROM book_recommendations WHERE book_id = ${bookId}`);
+      await db.query(sql`DELETE FROM books WHERE id = ${bookId}`);
     }
+    console.log("🧹 Removido livros antigos de seed e dependências.");
   } catch (err) {
-    console.error("Erro ao semear livros:", err);
+    console.error("Erro ao limpar livros seed antigos:", err);
   }
 
   // Deletar duplicatas da tabela de livros (mantendo apenas o mais antigo)

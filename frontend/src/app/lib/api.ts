@@ -6,11 +6,11 @@ import { API_BASE_URL } from "./config";
 
 // --- HELPERS E INTERRUPTOR MODO OFFLINE ---
 export function isOfflineMode(): boolean {
-  return localStorage.getItem("offline-mode") === "true";
+  return false;
 }
 
 export function setOfflineMode(value: boolean): void {
-  localStorage.setItem("offline-mode", value ? "true" : "false");
+  localStorage.setItem("offline-mode", "false");
 }
 
 // --- INDEXEDDB PARA ARMAZENAMENTO DE ARQUIVOS GRANDES ---
@@ -111,77 +111,7 @@ const LOCAL_USERS = [
   { username: "Helo", bio: "Apaixonada por histórias que transformam 💕", avatar: "🎀", shelf: ["dom-casmurro"], pandinhas: 15 }
 ];
 
-const INITIAL_LOCAL_BOOKS = [
-  {
-    id: "pequeno-principe",
-    title: "O Pequeno Príncipe",
-    author: "Antoine de Saint-Exupéry",
-    description: "Uma história mágica sobre amizade, amor e o verdadeiro sentido da vida.",
-    genre: "Clássico",
-    rating: 5,
-    reviewCount: 1,
-    isPublic: true,
-    coverColor: "sky-mint",
-    addedAt: 1700000000000,
-    pdfPath: null,
-    coverImagePath: null,
-    isUserBook: false,
-    reviews: [{ username: "Helo", rating: 5, comment: "Meu livro favorito da vida! 🥹💕" }],
-    pages: [
-      "Foi assim que descobri o Pequeno Príncipe. A sua primeira pergunta foi: 'Desenha-me um carneiro!'",
-      "As pessoas grandes não compreendem nada por si mesmas, e é cansativo para as crianças estar sempre a dar-lhes explicações.",
-      "Se tu vens, por exemplo, às quatro da tarde, desde as três eu começarei a ser feliz. Quanto mais a hora for aproximando, mais eu me sentindo feliz.",
-      "O essencial é invisível aos olhos. Tu te tornas eternamente responsável por aquilo que cativas."
-    ],
-    pageCount: 4
-  },
-  {
-    id: "dom-casmurro",
-    title: "Dom Casmurro",
-    author: "Machado de Assis",
-    description: "O clássico romance brasileiro sobre a história de Bento Santiago e Capitu.",
-    genre: "Romance",
-    rating: 5,
-    reviewCount: 1,
-    isPublic: true,
-    coverColor: "peach-lavender",
-    addedAt: 1700000000001,
-    pdfPath: null,
-    coverImagePath: null,
-    isUserBook: false,
-    reviews: [{ username: "Caio", rating: 5, comment: "Muito bem escrito. Capitu traiu ou não traiu? 🤔" }],
-    pages: [
-      "Uma noite destas, vindo da cidade para o Engenho Novo, encontrei no trem um rapaz aqui de perto, que eu conheço de vista e de chapéu.",
-      "Capitu era Capitu, isto é, uma criatura mui particular, com olhos de cigana oblíqua e dissimulada.",
-      "Olhos de ressaca? Sim, os olhos dela pareciam trazer aquela força misteriosa de ressaca do mar que tudo arrasta para dentro.",
-      "A terra lhes seja leve, e a nós nos dê a paz de espírito necessária para contar a nossa própria história."
-    ],
-    pageCount: 4
-  },
-  {
-    id: "amor-perdicao",
-    title: "Amor de Perdição",
-    author: "Camilo Castelo Branco",
-    description: "A ultra-romântica tragédia amorosa entre Simão Botelho e Teresa de Albuquerque.",
-    genre: "Drama",
-    rating: 4,
-    reviewCount: 0,
-    isPublic: true,
-    coverColor: "blush-lavender",
-    addedAt: 1700000000002,
-    pdfPath: null,
-    coverImagePath: null,
-    isUserBook: false,
-    reviews: [],
-    pages: [
-      "Simão Botelho e Teresa de Albuquerque amavam-se. Era um amor puro, mas condenado pelo ódio secular de suas famílias.",
-      "As famílias odiavam-se há gerações, e as barreiras que os separavam pareciam cada vez mais intransponíveis.",
-      "Teresa foi enclausurada num convento frio, e Simão desesperava no cárcere da prisão, esperando o exílio.",
-      "O amor venceu a própria morte, unindo-os na eternidade do oceano que recebeu suas cinzas."
-    ],
-    pageCount: 4
-  }
-];
+const INITIAL_LOCAL_BOOKS: any[] = [];
 
 async function request(method: string, path: string, body?: any) {
   const url = `${API_BASE_URL}${path}`;

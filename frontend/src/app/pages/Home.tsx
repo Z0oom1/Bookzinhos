@@ -475,42 +475,50 @@ export function Home() {
             <>
               {/* Generalized view tab */}
               {desktopTab === "geral" && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 animate-fade-in">
                   {/* Left Column (Banner + Status Shoutbox) */}
-                  <div className="md:col-span-2 space-y-6">
+                  <div className="md:col-span-2 space-y-8">
                     {/* banner */}
-                    <div className="relative h-48 rounded-[2.25rem] overflow-hidden bg-[var(--blush)]/70 shadow-sm border border-white/45 flex items-center p-8">
-                      <div className="space-y-2">
-                        <span className="text-[9px] font-extrabold text-[var(--primary)] bg-white/95 uppercase tracking-widest px-3 py-1 rounded-full">
-                          Destaque
+                    <div className="relative h-48 rounded-[2.5rem] overflow-hidden bg-gradient-to-r from-[#ffd3b6]/60 via-[#ffaaa5]/60 to-[#dcedc1]/60 shadow-[0_10px_30px_rgba(243,168,184,0.08)] border border-white/50 flex items-center p-8 group transition-all duration-500 hover:shadow-[0_15px_35px_rgba(243,168,184,0.12)]">
+                      <div className="absolute top-0 right-0 w-44 h-44 bg-white/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-700" />
+                      <div className="space-y-3 relative z-10">
+                        <span className="text-[9px] font-black text-[var(--primary)] bg-white/95 uppercase tracking-widest px-3.5 py-1.5 rounded-full shadow-sm">
+                          Destaque do Dia ✨
                         </span>
-                        <h2 className="text-2xl font-black text-slate-800 leading-tight">Explore Histórias e<br />Mundos Encantados ✨</h2>
+                        <h2 className="text-3xl font-black text-slate-850 tracking-tight leading-tight">Explore Histórias e<br />Mundos Encantados 💫</h2>
+                        <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Mantenha sua rotina de leitura em dia</p>
                       </div>
-                      <div className="absolute bottom-4 right-8 text-9xl opacity-10 select-none pointer-events-none">📖</div>
+                      <div className="absolute bottom-4 right-8 text-9xl opacity-20 group-hover:rotate-6 transition-transform duration-500 select-none pointer-events-none animate-float">📖</div>
                     </div>
 
                     {/* Shoutbox widget */}
-                    <div className="bg-white/70 backdrop-blur-xl p-6 rounded-[2rem] border border-white/80 shadow-sm">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest">Shoutbox / Status Recente</h3>
+                    <div className="bg-white/80 backdrop-blur-xl p-6 rounded-[2.5rem] border border-white shadow-[0_10px_35px_rgba(0,0,0,0.015)] space-y-5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-rose-400 animate-pulse-soft" />
+                          <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">Shoutbox / Status do Casal</h3>
+                        </div>
                         {!isEditingStatus && (
                           <button 
                             onClick={() => setIsEditingStatus(true)}
-                            className="text-[10px] font-bold text-[var(--primary)] uppercase tracking-wider hover:opacity-85 cursor-pointer"
+                            className="px-3.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-[9px] font-black text-[var(--primary)] border border-slate-100 rounded-xl uppercase tracking-widest active:scale-95 transition-all cursor-pointer shadow-sm"
                           >
-                            Atualizar
+                            Atualizar Status
                           </button>
                         )}
                       </div>
 
                       {!isEditingStatus ? (
-                        <div className="flex items-center gap-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
-                          <div className="w-12 h-12 bg-[var(--blush)]/50 rounded-xl flex items-center justify-center text-3xl shadow-inner select-none">
+                        <div className="flex items-center gap-5 bg-gradient-to-br from-slate-50 to-slate-100/40 p-5 rounded-3xl border border-slate-100 shadow-inner group">
+                          <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-4xl shadow-md border border-slate-100 select-none group-hover:scale-105 transition-transform duration-300">
                             {status?.emote || "🐼"}
                           </div>
-                          <div>
-                            <p className="text-xs text-slate-700 font-semibold italic">"{status?.content}"</p>
-                            <p className="text-[9px] font-black text-[var(--primary)] uppercase tracking-widest mt-1.5">{status?.username}</p>
+                          <div className="space-y-1.5">
+                            <p className="text-xs text-slate-700 font-extrabold italic leading-relaxed">"{status?.content}"</p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-black text-[var(--primary)] uppercase tracking-widest bg-white px-2 py-0.5 rounded-md border border-slate-100">{status?.username}</span>
+                              <span className="text-[9px] text-slate-400 font-bold">• {status ? new Date(status.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}</span>
+                            </div>
                           </div>
                         </div>
                       ) : (
@@ -558,40 +566,46 @@ export function Home() {
                   </div>
 
                   {/* Right Column (Currently Reading) */}
-                  <div className="space-y-6">
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Em Leitura</h3>
+                  <div className="space-y-4">
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Em Leitura</h3>
                     {currentBook && currentlyReading ? (
-                      <Link to={`/read/${currentBook.id}`} className="block">
-                        <div className="bg-white rounded-[2.25rem] p-5 shadow-sm border border-slate-100 hover:shadow-md transition-shadow flex flex-col gap-4 group">
-                          <div className="w-full aspect-[2/3] rounded-2xl overflow-hidden shadow-sm border border-slate-100 flex items-center justify-center relative bg-slate-50">
+                      <Link to={`/read/${currentBook.id}`} className="block group">
+                        <div className="bg-white rounded-[2.5rem] p-6 shadow-[0_10px_35px_rgba(0,0,0,0.015)] hover:shadow-md border border-slate-100 transition-all duration-300 flex flex-col gap-5 relative overflow-hidden">
+                          <div className="absolute top-0 right-0 w-24 h-24 bg-[var(--primary)]/5 rounded-bl-full pointer-events-none" />
+                          <div className="w-full aspect-[2/3] rounded-2xl overflow-hidden shadow-md border border-slate-100 flex items-center justify-center relative bg-slate-50 transition-transform duration-500 group-hover:scale-102">
                             {currentBook.coverImagePath ? (
-                              <img src={getFullUrl(currentBook.coverImagePath)!} className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300" />
+                              <img src={getFullUrl(currentBook.coverImagePath)!} className="w-full h-full object-cover" />
                             ) : (
                               <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient(currentBook)} flex items-center justify-center`}>
                                 <BookOpen className="w-12 h-12 text-white opacity-40" />
                               </div>
                             )}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-4">
+                              <span className="bg-white/90 backdrop-blur px-3.5 py-1.5 rounded-xl text-[9px] font-black text-slate-800 uppercase tracking-widest shadow-sm">Continuar Lendo</span>
+                            </div>
                           </div>
-                          <div className="space-y-3">
+                          
+                          <div className="space-y-4">
                             <div>
-                              <h4 className="font-extrabold text-slate-800 text-xs line-clamp-1 leading-snug">{currentBook.title}</h4>
+                              <h4 className="font-extrabold text-slate-800 text-xs line-clamp-1 leading-snug group-hover:text-[var(--primary)] transition-colors">{currentBook.title}</h4>
                               <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mt-0.5">{currentBook.author}</p>
                             </div>
                             
-                            <div className="space-y-1.5">
+                            <div className="space-y-2">
                               <div className="flex justify-between items-center text-[9px] font-extrabold text-slate-500">
-                                <span>{currentlyReading.progress}% concluído</span>
+                                <span className="bg-[var(--primary)]/10 text-[var(--primary)] px-2 py-0.5 rounded-md">{currentlyReading.progress}% lido</span>
+                                <span>Pág. {currentlyReading.currentPage + 1} de {currentlyReading.totalPages}</span>
                               </div>
-                              <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden shadow-inner">
-                                <div className="bg-[var(--primary)] h-full rounded-full" style={{ width: `${currentlyReading.progress}%` }} />
+                              <div className="w-full bg-slate-50 h-2 rounded-full overflow-hidden shadow-inner border border-slate-100/50">
+                                <div className="bg-gradient-to-r from-[var(--primary)] to-[var(--lavender)] h-full rounded-full transition-all duration-500" style={{ width: `${currentlyReading.progress}%` }} />
                               </div>
                             </div>
                           </div>
                         </div>
                       </Link>
                     ) : (
-                      <div className="bg-white/50 rounded-[2.25rem] p-8 text-center border-2 border-dashed border-slate-200">
-                        <p className="text-xs text-slate-400 font-bold">Nenhuma leitura ativa.</p>
+                      <div className="bg-white/55 rounded-[2.5rem] p-8 text-center border-2 border-dashed border-slate-200">
+                        <p className="text-xs text-slate-400 font-bold">Nenhuma leitura ativa no momento.</p>
                       </div>
                     )}
                   </div>

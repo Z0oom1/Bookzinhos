@@ -40,6 +40,7 @@ export interface ReadingProgress {
 export interface Note {
   id: string;
   bookId: string;
+  username?: string;
   date: string;
   feedback: string;
   rating: number;
