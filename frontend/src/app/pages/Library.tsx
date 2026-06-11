@@ -7,6 +7,7 @@ import { fetchBooks, fetchSavedIds, toggleSaved, fetchAllProgress } from "../lib
 import { Link } from "react-router";
 import { BookCard } from "../components/BookCard";
 import type { Book, ReadingProgress } from "../lib/types";
+import { triggerBackgroundCoverGeneration } from "../lib/coverExtractor";
 
 export function Library() {
   const [books, setBooks] = useState<Book[]>([]);
@@ -24,6 +25,11 @@ export function Library() {
         setSavedIds(s || []);
         setProgress(p || []);
         setIsLoading(false);
+
+        // Gera capa em segundo plano para livros que não possuem capa
+        triggerBackgroundCoverGeneration(b || [], (updatedBook) => {
+          setBooks((prev) => prev.map((x) => (x.id === updatedBook.id ? updatedBook : x)));
+        });
       })
       .catch((err) => {
         console.error("Erro na biblioteca:", err);

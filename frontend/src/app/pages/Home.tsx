@@ -5,6 +5,7 @@ import { fetchBooks, fetchAllProgress, fetchSavedIds, fetchGlobalStatus, updateG
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import { BookCard } from "../components/BookCard";
 import type { Book, ReadingProgress, GlobalStatus } from "../lib/types";
+import { triggerBackgroundCoverGeneration } from "../lib/coverExtractor";
 
 export function Home() {
   const userName = localStorage.getItem("books-username") || "Leitora";
@@ -44,6 +45,11 @@ export function Home() {
         setStatus(st);
         setStatusInput(st.content);
         setStatusEmote(st.emote);
+
+        // Gera capa em segundo plano para livros que não possuem capa
+        triggerBackgroundCoverGeneration(b || [], (updatedBook) => {
+          setBooks((prev) => prev.map((x) => (x.id === updatedBook.id ? updatedBook : x)));
+        });
       } catch (err) {
         console.error("Erro ao carregar dados da Home:", err);
       } finally {
