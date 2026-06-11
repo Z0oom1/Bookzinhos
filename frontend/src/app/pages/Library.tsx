@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   Search, BookOpen, Bookmark, CheckCircle2, Heart, Folder,
-  Layers, FileText, Grid, List, Users
+  Layers, FileText, Grid, List, Users, Sparkles
 } from "lucide-react";
 import { fetchBooks, fetchSavedIds, toggleSaved, fetchAllProgress } from "../lib/api";
 import { Link } from "react-router";
@@ -98,8 +98,32 @@ export function Library() {
 
   const lendoBooks = books.filter(b => progress.some(p => p.bookId === b.id && p.status === "lendo"));
   const lidosBooks = books.filter(b => progress.some(p => p.bookId === b.id && p.status === "finalizado"));
-  const queroLerBooks = books.filter(b => savedIds.includes(b.id) && !progress.some(p => p.bookId === b.id && (p.status === "lendo" || p.status === "finalizado")));
   const favoritosBooks = books.filter(b => savedIds.includes(b.id));
+
+  const recomendadosBooks = (() => {
+    const activeBookIds = progress.map(p => p.bookId);
+    const activeBooks = books.filter(b => activeBookIds.includes(b.id));
+    const genreCounts: Record<string, number> = {};
+    activeBooks.forEach(b => {
+      if (b.genre) {
+        const g = b.genre.trim().toLowerCase();
+        genreCounts[g] = (genreCounts[g] || 0) + 1;
+      }
+    });
+
+    const unread = books.filter(b => !progress.some(p => p.bookId === b.id && (p.status === "finalizado" || p.status === "lendo")));
+
+    if (activeBooks.length > 0) {
+      const scored = unread.map(b => {
+        const g = (b.genre || "").trim().toLowerCase();
+        const score = genreCounts[g] || 0;
+        return { book: b, score };
+      });
+      scored.sort((a, b) => b.score - a.score || b.book.addedAt - a.book.addedAt);
+      return scored.map(x => x.book);
+    }
+    return unread;
+  })();
 
   const romanceFavoritos = books.filter(b => b.genre.toLowerCase().includes("romance") && savedIds.includes(b.id));
   const aliHazelwood = books.filter(b => b.author.toLowerCase().includes("ali hazelwood"));
@@ -111,8 +135,8 @@ export function Library() {
     let list = books;
     if (selectedCategory === "lendo") {
       list = lendoBooks;
-    } else if (selectedCategory === "quero-ler") {
-      list = queroLerBooks;
+    } else if (selectedCategory === "recomendados") {
+      list = recomendadosBooks;
     } else if (selectedCategory === "lidos") {
       list = lidosBooks;
     } else if (selectedCategory === "favoritos") {
@@ -143,7 +167,7 @@ export function Library() {
   const sidebarMenu = [
     { key: "todos", label: "Todos os livros", count: books.length, icon: BookOpen },
     { key: "autores", label: "Autores", count: authorGroups.length, icon: Users },
-    { key: "quero-ler", label: "Quero ler", count: queroLerBooks.length, icon: Bookmark },
+    { key: "recomendados", label: "Recomendados", count: recomendadosBooks.length, icon: Sparkles },
     { key: "lendo", label: "Lendo", count: lendoBooks.length, icon: Layers },
     { key: "lidos", label: "Lidos", count: lidosBooks.length, icon: CheckCircle2 },
     { key: "favoritos", label: "Favoritos", count: favoritosBooks.length, icon: Heart },
@@ -483,7 +507,7 @@ export function Library() {
           {selectedCategory === "todos" && !search.trim() && selectedGenre === "Todos" ? (
             <div className="space-y-8 animate-fade-in">
               {renderDesktopShelf("Lendo", lendoBooks, "bg-purple-500", "lendo")}
-              {renderDesktopShelf("Quero ler", queroLerBooks, "bg-amber-500", "quero-ler")}
+              {renderDesktopShelf("Recomendados", recomendadosBooks, "bg-amber-500", "recomendados")}
               {renderDesktopShelf(
                 "Todos os Livros",
                 [...books].sort((a, b) => a.title.localeCompare(b.title, "pt")),
@@ -495,7 +519,7 @@ export function Library() {
           ) : selectedCategory === "autores" && !search.trim() && selectedGenre === "Todos" ? (
             <div className="space-y-8 animate-fade-in">
               {renderDesktopShelf("Lendo", lendoBooks, "bg-purple-500", "lendo")}
-              {renderDesktopShelf("Quero ler", queroLerBooks, "bg-amber-500", "quero-ler")}
+              {renderDesktopShelf("Recomendados", recomendadosBooks, "bg-amber-500", "recomendados")}
               {authorGroups.map((group) => (
                 renderDesktopShelf(
                   `Livros de ${group.displayAuthor}`,
