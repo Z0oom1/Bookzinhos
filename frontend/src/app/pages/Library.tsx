@@ -124,9 +124,70 @@ export function Library() {
     </div>
   );
 
-  const renderDesktopShelf = (title: string, booksList: Book[], dotColorClass: string, categoryKey: string) => {
-    const displayList = booksList.slice(0, 6);
+  const renderDesktopShelf = (title: string, booksList: Book[], dotColorClass: string, categoryKey: string, isGrid = false) => {
+    if (isGrid) {
+      const chunkSize = 6;
+      const chunks = [];
+      for (let i = 0; i < booksList.length; i += chunkSize) {
+        chunks.push(booksList.slice(i, i + chunkSize));
+      }
 
+      return (
+        <div className="bg-[#faf6f3] rounded-3xl p-6 shadow-sm border border-[#f5ebe6] space-y-5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className={`w-2.5 h-2.5 rounded-full ${dotColorClass}`} />
+              <span className="text-xs font-black text-slate-800 uppercase tracking-wider">{title}</span>
+            </div>
+            <button
+              onClick={() => setSelectedCategory(categoryKey)}
+              className="px-3.5 py-1.5 bg-white border border-[#f0e5de] hover:bg-slate-50 text-slate-600 rounded-xl text-[9px] font-bold uppercase tracking-widest active:scale-95 transition-all cursor-pointer"
+            >
+              Ver todos
+            </button>
+          </div>
+
+          {booksList.length === 0 ? (
+            <div className="text-center py-8 text-slate-400 text-xs font-semibold">
+              Nenhum livro nesta estante.
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {chunks.map((chunk, chunkIdx) => (
+                <div key={chunkIdx} className="relative pt-2 pb-6 px-4">
+                  <div className="flex justify-start gap-8 items-end relative z-10 px-2">
+                    {chunk.map((book) => {
+                      const prog = progress.find((p) => p.bookId === book.id);
+                      return (
+                        <div key={book.id} className="relative z-10 flex flex-col items-center w-24 flex-shrink-0 transition-transform hover:-translate-y-1 hover:scale-105">
+                          <BookCard
+                            book={book}
+                            progress={prog}
+                            variant="shelf"
+                            onDeleted={(id) => setBooks((b) => b.filter((x) => x.id !== id))}
+                            onEdited={(updated) => setBooks((b) => b.map((x) => x.id === updated.id ? updated : x))}
+                          />
+
+                          <button
+                            onClick={() => handleToggleSave(book.id)}
+                            className="absolute -top-2 -right-2 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-white shadow-md active:scale-90 hover:scale-105 transition-transform border border-slate-100 cursor-pointer text-xs"
+                          >
+                            {savedIds.includes(book.id) ? "❤️" : "🤍"}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="absolute bottom-1 left-0 right-0 h-3 bg-gradient-to-b from-[#f3e9e3] to-[#e8dcd5] rounded-full shadow-[0_6px_10px_rgba(0,0,0,0.04)] z-0 border-t border-[#fdfbf9]" />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Horizontal Scrolling Shelf
     return (
       <div className="bg-[#faf6f3] rounded-3xl p-6 shadow-sm border border-[#f5ebe6] space-y-5">
         <div className="flex items-center justify-between">
@@ -142,17 +203,17 @@ export function Library() {
           </button>
         </div>
 
-        {displayList.length === 0 ? (
+        {booksList.length === 0 ? (
           <div className="text-center py-8 text-slate-400 text-xs font-semibold">
             Nenhum livro nesta estante.
           </div>
         ) : (
           <div className="relative pt-2 pb-6 px-4">
-            <div className="flex justify-start gap-8 items-end relative z-10 px-2 overflow-x-auto no-scrollbar">
-              {displayList.map((book) => {
+            <div className="flex justify-start gap-8 items-end relative z-10 px-2 overflow-x-auto styled-scrollbar">
+              {booksList.map((book) => {
                 const prog = progress.find((p) => p.bookId === book.id);
                 return (
-                  <div key={book.id} className="relative z-10 flex flex-col items-center w-24 flex-shrink-0 transition-transform hover:-translate-y-1 hover:scale-105">
+                  <div key={book.id} className="relative z-10 flex flex-col items-center w-24 flex-shrink-0 transition-transform hover:-translate-y-1 hover:scale-105 mb-1">
                     <BookCard
                       book={book}
                       progress={prog}
@@ -172,7 +233,7 @@ export function Library() {
               })}
             </div>
 
-            <div className="absolute bottom-1 left-0 right-0 h-3 bg-gradient-to-b from-[#f3e9e3] to-[#e8dcd5] rounded-full shadow-[0_6px_10px_rgba(0,0,0,0.04)] z-0 border-t border-[#fdfbf9]" />
+            <div className="absolute bottom-2 left-0 right-0 h-3 bg-gradient-to-b from-[#f3e9e3] to-[#e8dcd5] rounded-full shadow-[0_6px_10px_rgba(0,0,0,0.04)] z-0 border-t border-[#fdfbf9]" />
           </div>
         )}
       </div>
@@ -373,7 +434,7 @@ export function Library() {
             <div className="space-y-8 animate-fade-in">
               {renderDesktopShelf("Lendo", lendoBooks, "bg-purple-500", "lendo")}
               {renderDesktopShelf("Quero ler", queroLerBooks, "bg-amber-500", "quero-ler")}
-              {renderDesktopShelf("Lidos", lidosBooks, "bg-emerald-500", "lidos")}
+              {renderDesktopShelf("Todos os livros", books, "bg-emerald-500", "todos", true)}
             </div>
           ) : (
             filteredBooksByCategory.length === 0 ? (

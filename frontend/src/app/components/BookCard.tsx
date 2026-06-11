@@ -43,21 +43,17 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
     timerRef.current = setTimeout(() => {
       longPressedRef.current = true;
       setShowMenu(true);
-      searchParams.set("hideNav", "true");
-      setSearchParams(searchParams);
       if ('touches' in e) {
         setMenuPos({ x: e.touches[0].clientX, y: e.touches[0].clientY });
       } else {
         setMenuPos({ x: e.clientX, y: e.clientY });
       }
     }, 500);
-  }, [searchParams, setSearchParams]);
+  }, []);
 
   const handleCloseMenu = () => {
     setShowMenu(false);
     setMenuPos(null);
-    searchParams.delete("hideNav");
-    setSearchParams(searchParams);
   };
 
   const cancelPress = useCallback(() => {
@@ -135,8 +131,6 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
       clearTimeout(timerRef.current);
       longPressedRef.current = true;
       setShowMenu(true);
-      searchParams.set("hideNav", "true");
-      setSearchParams(searchParams);
       setMenuPos({ x: e.clientX, y: e.clientY });
     },
   };

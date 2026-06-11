@@ -67,3 +67,27 @@ html, body, *, .custom-scrollbar {
   scrollbar-width: none;
 }
 
+/* Styled scrollbar for horizontal shelves */
+.styled-scrollbar::-webkit-scrollbar {
+  display: block !important;
+  height: 6px !important;
+}
+.styled-scrollbar::-webkit-scrollbar-track {
+  background: #f5ebe6 !important;
+  border-radius: 10px !important;
+}
+.styled-scrollbar::-webkit-scrollbar-thumb {
+  background: #d4c3b3 !important;
+  border-radius: 10px !important;
+}
+.styled-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #bfa995 !important;
+}
+.styled-scrollbar {
+  -ms-overflow-style: auto !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: #d4c3b3 #f5ebe6 !important;
+  padding-bottom: 8px;
+}
+
+
