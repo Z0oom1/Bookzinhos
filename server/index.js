@@ -174,35 +174,49 @@ app.post("/books/presigned-url", async (req, res) => {
       return res.status(400).json({ error: "fileName e fileType são obrigatórios" });
     }
 
-    if (!s3Client) {
-      return res.status(400).json({ error: "Armazenamento S3 não está configurado neste servidor" });
-    }
-
-    const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
-    const { PutObjectCommand } = require("@aws-sdk/client-s3");
-
     const id = `user-${Date.now()}`;
     const isPdf = fileType === "application/pdf";
     const folder = isPdf ? "pdfs" : "covers";
     const extension = path.extname(fileName) || (isPdf ? ".pdf" : ".jpg");
     const safeName = `${folder}/${id}-${Math.floor(Math.random() * 1000)}${extension}`;
 
-    const command = new PutObjectCommand({
-      Bucket: BUCKET,
-      Key: safeName,
-      ContentType: fileType,
-    });
+    if (s3Client) {
+      const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+      const { PutObjectCommand } = require("@aws-sdk/client-s3");
 
-    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
+      const command = new PutObjectCommand({
+        Bucket: BUCKET,
+        Key: safeName,
+        ContentType: fileType,
+      });
 
-    let downloadUrl = "";
-    if (process.env.S3_PUBLIC_URL_PREFIX) {
-      downloadUrl = `${process.env.S3_PUBLIC_URL_PREFIX}/${safeName}`;
+      const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
+
+      let downloadUrl = "";
+      if (process.env.S3_PUBLIC_URL_PREFIX) {
+        downloadUrl = `${process.env.S3_PUBLIC_URL_PREFIX}/${safeName}`;
+      } else {
+        downloadUrl = `${process.env.S3_ENDPOINT}/${BUCKET}/${safeName}`;
+      }
+
+      res.json({ uploadUrl, downloadUrl });
+    } else if (supabase) {
+      const { data, error } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUploadUrl(safeName);
+
+      if (error) {
+        throw new Error("Erro ao gerar URL assinada do Supabase: " + error.message);
+      }
+
+      const uploadUrl = data.signedUrl;
+      const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(safeName);
+      const downloadUrl = urlData.publicUrl;
+
+      res.json({ uploadUrl, downloadUrl });
     } else {
-      downloadUrl = `${process.env.S3_ENDPOINT}/${BUCKET}/${safeName}`;
+      res.status(400).json({ error: "Armazenamento em nuvem não configurado para URLs assinadas" });
     }
-
-    res.json({ uploadUrl, downloadUrl });
   } catch (err) {
     console.error("Erro ao gerar URL assinada:", err);
     res.status(500).json({ error: err.message });
