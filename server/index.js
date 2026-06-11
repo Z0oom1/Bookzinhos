@@ -131,7 +131,7 @@ app.get("/books", async (_req, res) => {
     const books = await db.query(sql`SELECT * FROM books ORDER BY added_at DESC`);
     const result = await Promise.all(books.map(async (b) => {
       const book = rowToBook(b);
-      const notes = await db.query(sql`SELECT rating, feedback as comment FROM notes WHERE book_id = ${b.id}`);
+      const notes = await db.query(sql`SELECT username, rating, feedback as comment FROM notes WHERE book_id = ${b.id}`);
       if (notes.length > 0) {
         book.rating = Math.round(notes.reduce((sum, n) => sum + n.rating, 0) / notes.length);
         book.reviewCount = notes.length;
@@ -152,7 +152,7 @@ app.get("/books/:id", async (req, res) => {
     const [row] = await db.query(sql`SELECT * FROM books WHERE id = ${req.params.id}`);
     if (!row) return res.status(404).json({ error: "Livro não encontrado" });
     const book = rowToBook(row);
-    const notes = await db.query(sql`SELECT rating, feedback as comment FROM notes WHERE book_id = ${row.id}`);
+    const notes = await db.query(sql`SELECT username, rating, feedback as comment FROM notes WHERE book_id = ${row.id}`);
     if (notes.length > 0) {
       book.rating = Math.round(notes.reduce((sum, n) => sum + n.rating, 0) / notes.length);
       book.reviewCount = notes.length;
@@ -284,7 +284,7 @@ app.put("/books/:id", upload.fields([{ name: "cover", maxCount: 1 }]), async (re
     `);
     const [updated] = await db.query(sql`SELECT * FROM books WHERE id = ${req.params.id}`);
     const book = rowToBook(updated);
-    book.reviews = await db.query(sql`SELECT username, rating, comment FROM book_reviews WHERE book_id = ${req.params.id}`);
+    book.reviews = await db.query(sql`SELECT username, rating, feedback as comment FROM notes WHERE book_id = ${req.params.id}`);
     book.pages = (await db.query(sql`SELECT content FROM book_pages WHERE book_id = ${req.params.id} ORDER BY page_num`)).map(r => r.content);
     res.json(book);
   } catch (err) { 
