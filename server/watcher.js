@@ -89,7 +89,19 @@ async function importPdfFile(filePath, db, sql, PORT, uploadFileToCloud) {
     const fileBuffer = fs.readFileSync(filePath);
 
     // Upload to cloud (S3/Supabase) or fallback to local uploads folder
-    const pdfUrl = await uploadFileToCloud(fileBuffer, cloudFilename, "application/pdf");
+    let pdfUrl;
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        pdfUrl = await uploadFileToCloud(fileBuffer, cloudFilename, "application/pdf");
+        break;
+      } catch (err) {
+        retries--;
+        if (retries === 0) throw err;
+        console.warn(`[Watcher] Falha ao fazer upload de ${filename}, tentando novamente... (${3 - retries}/3). Erro: ${err.message}`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
     const coverColor = COVER_COLORS[Math.floor(Math.random() * COVER_COLORS.length)];
 
     // Insert into books table
