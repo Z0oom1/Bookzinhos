@@ -56,7 +56,19 @@ export function Home() {
         setIsLoading(false);
       }
     }
+    
     loadData();
+
+    // Sincroniza dados a cada 10 segundos
+    const interval = setInterval(loadData, 10000);
+
+    // Sincroniza dados quando a página ganha foco
+    window.addEventListener("focus", loadData);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", loadData);
+    };
   }, []);
 
   const handleUpdateStatus = async () => {

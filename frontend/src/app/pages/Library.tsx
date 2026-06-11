@@ -19,22 +19,37 @@ export function Library() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([fetchBooks(), fetchSavedIds(), fetchAllProgress()])
-      .then(([b, s, p]) => {
-        setBooks(b || []);
-        setSavedIds(s || []);
-        setProgress(p || []);
-        setIsLoading(false);
+    const loadData = () => {
+      Promise.all([fetchBooks(), fetchSavedIds(), fetchAllProgress()])
+        .then(([b, s, p]) => {
+          setBooks(b || []);
+          setSavedIds(s || []);
+          setProgress(p || []);
+          setIsLoading(false);
 
-        // Gera capa em segundo plano para livros que não possuem capa
-        triggerBackgroundCoverGeneration(b || [], (updatedBook) => {
-          setBooks((prev) => prev.map((x) => (x.id === updatedBook.id ? updatedBook : x)));
+          // Gera capa em segundo plano para livros que não possuem capa
+          triggerBackgroundCoverGeneration(b || [], (updatedBook) => {
+            setBooks((prev) => prev.map((x) => (x.id === updatedBook.id ? updatedBook : x)));
+          });
+        })
+        .catch((err) => {
+          console.error("Erro na biblioteca:", err);
+          setIsLoading(false);
         });
-      })
-      .catch((err) => {
-        console.error("Erro na biblioteca:", err);
-        setIsLoading(false);
-      });
+    };
+
+    loadData();
+
+    // Sincroniza dados a cada 10 segundos
+    const interval = setInterval(loadData, 10000);
+
+    // Sincroniza dados quando a página ganha foco
+    window.addEventListener("focus", loadData);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", loadData);
+    };
   }, []);
 
   const handleToggleSave = async (bookId: string) => {
@@ -42,6 +57,23 @@ export function Library() {
     setSavedIds((prev) => currently ? prev.filter((id) => id !== bookId) : [...prev, bookId]);
     await toggleSaved(bookId, currently);
   };
+
+  // Agrupar livros por autor de forma insensível a maiúsculas/minúsculas para as prateleiras de autor
+  const authorGroups = (() => {
+    const groups: { [key: string]: { displayAuthor: string; books: Book[] } } = {};
+    books.forEach((book) => {
+      const authorName = (book.author || "Autor Desconhecido").trim();
+      const key = authorName.toLowerCase();
+      if (!groups[key]) {
+        groups[key] = { displayAuthor: authorName, books: [] };
+      }
+      groups[key].books.push(book);
+    });
+    
+    return Object.values(groups).sort((a, b) => 
+      a.displayAuthor.localeCompare(b.displayAuthor, "pt", { sensitivity: "base" })
+    );
+  })();
 
   const filteredBooksMobile = books.filter((b) => {
     const matchesGenre = selectedGenre === "Todos" || b.genre === selectedGenre;
@@ -139,12 +171,14 @@ export function Library() {
               <span className={`w-2.5 h-2.5 rounded-full ${dotColorClass}`} />
               <span className="text-xs font-black text-slate-800 uppercase tracking-wider">{title}</span>
             </div>
-            <button
-              onClick={() => setSelectedCategory(categoryKey)}
-              className="px-3.5 py-1.5 bg-white border border-[#f0e5de] hover:bg-slate-50 text-slate-600 rounded-xl text-[9px] font-bold uppercase tracking-widest active:scale-95 transition-all cursor-pointer"
-            >
-              Ver todos
-            </button>
+            {categoryKey && (
+              <button
+                onClick={() => setSelectedCategory(categoryKey)}
+                className="px-3.5 py-1.5 bg-white border border-[#f0e5de] hover:bg-slate-50 text-slate-600 rounded-xl text-[9px] font-bold uppercase tracking-widest active:scale-95 transition-all cursor-pointer"
+              >
+                Ver todos
+              </button>
+            )}
           </div>
 
           {booksList.length === 0 ? (
@@ -195,12 +229,14 @@ export function Library() {
             <span className={`w-2.5 h-2.5 rounded-full ${dotColorClass}`} />
             <span className="text-xs font-black text-slate-800 uppercase tracking-wider">{title}</span>
           </div>
-          <button
-            onClick={() => setSelectedCategory(categoryKey)}
-            className="px-3.5 py-1.5 bg-white border border-[#f0e5de] hover:bg-slate-50 text-slate-600 rounded-xl text-[9px] font-bold uppercase tracking-widest active:scale-95 transition-all cursor-pointer"
-          >
-            Ver todos
-          </button>
+          {categoryKey && (
+            <button
+              onClick={() => setSelectedCategory(categoryKey)}
+              className="px-3.5 py-1.5 bg-white border border-[#f0e5de] hover:bg-slate-50 text-slate-600 rounded-xl text-[9px] font-bold uppercase tracking-widest active:scale-95 transition-all cursor-pointer"
+            >
+              Ver todos
+            </button>
+          )}
         </div>
 
         {booksList.length === 0 ? (
@@ -434,7 +470,14 @@ export function Library() {
             <div className="space-y-8 animate-fade-in">
               {renderDesktopShelf("Lendo", lendoBooks, "bg-purple-500", "lendo")}
               {renderDesktopShelf("Quero ler", queroLerBooks, "bg-amber-500", "quero-ler")}
-              {renderDesktopShelf("Todos os livros", books, "bg-emerald-500", "todos", true)}
+              {authorGroups.map((group) => (
+                renderDesktopShelf(
+                  `Livros de ${group.displayAuthor}`,
+                  group.books,
+                  "bg-emerald-500",
+                  ""
+                )
+              ))}
             </div>
           ) : (
             filteredBooksByCategory.length === 0 ? (

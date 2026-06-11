@@ -16,17 +16,32 @@ export function MyBooks() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([fetchBooks(), fetchAllProgress(), fetchSavedIds()])
-      .then(([b, p, s]) => {
-        setBooks(b || []);
-        setProgress(p || []);
-        setSavedIds(s || []);
-        setIsLoading(false);
-      })
-      .catch((err) => {
-        console.error("Erro ao carregar estante:", err);
-        setIsLoading(false);
-      });
+    const loadData = () => {
+      Promise.all([fetchBooks(), fetchAllProgress(), fetchSavedIds()])
+        .then(([b, p, s]) => {
+          setBooks(b || []);
+          setProgress(p || []);
+          setSavedIds(s || []);
+          setIsLoading(false);
+        })
+        .catch((err) => {
+          console.error("Erro ao carregar estante:", err);
+          setIsLoading(false);
+        });
+    };
+
+    loadData();
+
+    // Sincroniza dados a cada 10 segundos
+    const interval = setInterval(loadData, 10000);
+
+    // Sincroniza dados quando a página ganha foco
+    window.addEventListener("focus", loadData);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("focus", loadData);
+    };
   }, []);
 
   const getBook = (id: string) => books.find((b) => b.id === id);
