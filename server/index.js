@@ -640,7 +640,7 @@ async function start() {
   if (!process.env.VERCEL) {
     // Inicializa o watcher para monitorar e importar livros locais da pasta Livros/
     const { initWatcher } = require("./watcher");
-    initWatcher(db, sql, PORT);
+    initWatcher(db, sql, PORT, uploadFileToCloud);
 
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`\n🐼 Books da Helo — Servidor rodando!`);

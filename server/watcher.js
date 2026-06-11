@@ -55,7 +55,7 @@ function parseBookFilename(filename) {
   return { title, author };
 }
 
-async function importPdfFile(filePath, db, sql, PORT) {
+async function importPdfFile(filePath, db, sql, PORT, uploadFileToCloud) {
   const filename = path.basename(filePath);
   if (importingFiles.has(filename)) return;
   importingFiles.add(filename);
@@ -82,21 +82,14 @@ async function importPdfFile(filePath, db, sql, PORT) {
 
     console.log(`[Watcher] Novo livro detectado: "${title}" por "${author || "Desconhecido"}"`);
 
-    // Ensure uploads directory exists
-    const uploadsDir = path.join(__dirname, "uploads");
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-
-    // Copy PDF to uploads folder with a unique name to match user uploads
     const id = `imported-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const safeFileBasename = `pdfs-${id}.pdf`;
-    const destPath = path.join(uploadsDir, safeFileBasename);
-    
-    // Copy the file
-    fs.copyFileSync(filePath, destPath);
+    const cloudFilename = `pdfs/imported-${Date.now()}-${filename.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
 
-    const pdfUrl = `http://localhost:${PORT}/uploads/${safeFileBasename}`;
+    // Read file buffer
+    const fileBuffer = fs.readFileSync(filePath);
+
+    // Upload to cloud (S3/Supabase) or fallback to local uploads folder
+    const pdfUrl = await uploadFileToCloud(fileBuffer, cloudFilename, "application/pdf");
     const coverColor = COVER_COLORS[Math.floor(Math.random() * COVER_COLORS.length)];
 
     // Insert into books table
@@ -105,9 +98,15 @@ async function importPdfFile(filePath, db, sql, PORT) {
       VALUES (${id}, ${title}, ${author}, '', 'Outros', 0, 0, 1, ${coverColor}, ${Date.now()}, ${pdfUrl}, NULL, 1)
     `);
 
-    // Add to saved books list (Quero Ler) for Caio and Helo so they can easily find it
-    await db.query(sql`INSERT OR IGNORE INTO saved_books (username, book_id, saved_at) VALUES ('Caio', ${id}, ${Date.now()})`);
-    await db.query(sql`INSERT OR IGNORE INTO saved_books (username, book_id, saved_at) VALUES ('Helo', ${id}, ${Date.now()})`);
+    // Add to saved books list (Quero Ler) for all existing users in DB + 'anonymous' (default for not logged in)
+    const users = await db.query(sql`SELECT username FROM users`);
+    const usernames = users.map(u => u.username);
+    if (!usernames.some(u => u.toLowerCase() === "anonymous")) {
+      usernames.push("anonymous");
+    }
+    for (const username of usernames) {
+      await db.query(sql`INSERT OR IGNORE INTO saved_books (username, book_id, saved_at) VALUES (${username}, ${id}, ${Date.now()})`);
+    }
 
     console.log(`[Watcher] Livro "${title}" importado com sucesso! (ID: ${id})`);
   } catch (err) {
@@ -117,7 +116,7 @@ async function importPdfFile(filePath, db, sql, PORT) {
   }
 }
 
-function initWatcher(db, sql, PORT) {
+function initWatcher(db, sql, PORT, uploadFileToCloud) {
   // Ensure watch folder exists
   if (!fs.existsSync(WATCH_DIR)) {
     console.log(`[Watcher] Criando diretório de monitoramento: ${WATCH_DIR}`);
@@ -139,7 +138,7 @@ function initWatcher(db, sql, PORT) {
     (async () => {
       for (const file of pdfFiles) {
         const filePath = path.join(WATCH_DIR, file);
-        await importPdfFile(filePath, db, sql, PORT);
+        await importPdfFile(filePath, db, sql, PORT, uploadFileToCloud);
       }
     })();
   });
@@ -153,7 +152,7 @@ function initWatcher(db, sql, PORT) {
       watchTimeout = setTimeout(async () => {
         const filePath = path.join(WATCH_DIR, filename);
         if (fs.existsSync(filePath)) {
-          await importPdfFile(filePath, db, sql, PORT);
+          await importPdfFile(filePath, db, sql, PORT, uploadFileToCloud);
         }
       }, 1000); // Wait 1s for file write to stabilize
     }
