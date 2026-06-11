@@ -83,6 +83,14 @@ export interface GlobalStatus {
   updated_at: number;
 }
 
+export interface BookChapter {
+  id?: number;
+  bookId: string;
+  startPage: number;
+  title: string;
+  createdAt?: number;
+}
+
 // ─── Cover gradients ──────────────────────────────────────────────────────────
 
 const COVER_GRADIENTS: Record<string, string> = {

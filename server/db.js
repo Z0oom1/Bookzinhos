@@ -250,6 +250,17 @@ async function initDB() {
   `);
 
   await db.query(sql`
+    CREATE TABLE IF NOT EXISTS book_chapters (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+      start_page INTEGER NOT NULL,
+      title TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      UNIQUE(book_id, start_page)
+    )
+  `);
+
+  await db.query(sql`
     CREATE TABLE IF NOT EXISTS global_status (
       id INTEGER PRIMARY KEY,
       username TEXT NOT NULL COLLATE NOCASE,

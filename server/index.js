@@ -337,6 +337,7 @@ app.delete("/books/:id", async (req, res) => {
     await db.query(sql`DELETE FROM notes WHERE book_id = ${req.params.id}`);
     await db.query(sql`DELETE FROM saved_books WHERE book_id = ${req.params.id}`);
     await db.query(sql`DELETE FROM book_recommendations WHERE book_id = ${req.params.id}`);
+    await db.query(sql`DELETE FROM book_chapters WHERE book_id = ${req.params.id}`);
     await db.query(sql`DELETE FROM books WHERE id = ${req.params.id}`);
     
     res.json({ ok: true });
@@ -636,6 +637,50 @@ app.post("/books/:id/reviews", async (req, res) => {
     const [stats] = await db.query(sql`SELECT AVG(rating) as avg, COUNT(*) as cnt FROM book_reviews WHERE book_id = ${req.params.id}`);
     await db.query(sql`UPDATE books SET rating=${Math.round(stats.avg * 10) / 10},review_count=${Number(stats.cnt)} WHERE id=${req.params.id}`);
     res.status(201).json({ username, rating, comment });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── CHAPTERS ─────────────────────────────────────────────────────────────────
+
+app.get("/books/:id/chapters", async (req, res) => {
+  try {
+    const chapters = await db.query(
+      sql`SELECT id, book_id as bookId, start_page as startPage, title, created_at as createdAt 
+          FROM book_chapters 
+          WHERE book_id = ${req.params.id} 
+          ORDER BY start_page ASC`
+    );
+    res.json(chapters);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/books/:id/chapters", async (req, res) => {
+  try {
+    const { startPage, title } = req.body;
+    if (startPage == null || !title) {
+      return res.status(400).json({ error: "Campos obrigatórios faltando" });
+    }
+    await db.query(
+      sql`INSERT OR REPLACE INTO book_chapters (book_id, start_page, title, created_at) 
+          VALUES (${req.params.id}, ${Number(startPage)}, ${title}, ${Date.now()})`
+    );
+    res.status(201).json({ success: true, startPage, title });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/books/:id/chapters/:startPage", async (req, res) => {
+  try {
+    const startPage = Number(req.params.startPage);
+    await db.query(
+      sql`DELETE FROM book_chapters WHERE book_id = ${req.params.id} AND start_page = ${startPage}`
+    );
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

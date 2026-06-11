@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
-import { ArrowLeft, Settings, ChevronLeft, ChevronRight, PenLine, PauseCircle, PlayCircle, CheckCircle, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
-import { fetchBook, fetchProgress, saveProgress } from "../lib/api";
+import { ArrowLeft, Settings, ChevronLeft, ChevronRight, PenLine, PauseCircle, PlayCircle, CheckCircle, ZoomIn, ZoomOut, Maximize2, List } from "lucide-react";
+import { fetchBook, fetchProgress, saveProgress, fetchChapters, saveChapter, deleteChapter } from "../lib/api";
 import { getCoverGradient, getFullUrl } from "../lib/types";
-import type { Book, ReadingProgress } from "../lib/types";
+import type { Book, ReadingProgress, BookChapter } from "../lib/types";
 // @ts-ignore
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
 
@@ -29,6 +29,14 @@ export function BookReader() {
   const [transitionDirection, setTransitionDirection] = useState<"next" | "prev">("next");
   const touchStartRef = useRef<{ x: number, y: number, time: number } | null>(null);
   const initialPinchDistRef = useRef<number | null>(null);
+
+  // Chapter States
+  const [chapters, setChapters] = useState<BookChapter[]>([]);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [chapterTitleInput, setChapterTitleInput] = useState("");
+  const [hoveredChapter, setHoveredChapter] = useState<BookChapter | null>(null);
+  const [showMobileChapters, setShowMobileChapters] = useState(false);
 
   // Zoom & Pan State
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -57,9 +65,60 @@ export function BookReader() {
     });
   }, [id]);
 
+  const loadChapters = () => {
+    if (!id) return;
+    fetchChapters(id).then((data) => {
+      setChapters(data || []);
+    });
+  };
+
+  useEffect(() => {
+    loadChapters();
+    const interval = setInterval(loadChapters, 10000);
+    return () => clearInterval(interval);
+  }, [id]);
+
+  const handleSaveNewChapter = async () => {
+    if (!id || !chapterTitleInput.trim()) return;
+    await saveChapter(id, currentPage, chapterTitleInput.trim());
+    setIsCreateModalOpen(false);
+    setChapterTitleInput("");
+    loadChapters();
+  };
+
+  const handleSaveEditChapter = async () => {
+    if (!id || !chapterTitleInput.trim()) return;
+    await saveChapter(id, currentPage, chapterTitleInput.trim());
+    setIsEditModalOpen(false);
+    setChapterTitleInput("");
+    loadChapters();
+  };
+
+  const handleDeleteChapter = async (page: number) => {
+    if (!id) return;
+    await deleteChapter(id, page);
+    loadChapters();
+  };
+
   const pdfUrl = book?.pdfPath ? getFullUrl(book.pdfPath) : null;
   const pages = book?.pages ?? [];
   const total = pdfUrl ? pdfTotalPages : Math.max(pages.length, 1);
+
+  const currentChapter = (() => {
+    const sorted = [...chapters].sort((a, b) => a.startPage - b.startPage);
+    let active = null;
+    for (let i = 0; i < sorted.length; i++) {
+      if (sorted[i].startPage <= currentPage) {
+        active = {
+          chapter: sorted[i],
+          number: i + 1
+        };
+      } else {
+        break;
+      }
+    }
+    return active;
+  })();
 
   // Load PDF Document
   useEffect(() => {
@@ -185,11 +244,35 @@ export function BookReader() {
         goNext();
       } else if (e.key === "ArrowLeft" || e.key === "Left") {
         goPrev();
+      } else if (e.altKey && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        const existing = chapters.find(c => c.startPage === currentPage);
+        if (existing) {
+          setChapterTitleInput(existing.title);
+          setIsEditModalOpen(true);
+        } else {
+          const indexBefore = chapters.filter(c => c.startPage < currentPage).length;
+          setChapterTitleInput(`Capítulo ${indexBefore + 1}`);
+          setIsCreateModalOpen(true);
+        }
+      } else if (e.altKey && e.key.toLowerCase() === "l") {
+        e.preventDefault();
+        const existing = chapters.find(c => c.startPage === currentPage);
+        if (existing) {
+          setChapterTitleInput(existing.title);
+          setIsEditModalOpen(true);
+        }
+      } else if (e.altKey && e.key.toLowerCase() === "j") {
+        e.preventDefault();
+        const existing = chapters.find(c => c.startPage === currentPage);
+        if (existing) {
+          handleDeleteChapter(currentPage);
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentPage, total, bookMode]);
+  }, [currentPage, total, bookMode, chapters]);
 
   // Scroll wheel zooming
   useEffect(() => {
@@ -520,7 +603,14 @@ export function BookReader() {
           <button onClick={() => navigate(-1)} className="p-2.5 hover:bg-slate-100 rounded-full transition-all active:scale-95 cursor-pointer">
             <ArrowLeft className="w-5 h-5 text-[var(--text-main)]" />
           </button>
-          <h3 className="text-[var(--text-main)] truncate px-4 font-extrabold text-sm">{book?.title}</h3>
+          <div className="flex flex-col items-center flex-1 min-w-0">
+            <h3 className="text-[var(--text-main)] truncate px-4 font-extrabold text-sm w-full text-center">{book?.title}</h3>
+            {currentChapter && (
+              <span className="text-[10px] font-bold text-[var(--text-muted)] truncate px-4 uppercase tracking-widest leading-none mt-0.5 animate-fade-in">
+                Capítulo {currentChapter.number}: {currentChapter.chapter.title}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-1.5">
             <button onClick={() => handleZoom(0.2)} className="p-2 hover:bg-slate-100 rounded-full transition-all active:scale-95 cursor-pointer">
               <ZoomIn className="w-4 h-4 text-[var(--text-main)]" />
@@ -563,8 +653,45 @@ export function BookReader() {
             </button>
           </div>
 
-          <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden shadow-inner">
-            <div className="bg-[var(--primary)] h-1.5 rounded-full transition-all" style={{ width: `${((currentPage + 1) / total) * 100}%` }} />
+          <div className="relative w-full py-2 animate-fade-in">
+            <div className="w-full bg-slate-100 rounded-full h-1.5 shadow-inner relative">
+              <div 
+                className="bg-[var(--primary)] h-1.5 rounded-full transition-all" 
+                style={{ width: `${((currentPage + 1) / total) * 100}%` }} 
+              />
+              {chapters.map((ch, idx) => {
+                const pct = (ch.startPage / total) * 100;
+                if (pct < 0 || pct > 100) return null;
+                return (
+                  <div 
+                    key={ch.id || idx}
+                    className="absolute top-0 w-0.5 h-1.5 bg-white border-x border-slate-350/50 cursor-pointer group"
+                    style={{ left: `${pct}%` }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCurrentPage(ch.startPage);
+                      updateProgress(ch.startPage);
+                    }}
+                    onMouseEnter={() => setHoveredChapter(ch)}
+                    onMouseLeave={() => setHoveredChapter(null)}
+                  />
+                );
+              })}
+            </div>
+            
+            {hoveredChapter && (
+              <div 
+                className="absolute z-[9999] bg-slate-900 text-white text-[10px] font-bold px-2 py-1.5 rounded-lg shadow-lg pointer-events-none -translate-x-1/2 whitespace-nowrap"
+                style={{ 
+                  left: `${(hoveredChapter.startPage / total) * 100}%`,
+                  bottom: "100%",
+                  marginBottom: "6px"
+                }}
+              >
+                Capítulo {chapters.indexOf(hoveredChapter) + 1}: {hoveredChapter.title}
+                <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-t-[4px] border-t-slate-900 border-x-[4px] border-x-transparent" />
+              </div>
+            )}
           </div>
 
           <div className="flex gap-3">
@@ -588,7 +715,15 @@ export function BookReader() {
               {isFinished ? "Lido! 🐼" : "Marcar Lido"}
             </button>
 
-            <button onClick={() => navigate(`/notes?bookId=${id}`)} className="p-3.5 bg-slate-50 border border-slate-150 text-[var(--text-main)] rounded-xl active:scale-90 transition-all hover:bg-slate-100 cursor-pointer shadow-sm">
+            <button 
+              onClick={() => setShowMobileChapters(true)} 
+              className="p-3.5 bg-slate-50 border border-slate-150 text-[var(--text-main)] rounded-xl active:scale-90 transition-all hover:bg-slate-100 cursor-pointer shadow-sm flex items-center justify-center"
+              title="Capítulos"
+            >
+              <List className="w-4.5 h-4.5" />
+            </button>
+
+            <button onClick={() => navigate(`/notes?bookId=${id}`)} className="p-3.5 bg-slate-50 border border-slate-150 text-[var(--text-main)] rounded-xl active:scale-90 transition-all hover:bg-slate-100 cursor-pointer shadow-sm flex items-center justify-center">
               <PenLine className="w-4.5 h-4.5" />
             </button>
           </div>
@@ -654,6 +789,116 @@ export function BookReader() {
             
             <button onClick={() => setShowSettings(false)} className="w-full py-4 bg-[var(--primary)] text-white font-extrabold text-[10px] uppercase tracking-widest rounded-xl shadow-md shadow-[var(--primary)]/15 active:scale-95 transition-all cursor-pointer">
               Pronto ✨
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Criar Capítulo */}
+      {isCreateModalOpen && (
+        <div className="absolute inset-0 bg-black/35 flex items-center justify-center z-[9999] backdrop-blur-sm animate-fade-in" onClick={() => setIsCreateModalOpen(false)}>
+          <div className="w-80 bg-white rounded-3xl p-6 space-y-6 shadow-2xl animate-scale-up border border-slate-100" onClick={e => e.stopPropagation()}>
+            <div className="space-y-2 text-center">
+              <h3 className="text-[var(--text-main)] font-extrabold text-base uppercase tracking-widest text-slate-800">Marcar Capítulo 📍</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Criando marcação na página {currentPage + 1}</p>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[9px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest px-1">Nome do Capítulo</label>
+              <input 
+                type="text" 
+                value={chapterTitleInput}
+                onChange={e => setChapterTitleInput(e.target.value)}
+                placeholder="Ex: Introdução"
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:border-[var(--primary)]/30 focus:ring-4 focus:ring-[var(--primary)]/5 transition-all text-slate-850"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveNewChapter();
+                }}
+              />
+            </div>
+            
+            <div className="flex gap-2.5">
+              <button onClick={() => setIsCreateModalOpen(false)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-extrabold text-[10px] uppercase tracking-widest rounded-xl active:scale-95 transition-all cursor-pointer border border-slate-150">
+                Cancelar
+              </button>
+              <button onClick={handleSaveNewChapter} className="flex-1 py-3 bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-white font-extrabold text-[10px] uppercase tracking-widest rounded-xl active:scale-95 transition-all cursor-pointer shadow-md">
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Editar Capítulo */}
+      {isEditModalOpen && (
+        <div className="absolute inset-0 bg-black/35 flex items-center justify-center z-[9999] backdrop-blur-sm animate-fade-in" onClick={() => setIsEditModalOpen(false)}>
+          <div className="w-80 bg-white rounded-3xl p-6 space-y-6 shadow-2xl animate-scale-up border border-slate-100" onClick={e => e.stopPropagation()}>
+            <div className="space-y-2 text-center">
+              <h3 className="text-[var(--text-main)] font-extrabold text-base uppercase tracking-widest text-slate-800">Editar Capítulo ✏️</h3>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Alterando título na página {currentPage + 1}</p>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-[9px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest px-1">Nome do Capítulo</label>
+              <input 
+                type="text" 
+                value={chapterTitleInput}
+                onChange={e => setChapterTitleInput(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-100 rounded-xl py-3 px-4 text-xs font-bold outline-none focus:border-[var(--primary)]/30 focus:ring-4 focus:ring-[var(--primary)]/5 transition-all text-slate-850"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSaveEditChapter();
+                }}
+              />
+            </div>
+            
+            <div className="flex gap-2.5">
+              <button onClick={() => setIsEditModalOpen(false)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-655 font-extrabold text-[10px] uppercase tracking-widest rounded-xl active:scale-95 transition-all cursor-pointer border border-slate-150">
+                Cancelar
+              </button>
+              <button onClick={handleSaveEditChapter} className="flex-1 py-3 bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-white font-extrabold text-[10px] uppercase tracking-widest rounded-xl active:scale-95 transition-all cursor-pointer shadow-md">
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Drawer Mobile de Capítulos */}
+      {showMobileChapters && (
+        <div className="absolute inset-0 bg-black/35 flex items-end z-[9999] backdrop-blur-sm animate-fade-in" onClick={() => setShowMobileChapters(false)}>
+          <div className="w-full bg-white rounded-t-[2.5rem] p-6 space-y-6 shadow-2xl animate-slide-up border border-slate-100 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto" />
+            <h3 className="text-[var(--text-main)] font-extrabold text-base text-center uppercase tracking-widest">Capítulos do Livro 📖</h3>
+            
+            {chapters.length === 0 ? (
+              <p className="text-center py-8 text-xs text-slate-400 font-bold">Nenhum capítulo cadastrado ainda.</p>
+            ) : (
+              <div className="space-y-2">
+                {[...chapters].sort((a, b) => a.startPage - b.startPage).map((ch, idx) => (
+                  <button
+                    key={ch.id || idx}
+                    onClick={() => {
+                      setCurrentPage(ch.startPage);
+                      updateProgress(ch.startPage);
+                      setShowMobileChapters(false);
+                    }}
+                    className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all text-left cursor-pointer ${
+                      currentPage === ch.startPage
+                        ? "border-[var(--primary)] bg-[var(--primary)]/10 text-[var(--primary)] font-extrabold"
+                        : "border-slate-100 hover:bg-slate-50 text-slate-700 font-bold"
+                    }`}
+                  >
+                    <span className="text-xs">Capítulo {idx + 1}: {ch.title}</span>
+                    <span className="text-[10px] opacity-65 uppercase tracking-wider font-extrabold">Pág. {ch.startPage + 1}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            
+            <button onClick={() => setShowMobileChapters(false)} className="w-full py-4 bg-[var(--primary)] text-white font-extrabold text-[10px] uppercase tracking-widest rounded-xl shadow-md shadow-[var(--primary)]/15 active:scale-95 transition-all cursor-pointer">
+              Fechar
             </button>
           </div>
         </div>

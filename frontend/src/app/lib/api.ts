@@ -3,6 +3,7 @@
  */
 
 import { API_BASE_URL } from "./config";
+import type { BookChapter } from "./types";
 
 // --- HELPERS E INTERRUPTOR MODO OFFLINE ---
 export function isOfflineMode(): boolean {
@@ -630,4 +631,25 @@ export async function updateGlobalStatus(content: string, emote: string) {
     return newStatus;
   }
   return request("POST", "/status", { content, emote });
+}
+
+export async function fetchChapters(bookId: string): Promise<BookChapter[]> {
+  if (isOfflineMode()) {
+    return [];
+  }
+  return (await request("GET", `/books/${bookId}/chapters`)) || [];
+}
+
+export async function saveChapter(bookId: string, startPage: number, title: string): Promise<any> {
+  if (isOfflineMode()) {
+    return { success: true };
+  }
+  return request("POST", `/books/${bookId}/chapters`, { startPage, title });
+}
+
+export async function deleteChapter(bookId: string, startPage: number): Promise<any> {
+  if (isOfflineMode()) {
+    return { success: true };
+  }
+  return request("DELETE", `/books/${bookId}/chapters/${startPage}`);
 }
