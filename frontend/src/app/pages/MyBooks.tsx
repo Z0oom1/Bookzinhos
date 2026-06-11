@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { BookOpen, Play, Heart, Bookmark, CheckCircle2, Layers } from "lucide-react";
+import { BookOpen, Play, Heart, Bookmark, CheckCircle2, Layers, Sparkles } from "lucide-react";
 import { Link } from "react-router";
 import { fetchBooks, fetchAllProgress, fetchSavedIds } from "../lib/api";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import { BookCard } from "../components/BookCard";
 import type { Book, ReadingProgress } from "../lib/types";
 
-type TabKey = "lendo" | "finalizado" | "pausado" | "favoritos";
+type TabKey = "lendo" | "recomendados" | "finalizado" | "favoritos";
 
 export function MyBooks() {
   const [books, setBooks] = useState<Book[]>([]);
@@ -46,8 +46,35 @@ export function MyBooks() {
 
   const getBook = (id: string) => books.find((b) => b.id === id);
 
+  const recomendadosBooks = (() => {
+    const activeBookIds = progress.map(p => p.bookId);
+    const activeBooks = books.filter(b => activeBookIds.includes(b.id));
+    const genreCounts: Record<string, number> = {};
+    activeBooks.forEach(b => {
+      if (b.genre) {
+        const g = b.genre.trim().toLowerCase();
+        genreCounts[g] = (genreCounts[g] || 0) + 1;
+      }
+    });
+
+    const unread = books.filter(b => !progress.some(p => p.bookId === b.id && (p.status === "finalizado" || p.status === "lendo")));
+
+    if (activeBooks.length > 0) {
+      const scored = unread.map(b => {
+        const g = (b.genre || "").trim().toLowerCase();
+        const score = genreCounts[g] || 0;
+        return { book: b, score };
+      });
+      scored.sort((a, b) => b.score - a.score || b.book.addedAt - a.book.addedAt);
+      return scored.map(x => x.book);
+    }
+    return unread;
+  })();
+
   const booksInTab = activeTab === "favoritos"
     ? books.filter(b => savedIds.includes(b.id))
+    : activeTab === "recomendados"
+    ? recomendadosBooks
     : books.filter(b => {
         const prog = progress.find(p => p.bookId === b.id);
         return prog && prog.status === activeTab;
@@ -60,9 +87,9 @@ export function MyBooks() {
 
   const tabs: { key: TabKey; label: string; count: number; icon: any }[] = [
     { key: "lendo", label: "Lendo", count: progress.filter((p) => p.status === "lendo").length, icon: Layers },
+    { key: "recomendados", label: "Recomendados", count: recomendadosBooks.length, icon: Sparkles },
     { key: "finalizado", label: "Lidos", count: progress.filter((p) => p.status === "finalizado").length, icon: CheckCircle2 },
-    { key: "pausado", label: "Pausados", count: progress.filter((p) => p.status === "pausado").length, icon: Bookmark },
-    { key: "favoritos", label: "Amei", count: savedIds.length, icon: Heart },
+    { key: "favoritos", label: "Estante", count: savedIds.length, icon: Heart },
   ];
 
   if (isLoading) {
@@ -103,7 +130,7 @@ export function MyBooks() {
 
         <div className="max-w-2xl mx-auto px-4 py-6 space-y-6 relative z-10">
           {/* Livro Lendo no Momento */}
-          {currentBook && currentReading && activeTab !== "favoritos" ? (
+          {currentBook && currentReading && activeTab === "lendo" ? (
             <div className="bg-white/70 backdrop-blur-xl rounded-[2.25rem] p-5 shadow-[0_8px_30px_rgba(0,0,0,0.02)] border border-white/80 group relative overflow-hidden animate-fade-in">
               <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--mint)]/10 rounded-bl-full pointer-events-none opacity-50 group-hover:scale-105 transition-transform" />
               <p className="text-[9px] font-extrabold text-[var(--text-main)] mb-3 flex items-center gap-1.5 uppercase tracking-widest">
@@ -145,7 +172,7 @@ export function MyBooks() {
                 Continuar
               </Link>
             </div>
-          ) : activeTab !== "favoritos" && (
+          ) : activeTab === "lendo" && (
             <div className="bg-white/50 backdrop-blur-xl rounded-[2.25rem] p-8 text-center shadow-[0_8px_30px_rgba(0,0,0,0.02)] border border-white/80 animate-fade-in">
               <div className="text-4xl mb-3 opacity-60">📖</div>
               <p className="text-[10px] text-[var(--text-muted)] font-extrabold uppercase tracking-widest mb-4">Nenhum livro em leitura ativa</p>
@@ -170,7 +197,7 @@ export function MyBooks() {
                     : "text-[var(--text-muted)] hover:text-[var(--text-main)]"
                 }`}
               >
-                <span>{tab.label === "Amei" ? "Amei ❤️" : tab.label}</span>
+                <span>{tab.label}</span>
                 <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-md ${
                   activeTab === tab.key ? "bg-[var(--primary)]/10 text-[var(--primary)]" : "bg-slate-100 opacity-60"
                 }`}>
@@ -184,7 +211,7 @@ export function MyBooks() {
           {booksInTab.length === 0 ? (
             <div className="text-center py-16 text-[var(--text-muted)] bg-white/40 backdrop-blur-sm rounded-[2.25rem] border-2 border-dashed border-[var(--lavender)]/30 shadow-sm font-bold animate-fade-in">
               <div className="text-4xl mb-3 opacity-50">
-                {activeTab === "lendo" ? "📖" : activeTab === "finalizado" ? "🎉" : activeTab === "pausado" ? "⏸️" : "❤️"}
+                {activeTab === "lendo" ? "📖" : activeTab === "finalizado" ? "🎉" : activeTab === "recomendados" ? "✨" : "❤️"}
               </div>
               <p className="text-[10px] font-extrabold uppercase tracking-widest">Nenhum livro nesta categoria</p>
             </div>
@@ -247,7 +274,7 @@ export function MyBooks() {
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <h1 className="text-2xl font-black text-slate-800 tracking-tight">
-                {activeTab === "lendo" ? "Livros Lendo" : activeTab === "finalizado" ? "Livros Concluídos" : activeTab === "pausado" ? "Livros Pausados" : "Meus Favoritos"}
+                {activeTab === "lendo" ? "Livros Lendo" : activeTab === "finalizado" ? "Livros Concluídos" : activeTab === "recomendados" ? "Recomendações" : "Minha Estante"}
               </h1>
               <p className="text-xs text-slate-400 font-bold">{booksInTab.length} livros salvos</p>
             </div>
@@ -288,7 +315,7 @@ export function MyBooks() {
             </div>
 
             {/* Right Column (Focus Widget / Lendo no Momento) */}
-            {activeTab !== "favoritos" && (
+            {(activeTab === "lendo" || activeTab === "finalizado") && (
               <div className="space-y-6">
                 <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Destaque de Leitura</h3>
                 {currentBook && currentReading ? (

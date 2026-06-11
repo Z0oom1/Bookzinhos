@@ -17,7 +17,7 @@ interface Props {
   menuPos?: { x: number; y: number } | null;
 }
 
-export function BookContextMenu({ book, isPaused, onClose, onRead, onEdit, onDelete, onFeedback, onPause, menuPos }: Props) {
+export function BookContextMenu({ book, isPaused, onClose, onRead, onEdit, onDelete, onFeedback, onPause, onReadLater, menuPos }: Props) {
   const coverUrl = getFullUrl(book.coverImagePath);
   const [isDesktop, setIsDesktop] = useState(false);
 
