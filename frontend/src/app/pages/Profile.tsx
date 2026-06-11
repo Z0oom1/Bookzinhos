@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { BookOpen, Clock, Award, Pencil, X, Check, Settings } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
-import { fetchBooks, fetchAllProgress, fetchStats, updateProfile, isOfflineMode, setOfflineMode } from "../lib/api";
+import { fetchBooks, fetchAllProgress, fetchStats, updateProfile, fetchUserProfile, isOfflineMode, setOfflineMode } from "../lib/api";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import type { Book, ReadingProgress, Stats } from "../lib/types";
 
@@ -59,12 +59,14 @@ export function Profile() {
   }, [isEditingProfile, isEditingShelf]);
 
   useEffect(() => {
+    const currentUsername = localStorage.getItem("books-username") || "anonymous";
     Promise.all([
       fetchBooks().catch(() => []),
       fetchAllProgress().catch(() => []),
-      fetchStats().catch(() => ({ finished: 0, reading: 0, notesCount: 0 }))
+      fetchStats().catch(() => ({ finished: 0, reading: 0, notesCount: 0 })),
+      currentUsername !== "anonymous" ? fetchUserProfile(currentUsername).catch(() => null) : Promise.resolve(null)
     ])
-      .then(([b, p, s]) => {
+      .then(([b, p, s, userProfile]) => {
         const booksList = b || [];
         const progressList = p || [];
         const statsData = s || { finished: 0, reading: 0, notesCount: 0 };
@@ -72,16 +74,35 @@ export function Profile() {
         setBooks(booksList);
         setProgress(progressList);
         setStats(statsData);
-        setIsLoading(false);
 
-        if (shelfBookIds.length === 0 && booksList.length > 0) {
-          const defaultShelf = booksList
+        let finalShelf: string[] = [];
+
+        if (userProfile) {
+          setUserName(userProfile.username);
+          setUserBio(userProfile.bio || "");
+          setUserAvatar(userProfile.avatar || "🐼");
+          finalShelf = userProfile.shelf || [];
+          localStorage.setItem("books-bio", userProfile.bio || "");
+          localStorage.setItem("books-avatar", userProfile.avatar || "🐼");
+        } else {
+          const localBio = localStorage.getItem("books-bio") || "Apaixonada por histórias que transformam";
+          const localAvatar = localStorage.getItem("books-avatar") || "🐼";
+          const localShelfStr = localStorage.getItem("profile-shelf");
+          finalShelf = localShelfStr ? JSON.parse(localShelfStr) : [];
+          setUserName(currentUsername);
+          setUserBio(localBio);
+          setUserAvatar(localAvatar);
+        }
+
+        if (finalShelf.length === 0 && booksList.length > 0) {
+          finalShelf = booksList
             .filter((book: Book) => progressList.some((prog: ReadingProgress) => prog.bookId === book.id))
             .map((book: Book) => book.id)
             .slice(0, 9);
-          setShelfBookIds(defaultShelf);
-          localStorage.setItem("profile-shelf", JSON.stringify(defaultShelf));
         }
+        setShelfBookIds(finalShelf);
+        localStorage.setItem("profile-shelf", JSON.stringify(finalShelf));
+        setIsLoading(false);
       })
       .catch((err) => {
         console.error("Erro ao carregar dados do perfil:", err);
@@ -281,7 +302,7 @@ export function Profile() {
                     className="flex bg-white/70 backdrop-blur-xl rounded-[2rem] p-3 shadow-[0_8px_30px_rgba(0,0,0,0.01)] border border-white/80 hover:border-slate-200 hover:shadow-[0_12px_30px_rgba(0,0,0,0.02)] transition-all animate-fade-in gap-4 items-center group active:scale-[0.99]"
                     style={{ animationDelay: `${0.4 + idx * 0.05}s` }}
                   >
-                    <div className="w-14 h-20 rounded-xl overflow-hidden flex-shrink-0 shadow-sm bg-[var(--lavender)]/15 relative">
+                    <div className="w-14 h-20 rounded-md overflow-hidden flex-shrink-0 shadow-sm bg-[var(--lavender)]/15 relative border border-slate-100">
                       {coverUrl ? <img src={coverUrl} className="w-full h-full object-cover" /> : <BookOpen className="absolute inset-0 m-auto w-5 h-5 text-[var(--primary)]/45" />}
                     </div>
                     <div className="flex-1 min-w-0 py-1">
@@ -376,11 +397,11 @@ function EditProfileModal({ initialName, initialBio, initialAvatar, onClose, onS
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest pl-1">Nome</label>
+            <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest pl-1">Nome de Usuário</label>
             <input 
               value={name} 
-              onChange={e => setName(e.target.value)} 
-              className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3.5 focus:border-[var(--primary)]/30 focus:ring-4 focus:ring-[var(--primary)]/5 outline-none text-xs text-[var(--text-main)] font-semibold transition-all"
+              disabled
+              className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-4 py-3.5 outline-none text-xs text-slate-400 font-semibold cursor-not-allowed select-none"
               placeholder="Seu nome"
             />
           </div>
