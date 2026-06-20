@@ -20,58 +20,49 @@ const FRAGMENT_SHADER_SRC = `
   {
     const float NUM_ZERO = 0.0;
     const float NUM_ONE = 1.0;
-    const float NUM_HALF = 0.5;
-    const float NUM_TWO = 2.0;
     const float POWER_EXPONENT = 6.0;
-    const float MASK_MULTIPLIER_1 = 10000.0;
-    const float MASK_MULTIPLIER_2 = 9500.0;
-    const float MASK_MULTIPLIER_3 = 11000.0;
-    const float LENS_MULTIPLIER = 5000.0;
-    const float MASK_STRENGTH_1 = 8.0;
-    const float MASK_STRENGTH_2 = 16.0;
-    const float MASK_STRENGTH_3 = 2.0;
-    const float MASK_THRESHOLD_1 = 0.95;
-    const float MASK_THRESHOLD_2 = 0.9;
-    const float MASK_THRESHOLD_3 = 1.5;
-    const float SAMPLE_RANGE = 4.0;
-    const float SAMPLE_OFFSET = 0.5;
-    const float GRADIENT_RANGE = 0.2;
-    const float GRADIENT_OFFSET = 0.1;
-    const float GRADIENT_EXTREME = -1000.0;
-    const float LIGHTING_INTENSITY = 0.3;
 
     vec2 uv = fragCoord / iResolution.xy;
-    vec2 mouse = iMouse.xy;
-    if (length(mouse) < NUM_ONE) {
-      mouse = iResolution.xy / NUM_TWO;
-    }
-    vec2 m2 = (uv - mouse / iResolution.xy);
+    vec2 m2 = uv - 0.5;
 
-    float roundedBox = pow(abs(m2.x * iResolution.x / iResolution.y), POWER_EXPONENT) + pow(abs(m2.y), POWER_EXPONENT);
-    float rb1 = clamp((NUM_ONE - roundedBox * MASK_MULTIPLIER_1) * MASK_STRENGTH_1, NUM_ZERO, NUM_ONE);
-    float rb2 = clamp((MASK_THRESHOLD_1 - roundedBox * MASK_MULTIPLIER_2) * MASK_STRENGTH_2, NUM_ZERO, NUM_ONE) -
-      clamp(pow(MASK_THRESHOLD_2 - roundedBox * MASK_MULTIPLIER_2, NUM_ONE) * MASK_STRENGTH_2, NUM_ZERO, NUM_ONE);
-    float rb3 = clamp((MASK_THRESHOLD_3 - roundedBox * MASK_MULTIPLIER_3) * MASK_STRENGTH_3, NUM_ZERO, NUM_ONE) -
-      clamp(pow(NUM_ONE - roundedBox * MASK_MULTIPLIER_3, NUM_ONE) * MASK_STRENGTH_3, NUM_ZERO, NUM_ONE);
+    // Size of the card in screen pixels (width: 448px, height: 570px)
+    vec2 cardSize = vec2(448.0, 570.0);
+    // Dynamically limit size to fit screen with padding on mobile
+    cardSize = min(cardSize, iResolution.xy - 32.0);
+    
+    vec2 halfSize = cardSize / iResolution.xy / 2.0;
+
+    // Rounded box calculation
+    vec2 d = abs(m2) / halfSize;
+    float roundedBox = pow(d.x, POWER_EXPONENT) + pow(d.y, POWER_EXPONENT);
+
+    // Muffs inside the box (body of the lens)
+    float rb1 = clamp((NUM_ONE - roundedBox) * 8.0, NUM_ZERO, NUM_ONE);
+    // Rim specular light
+    float rb2 = clamp((1.02 - roundedBox) * 25.0, NUM_ZERO, NUM_ONE) - clamp((0.98 - roundedBox) * 25.0, NUM_ZERO, NUM_ONE);
 
     fragColor = vec4(NUM_ZERO);
     float transition = smoothstep(NUM_ZERO, NUM_ONE, rb1 + rb2);
 
     if (transition > NUM_ZERO) {
-      vec2 lens = ((uv - NUM_HALF) * NUM_ONE * (NUM_ONE - roundedBox * LENS_MULTIPLIER) + NUM_HALF);
+      // High-end glass refraction
+      float refractStrength = 0.045 * (NUM_ONE - roundedBox);
+      vec2 lens = uv - m2 * refractStrength;
+      
+      // Blur sampling inside the glass (supersampling for soft glass look)
       float total = NUM_ZERO;
-      for (float x = -SAMPLE_RANGE; x <= SAMPLE_RANGE; x++) {
-        for (float y = -SAMPLE_RANGE; y <= SAMPLE_RANGE; y++) {
-          vec2 offset = vec2(x, y) * SAMPLE_OFFSET / iResolution.xy;
+      for (float x = -2.0; x <= 2.0; x++) {
+        for (float y = -2.0; y <= 2.0; y++) {
+          vec2 offset = vec2(x, y) * 1.0 / iResolution.xy;
           fragColor += texture2D(iChannel0, offset + lens);
           total += NUM_ONE;
         }
       }
       fragColor /= total;
 
-      float gradient = clamp((clamp(m2.y, NUM_ZERO, GRADIENT_RANGE) + GRADIENT_OFFSET) / NUM_TWO, NUM_ZERO, NUM_ONE) +
-        clamp((clamp(-m2.y, GRADIENT_EXTREME, GRADIENT_RANGE) * rb3 + GRADIENT_OFFSET) / NUM_TWO, NUM_ZERO, NUM_ONE);
-      vec4 lighting = clamp(fragColor + vec4(rb1) * gradient + vec4(rb2) * LIGHTING_INTENSITY, NUM_ZERO, NUM_ONE);
+      // Inner lighting gradient & rim highlight
+      float gradient = clamp((m2.y + 0.5) / 2.0, NUM_ZERO, NUM_ONE);
+      vec4 lighting = clamp(fragColor + vec4(0.06) * gradient + vec4(rb2) * 0.18, NUM_ZERO, NUM_ONE);
 
       fragColor = mix(texture2D(iChannel0, uv), lighting, transition);
     } else {
@@ -176,24 +167,6 @@ export function Login({ onLoginSuccess }: LoginProps) {
       texture: gl.getUniformLocation(program, "iChannel0"),
     };
 
-    let currentMouse = [window.innerWidth / 2, window.innerHeight / 2];
-    const updateMouse = (x: number, y: number) => {
-      currentMouse = [x, window.innerHeight - y];
-    };
-
-    const handleMouseMove = (e: MouseEvent) => {
-      updateMouse(e.clientX, e.clientY);
-    };
-
-    const handleTouchMove = (e: TouchEvent) => {
-      if (e.touches && e.touches[0]) {
-        updateMouse(e.touches[0].clientX, e.touches[0].clientY);
-      }
-    };
-
-    window.addEventListener("mousemove", handleMouseMove);
-    window.addEventListener("touchmove", handleTouchMove);
-
     texture = gl.createTexture();
     const setupTexture = () => {
       if (!texture) return;
@@ -227,7 +200,8 @@ export function Login({ onLoginSuccess }: LoginProps) {
 
       gl.uniform3f(uniforms.resolution, canvas.width, canvas.height, 1.0);
       gl.uniform1f(uniforms.time, currentTime);
-      gl.uniform4f(uniforms.mouse, currentMouse[0], currentMouse[1], 0, 0);
+      // Static mouse center coord
+      gl.uniform4f(uniforms.mouse, canvas.width / 2.0, canvas.height / 2.0, 0, 0);
 
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -241,8 +215,6 @@ export function Login({ onLoginSuccess }: LoginProps) {
 
     return () => {
       window.removeEventListener("resize", setCanvasSize);
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("touchmove", handleTouchMove);
       cancelAnimationFrame(animationFrameId);
       if (gl) {
         if (texture) gl.deleteTexture(texture);
@@ -287,15 +259,15 @@ export function Login({ onLoginSuccess }: LoginProps) {
       {/* WebGL Liquid Glass Background Canvas */}
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none" />
 
-      {/* Login Card with Liquid Glass (Glassmorphic) Effect */}
+      {/* Login Card overlaying refracted canvas area */}
       <div className="w-full max-w-md relative z-10 transition-all duration-300">
-        <div className="bg-white/10 backdrop-blur-2xl rounded-[2.5rem] p-10 shadow-[0_30px_70px_-15px_rgba(0,0,0,0.15)] border border-white/40 relative overflow-hidden">
+        <div className="bg-white/5 border border-white/20 rounded-[2.5rem] p-10 relative overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.1)]">
           {/* Top border highlight glow */}
-          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/45 to-transparent" />
+          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
 
           {/* Logo */}
           <div className="text-center mb-8 relative">
-            <div className="inline-flex items-center justify-center w-28 h-28 bg-white/30 backdrop-blur-md rounded-[2.25rem] mb-6 shadow-[0_10px_30px_rgba(0,0,0,0.05)] border border-white/45 p-2 overflow-hidden select-none transition-transform duration-500 hover:scale-105">
+            <div className="inline-flex items-center justify-center w-28 h-28 bg-white/25 backdrop-blur-md rounded-[2.25rem] mb-6 shadow-sm border border-white/30 p-2 overflow-hidden select-none transition-transform duration-500 hover:scale-105">
               {matchedUser ? (
                 <span className="text-5xl">{matchedUser.avatar || "👤"}</span>
               ) : (
@@ -313,7 +285,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-650 uppercase tracking-widest pl-1">
+              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest pl-1">
                 Usuário
               </label>
               <input
@@ -327,7 +299,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-slate-650 uppercase tracking-widest pl-1">
+              <label className="text-[10px] font-bold text-slate-700 uppercase tracking-widest pl-1">
                 Senha
               </label>
               <input
@@ -373,7 +345,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
                 setError("");
               }}
               disabled={isLoading}
-              className="text-[10px] font-bold text-slate-500 hover:text-slate-800 transition-all cursor-pointer uppercase tracking-widest"
+              className="text-[10px] font-bold text-slate-650 hover:text-slate-800 transition-all cursor-pointer uppercase tracking-widest"
             >
               {isRegistering ? "Já tenho uma conta" : "Não tenho uma conta"}
             </button>
