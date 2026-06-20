@@ -17,7 +17,7 @@ export function setOfflineMode(value: boolean): void {
 // --- INDEXEDDB PARA ARMAZENAMENTO DE ARQUIVOS GRANDES ---
 function openOfflineDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open("BookzinhosOffline", 1);
+    const request = indexedDB.open("myBooksOffline", 1);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains("files")) {

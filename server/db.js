@@ -272,7 +272,7 @@ async function initDB() {
 
   // Inicializa status
   try {
-    await db.query(sql`INSERT OR IGNORE INTO global_status (id, username, content, emote, updated_at) VALUES (1, 'Sistema', 'Bem-vindos ao Books da Helo! ✨', '🐼', ${Date.now()})`);
+    await db.query(sql`INSERT OR IGNORE INTO global_status (id, username, content, emote, updated_at) VALUES (1, 'Sistema', 'Bem-vindos ao myBooks! ✨', '🐼', ${Date.now()})`);
   } catch (err) {
     console.error("Erro ao inicializar status:", err);
   }

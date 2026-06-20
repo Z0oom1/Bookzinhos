@@ -541,7 +541,7 @@ export function RootLayout() {
                     className="w-3 h-3 rounded-full bg-[#27c93f] border border-[#1aab29] hover:opacity-80 transition-opacity cursor-pointer flex items-center justify-center text-[8px] font-bold text-green-900"
                   />
                 </div>
-                <span className="text-xs font-bold text-slate-400 select-none">Bookzinhos da Helo</span>
+                <span className="text-xs font-bold text-slate-400 select-none">myBooks</span>
               </div>
 
               {/* Center: Tabs navigation */}

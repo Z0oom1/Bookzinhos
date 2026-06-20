@@ -95,7 +95,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100
 app.get("/", (_req, res) => {
   res.send(`
     <div style="font-family: sans-serif; text-align: center; padding: 50px;">
-      <h1>🐼 Bookzinhos API</h1>
+      <h1>🐼 myBooks API</h1>
       <p>O servidor está rodando com sucesso! ✨</p>
       <p style="color: #666;">Use a URL do seu Frontend para acessar o app.</p>
     </div>
@@ -710,7 +710,7 @@ async function start() {
     initWatcher(db, sql, PORT, uploadFileToCloud);
 
     app.listen(PORT, "0.0.0.0", () => {
-      console.log(`\n🐼 Books da Helo — Servidor rodando!`);
+      console.log(`\n🐼 myBooks — Servidor rodando!`);
       console.log(`   Local:   http://localhost:${PORT}`);
       console.log(`   Health:  http://localhost:${PORT}/health\n`);
     });

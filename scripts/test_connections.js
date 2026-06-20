@@ -53,7 +53,7 @@ async function testS3Storage() {
     const command = new PutObjectCommand({
       Bucket: BUCKET,
       Key: testKey,
-      Body: Buffer.from("Conexão S3 Bookzinhos funcionando! 🐼"),
+      Body: Buffer.from("Conexão S3 myBooks funcionando! 🐼"),
       ContentType: "text/plain"
     });
     

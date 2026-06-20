@@ -1,4 +1,4 @@
-# Como dar Deploy no Bookzinhos (Grátis, Sem Repouso e Persistente) 🚀
+# Como dar Deploy no myBooks (Grátis, Sem Repouso e Persistente) 🚀
 
 Siga estes passos para colocar seu aplicativo no ar utilizando serviços 100% gratuitos que não entram em repouso e garantem a persistência de todos os seus dados e livros!
 

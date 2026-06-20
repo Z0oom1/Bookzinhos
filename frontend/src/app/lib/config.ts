@@ -1,5 +1,5 @@
 /**
- * URL do servidor Bookzinhos.
+ * URL do servidor myBooks.
  */
 
 const PROD_URL = "https://bookzinhos-server.vercel.app";

@@ -75,7 +75,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
               )}
             </div>
             <h1 className="text-3xl font-extrabold text-[var(--text-main)] mb-1 tracking-tight">
-              Books da Helo
+              myBooks
             </h1>
             <p className="text-xs font-bold text-[var(--text-muted)] flex items-center justify-center gap-1.5 uppercase tracking-widest" style={{ animationDelay: "0.2s" }}>
               {isRegistering ? "Crie sua conta para começar" : "Sua jornada literária começa aqui"}

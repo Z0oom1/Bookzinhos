@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Bookzinhos",
-    "slug": "bookzinhos",
+    "name": "myBooks",
+    "slug": "mybooks",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,7 +16,7 @@
       "assets/www/**"
     ],
     "android": {
-      "package": "com.bookzinhos.app",
+      "package": "com.mybooks.app",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -30,7 +30,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.bookzinhos.app"
+      "bundleIdentifier": "com.mybooks.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"

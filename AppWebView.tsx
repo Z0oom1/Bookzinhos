@@ -5,7 +5,7 @@ import { WebView } from "react-native-webview";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 
 /**
- * AppWebView: O coração do Bookzinhos no Celular.
+ * AppWebView: O coração do myBooks no Celular.
  * Agora apontando para o seu site oficial no Vercel! ✨
  */
 
@@ -30,7 +30,7 @@ function AppContent() {
     return (
       <SafeAreaView style={styles.centered}>
         <StatusBar style="dark" />
-        <Text style={styles.title}>Ops! O Bookzinhos tropeçou 🐼</Text>
+        <Text style={styles.title}>Ops! O myBooks tropeçou 🐼</Text>
         <Text style={styles.body}>
           Verifique sua conexão com a internet para carregar seus livros.
         </Text>
@@ -70,7 +70,7 @@ function AppContent() {
       {isLoading && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#B6A6EE" />
-          <Text style={styles.loadingText}>Abrindo o Bookzinhos... 🐾</Text>
+          <Text style={styles.loadingText}>Abrindo o myBooks... 🐾</Text>
         </View>
       )}
     </SafeAreaView>

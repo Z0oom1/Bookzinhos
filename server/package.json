@@ -1,7 +1,7 @@
 {
-  "name": "bookdahelo-server",
+  "name": "mybooks-server",
   "version": "1.0.0",
-  "description": "Servidor da Helo — Books da Helo API",
+  "description": "Servidor myBooks — API",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

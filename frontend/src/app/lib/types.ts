@@ -1,5 +1,5 @@
 /**
- * Tipos compartilhados do Books da Helo
+ * Tipos compartilhados do myBooks
  */
 
 export interface Book {

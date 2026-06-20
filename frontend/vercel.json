@@ -1,5 +1,5 @@
 {
-  "name": "bookzinhos-frontend",
+  "name": "mybooks-frontend",
   "framework": "vite",
   "rewrites": [
     { "source": "/(.*)", "destination": "/index.html" }

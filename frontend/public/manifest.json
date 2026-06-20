@@ -1,6 +1,6 @@
 {
-  "name": "Bookzinhos",
-  "short_name": "Bookzinhos",
+  "name": "myBooks",
+  "short_name": "myBooks",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

@@ -276,7 +276,7 @@ export function Social() {
                     </div>
                     <div>
                       <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-wide">Pandinhas de Amor</h3>
-                      <p className="text-xs text-slate-400 font-bold">Sistema de Indicações e Pontuações do Bookzinhos</p>
+                      <p className="text-xs text-slate-400 font-bold">Sistema de Indicações e Pontuações do myBooks</p>
                     </div>
                   </div>
                   
