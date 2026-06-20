@@ -296,13 +296,13 @@ export function Home() {
                   <h2 className="text-[10px] font-black text-slate-450 uppercase tracking-widest">Leitura Atual</h2>
                 </div>
                 <Link to={`/read/${currentBook.id}`} className="block group">
-                  <div className={`bg-white/65 hover:bg-white/85 backdrop-blur-lg rounded-[2.5rem] p-6 md:p-8 shadow-[0_15px_45px_rgba(0,0,0,0.012)] hover:shadow-[0_15px_30px_rgba(0,0,0,0.025)] border-2 ${activeTheme.border} flex flex-col md:flex-row gap-6 md:gap-8 relative overflow-hidden transition-all duration-700 active:scale-[0.995]`}>
+                  <div className={`bg-gradient-to-br ${getCoverGradient(currentBook)} rounded-[2.5rem] p-6 md:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-white/50 flex flex-col md:flex-row gap-6 md:gap-8 relative overflow-hidden transition-all duration-700 active:scale-[0.995] hover:shadow-[0_25px_60px_rgba(0,0,0,0.12)]`}>
                     
                     {/* Glass backdrop glow */}
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--primary)]/5 rounded-bl-full pointer-events-none" />
+                    <div className="absolute -top-10 -right-10 w-44 h-44 bg-white/20 rounded-full blur-3xl pointer-events-none group-hover:scale-110 transition-transform duration-700" />
                     
                     {/* Book Cover with 3D-like styling */}
-                    <div className="w-28 md:w-36 aspect-[2/3] rounded-2xl overflow-hidden shadow-xl border border-white/70 relative bg-slate-50 flex-shrink-0 mx-auto md:mx-0 transition-transform duration-500 group-hover:scale-[1.02]">
+                    <div className="w-28 md:w-36 aspect-[2/3] rounded-2xl overflow-hidden shadow-2xl border border-white/60 relative bg-slate-50 flex-shrink-0 mx-auto md:mx-0 transition-transform duration-500 group-hover:scale-[1.02]">
                       {currentBook.coverImagePath ? (
                         <img src={getFullUrl(currentBook.coverImagePath)!} className="w-full h-full object-cover animate-fade-in" />
                       ) : (
@@ -312,7 +312,7 @@ export function Home() {
                       )}
                       
                       {/* Floating Badge */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-4">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center pb-4">
                         <span className="bg-white/95 backdrop-blur px-4 py-1.5 rounded-xl text-[9px] font-black text-slate-800 uppercase tracking-widest shadow-sm">
                           Continuar Lendo
                         </span>
@@ -320,36 +320,36 @@ export function Home() {
                     </div>
                     
                     {/* Book Metadata & Progress details */}
-                    <div className="flex-1 flex flex-col justify-between py-2 text-center md:text-left min-w-0">
+                    <div className="flex-1 flex flex-col justify-between py-2 text-center md:text-left min-w-0 z-10">
                       <div className="space-y-3">
-                        <span className={`inline-block px-3 py-1 ${activeTheme.accentText} bg-white/80 text-[9px] font-black rounded-full border ${activeTheme.border} uppercase tracking-wider transition-all duration-700`}>
+                        <span className="inline-block px-3 py-1 text-slate-700 bg-white/60 backdrop-blur-sm text-[9px] font-black rounded-full border border-white/50 uppercase tracking-wider">
                           Páginas lidas: {currentlyReading.currentPage + 1} de {currentlyReading.totalPages}
                         </span>
-                        <h3 className="font-black text-slate-800 text-xl md:text-2xl line-clamp-1 leading-snug group-hover:text-[var(--primary)] transition-colors mt-2">
+                        <h3 className="font-black text-slate-900 text-xl md:text-2xl line-clamp-1 leading-snug group-hover:text-black transition-colors mt-2">
                           {currentBook.title}
                         </h3>
-                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                        <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
                           {currentBook.author}
                         </p>
-                        <p className="text-xs text-slate-500 line-clamp-2 md:line-clamp-3 leading-relaxed font-medium mt-2">
+                        <p className="text-xs text-slate-750 line-clamp-2 md:line-clamp-3 leading-relaxed font-semibold mt-2">
                           {currentBook.description || "Sem descrição disponível para este livro."}
                         </p>
                       </div>
                       
                       <div className="space-y-3 pt-6 md:pt-4">
-                        <div className="flex justify-between items-center text-[10px] font-black text-slate-500">
-                          <span className="bg-[var(--primary)]/10 text-[var(--primary)] px-2.5 py-0.5 rounded-md">
+                        <div className="flex justify-between items-center text-[10px] font-black text-slate-700">
+                          <span className="bg-white/60 backdrop-blur-sm px-2.5 py-0.5 rounded-md border border-white/50">
                             {currentlyReading.progress}% concluído
                           </span>
-                          <span className={`text-[9px] font-black uppercase ${activeTheme.accentText} group-hover:translate-x-1 transition-all duration-750 inline-flex items-center gap-1`}>
+                          <span className="text-[9px] font-black uppercase text-slate-800 group-hover:translate-x-1 transition-all duration-750 inline-flex items-center gap-1">
                             Abrir Leitor →
                           </span>
                         </div>
                         
-                        {/* Dynamic Cover matching progress bar */}
-                        <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden shadow-inner border border-slate-200/10">
+                        {/* Elegant progress bar container that works on a colored background */}
+                        <div className="w-full bg-white/30 h-2 rounded-full overflow-hidden shadow-inner border border-white/20">
                           <div 
-                            className={`bg-gradient-to-r ${getCoverGradient(currentBook)} h-full rounded-full transition-all duration-500`} 
+                            className="bg-white h-full rounded-full transition-all duration-500 shadow-sm" 
                             style={{ width: `${currentlyReading.progress}%` }} 
                           />
                         </div>
