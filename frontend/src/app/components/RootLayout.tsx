@@ -12,16 +12,69 @@ export function RootLayout() {
   
   // Resizable window and full screen states for desktop client
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const [windowSize, setWindowSize] = useState({ width: 1100, height: 780 });
+  const [windowSize, setWindowSize] = useState(() => {
+    const defaultWidth = 1100;
+    const defaultHeight = 780;
+    if (typeof window !== "undefined") {
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      return {
+        width: Math.min(defaultWidth, screenWidth - 32),
+        height: Math.min(defaultHeight, screenHeight - 32)
+      };
+    }
+    return { width: defaultWidth, height: defaultHeight };
+  });
   const [windowPos, setWindowPos] = useState<{ x: number; y: number } | null>(null);
   const [isResizing, setIsResizing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isDraggingTouch, setIsDraggingTouch] = useState(false);
+  const [isResizingTouch, setIsResizingTouch] = useState(false);
 
   const dragStart = useRef({ mouseX: 0, mouseY: 0, posX: 0, posY: 0 });
+  const dragStartTouch = useRef({ mouseX: 0, mouseY: 0, posX: 0, posY: 0 });
   const resizeStart = useRef({ mouseX: 0, mouseY: 0, posX: 0, posY: 0, width: 0, height: 0, direction: "" });
+  const resizeStartTouch = useRef({ mouseX: 0, mouseY: 0, posX: 0, posY: 0, width: 0, height: 0, direction: "" });
 
   const parentRef = useRef<HTMLDivElement>(null);
   const windowRef = useRef<HTMLDivElement>(null);
+
+  // Monitor window resize to clamp simulated window size & position
+  useEffect(() => {
+    const handleResize = () => {
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      
+      let finalWidth = windowSize.width;
+      let finalHeight = windowSize.height;
+
+      setWindowSize(prev => {
+        const newWidth = Math.min(prev.width, screenWidth - 32);
+        const newHeight = Math.min(prev.height, screenHeight - 32);
+        finalWidth = newWidth;
+        finalHeight = newHeight;
+        if (newWidth !== prev.width || newHeight !== prev.height) {
+          return { width: newWidth, height: newHeight };
+        }
+        return prev;
+      });
+
+      setWindowPos(prev => {
+        if (!prev) return null;
+        const maxLeft = screenWidth - finalWidth - 16;
+        const maxTop = screenHeight - finalHeight - 16;
+        const x = Math.max(16, Math.min(prev.x, maxLeft));
+        const y = Math.max(16, Math.min(prev.y, maxTop));
+        if (x !== prev.x || y !== prev.y) {
+          return { x, y };
+        }
+        return prev;
+      });
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [windowSize]);
 
   const handleDragMouseDown = (e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
@@ -61,6 +114,44 @@ export function RootLayout() {
     };
   };
 
+  const handleDragTouchStart = (e: React.TouchEvent) => {
+    const target = e.target as HTMLElement;
+    if (
+      target.closest("button") || 
+      target.closest("a") || 
+      target.closest("input") || 
+      target.closest("select") || 
+      target.closest("textarea") ||
+      target.closest("[role='button']")
+    ) {
+      return;
+    }
+
+    setIsDraggingTouch(true);
+
+    let currentPos = windowPos;
+    if (!currentPos && parentRef.current && windowRef.current) {
+      const parentRect = parentRef.current.getBoundingClientRect();
+      const windowRect = windowRef.current.getBoundingClientRect();
+      currentPos = {
+        x: windowRect.left - parentRect.left,
+        y: windowRect.top - parentRect.top,
+      };
+      setWindowPos(currentPos);
+    }
+
+    const posX = currentPos ? currentPos.x : 0;
+    const posY = currentPos ? currentPos.y : 0;
+
+    const touch = e.touches[0];
+    dragStartTouch.current = {
+      mouseX: touch.clientX,
+      mouseY: touch.clientY,
+      posX: posX,
+      posY: posY,
+    };
+  };
+
   const handleResizeMouseDown = (e: React.MouseEvent, direction: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -91,6 +182,37 @@ export function RootLayout() {
     };
   };
 
+  const handleResizeTouchStart = (e: React.TouchEvent, direction: string) => {
+    e.stopPropagation();
+    setIsResizingTouch(true);
+
+    let currentPos = windowPos;
+    if (!currentPos && parentRef.current && windowRef.current) {
+      const parentRect = parentRef.current.getBoundingClientRect();
+      const windowRect = windowRef.current.getBoundingClientRect();
+      currentPos = {
+        x: windowRect.left - parentRect.left,
+        y: windowRect.top - parentRect.top,
+      };
+      setWindowPos(currentPos);
+    }
+
+    const posX = currentPos ? currentPos.x : 0;
+    const posY = currentPos ? currentPos.y : 0;
+
+    const touch = e.touches[0];
+    resizeStartTouch.current = {
+      mouseX: touch.clientX,
+      mouseY: touch.clientY,
+      posX: posX,
+      posY: posY,
+      width: windowSize.width,
+      height: windowSize.height,
+      direction: direction,
+    };
+  };
+
+  // Mouse drag effect
   useEffect(() => {
     if (!isDragging) return;
 
@@ -98,9 +220,13 @@ export function RootLayout() {
       const dx = e.clientX - dragStart.current.mouseX;
       const dy = e.clientY - dragStart.current.mouseY;
       
+      const parentRect = parentRef.current?.getBoundingClientRect();
+      const maxX = parentRect ? parentRect.width - windowSize.width - 16 : window.innerWidth - windowSize.width - 16;
+      const maxY = parentRect ? parentRect.height - windowSize.height - 16 : window.innerHeight - windowSize.height - 16;
+
       setWindowPos({
-        x: dragStart.current.posX + dx,
-        y: dragStart.current.posY + dy,
+        x: Math.max(16, Math.min(dragStart.current.posX + dx, maxX)),
+        y: Math.max(16, Math.min(dragStart.current.posY + dy, maxY)),
       });
     };
 
@@ -114,8 +240,40 @@ export function RootLayout() {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDragging]);
+  }, [isDragging, windowSize]);
 
+  // Touch drag effect
+  useEffect(() => {
+    if (!isDraggingTouch) return;
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      const dx = touch.clientX - dragStartTouch.current.mouseX;
+      const dy = touch.clientY - dragStartTouch.current.mouseY;
+      
+      const parentRect = parentRef.current?.getBoundingClientRect();
+      const maxX = parentRect ? parentRect.width - windowSize.width - 16 : window.innerWidth - windowSize.width - 16;
+      const maxY = parentRect ? parentRect.height - windowSize.height - 16 : window.innerHeight - windowSize.height - 16;
+
+      setWindowPos({
+        x: Math.max(16, Math.min(dragStartTouch.current.posX + dx, maxX)),
+        y: Math.max(16, Math.min(dragStartTouch.current.posY + dy, maxY)),
+      });
+    };
+
+    const handleTouchEnd = () => {
+      setIsDraggingTouch(false);
+    };
+
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
+    window.addEventListener("touchend", handleTouchEnd);
+    return () => {
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [isDraggingTouch, windowSize]);
+
+  // Mouse resize effect
   useEffect(() => {
     if (!isResizing) return;
 
@@ -127,28 +285,38 @@ export function RootLayout() {
       const minWidth = 850;
       const minHeight = 550;
 
+      const parentWidth = parentRef.current?.clientWidth || window.innerWidth;
+      const parentHeight = parentRef.current?.clientHeight || window.innerHeight;
+      const maxWidth = parentWidth - 32;
+      const maxHeight = parentHeight - 32;
+
       let newWidth = width;
       let newHeight = height;
       let newX = posX;
       let newY = posY;
 
       if (direction.includes("e")) {
-        newWidth = Math.max(minWidth, width + dx);
+        newWidth = Math.max(minWidth, Math.min(maxWidth, width + dx));
       } else if (direction.includes("w")) {
         const potentialWidth = width - dx;
-        newWidth = Math.max(minWidth, potentialWidth);
+        newWidth = Math.max(minWidth, Math.min(maxWidth, potentialWidth));
         const actualChange = newWidth - width;
         newX = posX - actualChange;
       }
 
       if (direction.includes("s")) {
-        newHeight = Math.max(minHeight, height + dy);
+        newHeight = Math.max(minHeight, Math.min(maxHeight, height + dy));
       } else if (direction.includes("n")) {
         const potentialHeight = height - dy;
-        newHeight = Math.max(minHeight, potentialHeight);
+        newHeight = Math.max(minHeight, Math.min(maxHeight, potentialHeight));
         const actualChange = newHeight - height;
         newY = posY - actualChange;
       }
+
+      const maxXPos = parentWidth - newWidth - 16;
+      const maxYPos = parentHeight - newHeight - 16;
+      newX = Math.max(16, Math.min(newX, maxXPos));
+      newY = Math.max(16, Math.min(newY, maxYPos));
 
       setWindowSize({ width: newWidth, height: newHeight });
       setWindowPos({ x: newX, y: newY });
@@ -165,6 +333,68 @@ export function RootLayout() {
       window.removeEventListener("mouseup", handleMouseUp);
     };
   }, [isResizing]);
+
+  // Touch resize effect
+  useEffect(() => {
+    if (!isResizingTouch) return;
+
+    const handleTouchMove = (e: TouchEvent) => {
+      const touch = e.touches[0];
+      const { mouseX, mouseY, posX, posY, width, height, direction } = resizeStartTouch.current;
+      const dx = touch.clientX - mouseX;
+      const dy = touch.clientY - mouseY;
+
+      const minWidth = 850;
+      const minHeight = 550;
+
+      const parentWidth = parentRef.current?.clientWidth || window.innerWidth;
+      const parentHeight = parentRef.current?.clientHeight || window.innerHeight;
+      const maxWidth = parentWidth - 32;
+      const maxHeight = parentHeight - 32;
+
+      let newWidth = width;
+      let newHeight = height;
+      let newX = posX;
+      let newY = posY;
+
+      if (direction.includes("e")) {
+        newWidth = Math.max(minWidth, Math.min(maxWidth, width + dx));
+      } else if (direction.includes("w")) {
+        const potentialWidth = width - dx;
+        newWidth = Math.max(minWidth, Math.min(maxWidth, potentialWidth));
+        const actualChange = newWidth - width;
+        newX = posX - actualChange;
+      }
+
+      if (direction.includes("s")) {
+        newHeight = Math.max(minHeight, Math.min(maxHeight, height + dy));
+      } else if (direction.includes("n")) {
+        const potentialHeight = height - dy;
+        newHeight = Math.max(minHeight, Math.min(maxHeight, potentialHeight));
+        const actualChange = newHeight - height;
+        newY = posY - actualChange;
+      }
+
+      const maxXPos = parentWidth - newWidth - 16;
+      const maxYPos = parentHeight - newHeight - 16;
+      newX = Math.max(16, Math.min(newX, maxXPos));
+      newY = Math.max(16, Math.min(newY, maxYPos));
+
+      setWindowSize({ width: newWidth, height: newHeight });
+      setWindowPos({ x: newX, y: newY });
+    };
+
+    const handleTouchEnd = () => {
+      setIsResizingTouch(false);
+    };
+
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
+    window.addEventListener("touchend", handleTouchEnd);
+    return () => {
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [isResizingTouch]);
 
   useEffect(() => {
     async function checkNotifications() {
@@ -297,6 +527,7 @@ export function RootLayout() {
           {!hideNav ? (
             <header 
               onMouseDown={handleDragMouseDown}
+              onTouchStart={handleDragTouchStart}
               className="h-14 border-b border-slate-100 bg-white/80 backdrop-blur-md flex items-center justify-between px-6 flex-shrink-0 cursor-default select-none"
             >
               {/* Left: macOS Dots & Title */}
@@ -368,6 +599,7 @@ export function RootLayout() {
               {!isFullScreen && (
                 <div 
                   onMouseDown={handleDragMouseDown}
+                  onTouchStart={handleDragTouchStart}
                   className="absolute top-0 left-0 right-0 h-10 z-[9997] cursor-default"
                 />
               )}
@@ -382,14 +614,14 @@ export function RootLayout() {
           {!isFullScreen && (
             <>
               {/* Border Resize Handles */}
-              <div onMouseDown={(e) => handleResizeMouseDown(e, "n")} className="absolute top-0 left-4 right-4 h-2 cursor-n-resize z-[9999]" />
-              <div onMouseDown={(e) => handleResizeMouseDown(e, "s")} className="absolute bottom-0 left-4 right-4 h-2 cursor-s-resize z-[9999]" />
-              <div onMouseDown={(e) => handleResizeMouseDown(e, "e")} className="absolute right-0 top-4 bottom-4 w-2 cursor-e-resize z-[9999]" />
-              <div onMouseDown={(e) => handleResizeMouseDown(e, "w")} className="absolute left-0 top-4 bottom-4 w-2 cursor-w-resize z-[9999]" />
-              <div onMouseDown={(e) => handleResizeMouseDown(e, "nw")} className="absolute top-0 left-0 w-4 h-4 cursor-nw-resize z-[9999]" />
-              <div onMouseDown={(e) => handleResizeMouseDown(e, "ne")} className="absolute top-0 right-0 w-4 h-4 cursor-ne-resize z-[9999]" />
-              <div onMouseDown={(e) => handleResizeMouseDown(e, "sw")} className="absolute bottom-0 left-0 w-4 h-4 cursor-sw-resize z-[9999]" />
-              <div onMouseDown={(e) => handleResizeMouseDown(e, "se")} className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize z-[9999] flex items-end justify-end p-1">
+              <div onMouseDown={(e) => handleResizeMouseDown(e, "n")} onTouchStart={(e) => handleResizeTouchStart(e, "n")} className="absolute top-0 left-4 right-4 h-2 cursor-n-resize z-[9999]" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, "s")} onTouchStart={(e) => handleResizeTouchStart(e, "s")} className="absolute bottom-0 left-4 right-4 h-2 cursor-s-resize z-[9999]" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, "e")} onTouchStart={(e) => handleResizeTouchStart(e, "e")} className="absolute right-0 top-4 bottom-4 w-2 cursor-e-resize z-[9999]" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, "w")} onTouchStart={(e) => handleResizeTouchStart(e, "w")} className="absolute left-0 top-4 bottom-4 w-2 cursor-w-resize z-[9999]" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, "nw")} onTouchStart={(e) => handleResizeTouchStart(e, "nw")} className="absolute top-0 left-0 w-4 h-4 cursor-nw-resize z-[9999]" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, "ne")} onTouchStart={(e) => handleResizeTouchStart(e, "ne")} className="absolute top-0 right-0 w-4 h-4 cursor-ne-resize z-[9999]" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, "sw")} onTouchStart={(e) => handleResizeTouchStart(e, "sw")} className="absolute bottom-0 left-0 w-4 h-4 cursor-sw-resize z-[9999]" />
+              <div onMouseDown={(e) => handleResizeMouseDown(e, "se")} onTouchStart={(e) => handleResizeTouchStart(e, "se")} className="absolute bottom-0 right-0 w-4 h-4 cursor-se-resize z-[9999] flex items-end justify-end p-1">
                 <svg width="10" height="10" viewBox="0 0 10 10" className="text-slate-300 fill-current opacity-70">
                   <path d="M10,0 L0,10 L10,10 Z" />
                 </svg>

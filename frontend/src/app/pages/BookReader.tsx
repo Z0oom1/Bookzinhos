@@ -46,6 +46,25 @@ export function BookReader() {
   const hasDraggedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  const [readerWidth, setReaderWidth] = useState(512);
+  const lastTapRef = useRef<number>(0);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        setReaderWidth(entry.contentRect.width);
+      }
+    });
+
+    observer.observe(el);
+    return () => {
+      observer.unobserve(el);
+    };
+  }, []);
+
   // PDF State
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasRightRef = useRef<HTMLCanvasElement>(null);
@@ -163,9 +182,7 @@ export function BookReader() {
           const ctx = canvas.getContext("2d");
           if (ctx) {
             const viewport = page.getViewport({ scale: 1 });
-            const screenWidth = window.innerWidth;
-            // Limit width when simulating app container layout
-            const wrapperWidth = Math.min(screenWidth, 512); 
+            const wrapperWidth = readerWidth; 
             const containerWidth = bookMode ? (wrapperWidth - 48) / 2 : wrapperWidth - 32;
             const scale = containerWidth / viewport.width;
             
@@ -197,8 +214,7 @@ export function BookReader() {
           const ctx = canvas.getContext("2d");
           if (ctx) {
             const viewport = page.getViewport({ scale: 1 });
-            const screenWidth = window.innerWidth;
-            const wrapperWidth = Math.min(screenWidth, 512); 
+            const wrapperWidth = readerWidth; 
             const containerWidth = (wrapperWidth - 48) / 2;
             const scale = containerWidth / viewport.width;
             
@@ -229,7 +245,7 @@ export function BookReader() {
       if (renderTaskLeft) renderTaskLeft.cancel();
       if (renderTaskRight) renderTaskRight.cancel();
     };
-  }, [pdfDoc, currentPage, bookMode, pdfTotalPages]);
+  }, [pdfDoc, currentPage, bookMode, pdfTotalPages, readerWidth]);
 
   useEffect(() => {
     if (!showMenu) return;
@@ -419,6 +435,18 @@ export function BookReader() {
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 1) {
+      const now = Date.now();
+      if (now - lastTapRef.current < 300) {
+        if (zoomScale > 1) {
+          resetZoom();
+        } else {
+          setZoomScale(2.5);
+        }
+        touchStartRef.current = null;
+        return;
+      }
+      lastTapRef.current = now;
+
       touchStartRef.current = {
         x: e.touches[0].clientX,
         y: e.touches[0].clientY,
@@ -466,21 +494,31 @@ export function BookReader() {
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     setIsPanning(false);
-    if (touchStartRef.current && e.changedTouches.length === 1 && zoomScale === 1) {
+    if (touchStartRef.current && e.changedTouches.length === 1) {
       const deltaX = e.changedTouches[0].clientX - touchStartRef.current.x;
       const deltaY = e.changedTouches[0].clientY - touchStartRef.current.y;
       const deltaTime = Date.now() - touchStartRef.current.time;
+      const dist = Math.hypot(deltaX, deltaY);
 
-      if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > Math.abs(deltaY) && deltaTime < 300) {
-        if (deltaX < 0) {
-          goNext();
-        } else {
-          goPrev();
+      if (zoomScale === 1) {
+        if (dist > 50 && Math.abs(deltaX) > Math.abs(deltaY) && deltaTime < 300) {
+          if (deltaX < 0) {
+            goNext();
+          } else {
+            goPrev();
+          }
+        } else if (dist < 10 && deltaTime < 300) {
+          setShowMenu(prev => !prev);
+        }
+      } else if (zoomScale > 1) {
+        if (!hasDraggedRef.current && dist < 10 && deltaTime < 300) {
+          setShowMenu(prev => !prev);
         }
       }
     }
     touchStartRef.current = null;
     initialPinchDistRef.current = null;
+    hasDraggedRef.current = false;
   };
 
   const handleZoom = (delta: number) => {

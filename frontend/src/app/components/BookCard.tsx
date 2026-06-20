@@ -60,6 +60,18 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
     clearTimeout(timerRef.current);
   }, []);
 
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 0) return;
+    const touch = e.touches[0];
+    const dist = Math.sqrt(
+      Math.pow(touch.clientX - touchStartPos.current.x, 2) + 
+      Math.pow(touch.clientY - touchStartPos.current.y, 2)
+    );
+    if (dist > 10) {
+      clearTimeout(timerRef.current);
+    }
+  }, []);
+
   const endPress = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     clearTimeout(timerRef.current);
     
@@ -142,7 +154,7 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
     onMouseLeave: cancelPress,
     onTouchStart: startPress,
     onTouchEnd: endPress,
-    onTouchMove: cancelPress,
+    onTouchMove: handleTouchMove,
     onContextMenu: (e: React.MouseEvent) => {
       e.preventDefault();
       clearTimeout(timerRef.current);
