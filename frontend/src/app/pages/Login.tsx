@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Sparkles } from "lucide-react";
 import { login, register, fetchAllUsers } from "../lib/api";
 
 interface LoginProps {
@@ -52,38 +51,46 @@ export function Login({ onLoginSuccess }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 overflow-hidden relative bg-gradient-to-tr from-slate-100 via-slate-50 to-indigo-50/30">
-      {/* Floating Books Background - Subtle & Professional */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-10 text-6xl opacity-[0.04] select-none">📚</div>
-        <div className="absolute top-40 right-20 text-5xl opacity-[0.04] select-none" style={{ animationDelay: "1s" }}>🐼</div>
-        <div className="absolute bottom-32 left-1/4 text-6xl opacity-[0.04] select-none" style={{ animationDelay: "2s" }}>📖</div>
-        <div className="absolute bottom-20 right-1/3 text-6xl opacity-[0.04] select-none" style={{ animationDelay: "1.5s" }}>✨</div>
+    <div className="min-h-screen bg-[#060814] flex items-center justify-center p-4 overflow-hidden relative select-none">
+      {/* Aurora Ambient Background (Glowing Blobs) */}
+      <div className="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full bg-rose-500/10 blur-[150px] pointer-events-none animate-pulse" style={{ animationDuration: "8s" }} />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-violet-600/15 blur-[150px] pointer-events-none animate-pulse" style={{ animationDuration: "12s" }} />
+      <div className="absolute top-1/3 left-1/3 w-[300px] h-[300px] rounded-full bg-blue-500/10 blur-[120px] pointer-events-none" />
+
+      {/* Floating Books Background (Subtle Grid) */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-[0.03]">
+        <div className="absolute top-20 left-10 text-6xl select-none">📚</div>
+        <div className="absolute top-40 right-20 text-5xl select-none">🐼</div>
+        <div className="absolute bottom-32 left-1/4 text-6xl select-none">📖</div>
+        <div className="absolute bottom-20 right-1/3 text-6xl select-none">✨</div>
       </div>
 
       {/* Login Card */}
-      <div className="w-full max-w-md relative z-10">
-        <div className="bg-white/80 backdrop-blur-xl rounded-[2rem] p-8 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.08)] border border-white/80">
+      <div className="w-full max-w-md relative z-10 transition-all duration-300">
+        <div className="bg-slate-900/40 backdrop-blur-2xl rounded-[2.5rem] p-10 shadow-[0_30px_80px_-15px_rgba(0,0,0,0.6)] border border-white/5 relative overflow-hidden">
+          {/* Top border highlight glow */}
+          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-rose-500/30 to-violet-500/30" />
+
           {/* Logo */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-2xl mb-4 shadow-sm border border-slate-100 overflow-hidden select-none">
+          <div className="text-center mb-8 relative">
+            <div className="inline-flex items-center justify-center w-28 h-28 bg-gradient-to-tr from-slate-900 via-slate-800 to-slate-900 rounded-[2.25rem] mb-6 shadow-[0_12px_40px_rgba(0,0,0,0.4)] border border-slate-700/30 p-2 overflow-hidden select-none transition-transform duration-500 hover:scale-105">
               {matchedUser ? (
-                <span className="text-4xl">{matchedUser.avatar || "👤"}</span>
+                <span className="text-5xl">{matchedUser.avatar || "👤"}</span>
               ) : (
-                <img src="/icone.png" alt="myBooks Logo" className="w-14 h-14 object-contain" />
+                <img src="/icone.png" alt="myBooks Logo" className="w-full h-full object-contain rounded-2xl" />
               )}
             </div>
-            <h1 className="text-2xl font-extrabold text-slate-800 mb-1 tracking-tight">
+            <h1 className="text-3xl font-black tracking-tight text-white mb-2 bg-clip-text text-transparent bg-gradient-to-b from-white to-slate-300">
               myBooks
             </h1>
-            <p className="text-[10px] font-bold text-slate-400 flex items-center justify-center gap-1.5 uppercase tracking-widest">
+            <p className="text-[9px] font-black text-rose-400/90 flex items-center justify-center gap-1.5 uppercase tracking-[0.25em] leading-none">
               {isRegistering ? "Crie sua conta para começar" : "Gerenciador Pessoal de Leitura"}
             </p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">
                 Usuário
               </label>
@@ -92,12 +99,12 @@ export function Login({ onLoginSuccess }: LoginProps) {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: caio"
-                className="w-full px-5 py-3.5 bg-slate-50/50 border border-slate-200/80 rounded-2xl outline-none focus:border-[var(--primary)] focus:ring-4 focus:ring-[var(--primary)]/5 transition-all text-xs font-semibold placeholder:text-slate-300"
+                className="w-full px-5 py-4 bg-slate-950/50 border border-slate-800/80 rounded-2xl outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/5 transition-all text-xs font-semibold text-white placeholder:text-slate-600"
                 disabled={isLoading}
               />
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pl-1">
                 Senha
               </label>
@@ -105,14 +112,14 @@ export function Login({ onLoginSuccess }: LoginProps) {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Ex: 1234"
-                className="w-full px-5 py-3.5 bg-slate-50/50 border border-slate-200/80 rounded-2xl outline-none focus:border-[var(--primary)] focus:ring-4 focus:ring-[var(--primary)]/5 transition-all text-xs font-semibold placeholder:text-slate-300"
+                placeholder="••••••••"
+                className="w-full px-5 py-4 bg-slate-950/50 border border-slate-800/80 rounded-2xl outline-none focus:border-rose-500/50 focus:ring-4 focus:ring-rose-500/5 transition-all text-xs font-semibold text-white placeholder:text-slate-750"
                 disabled={isLoading}
               />
             </div>
 
             {error && (
-              <div className="text-red-500 text-xs font-semibold text-center bg-red-50 border border-red-150 p-2.5 rounded-xl">
+              <div className="text-red-400 text-xs font-semibold text-center bg-red-500/5 border border-red-500/20 p-3 rounded-xl">
                 {error}
               </div>
             )}
@@ -120,10 +127,10 @@ export function Login({ onLoginSuccess }: LoginProps) {
             <button
               type="submit"
               disabled={!name.trim() || !password.trim() || isLoading}
-              className={`w-full mt-4 py-4 font-bold rounded-2xl transition-all relative overflow-hidden group shadow-sm cursor-pointer ${
+              className={`w-full mt-6 py-4 font-bold rounded-2xl transition-all relative overflow-hidden group shadow-md cursor-pointer ${
                 !name.trim() || !password.trim() || isLoading
-                  ? "bg-slate-100 text-slate-300 cursor-not-allowed shadow-none"
-                  : "bg-[var(--primary)] text-white hover:bg-[var(--primary)]/90 hover:shadow-md active:scale-95"
+                  ? "bg-slate-800/80 text-slate-500 cursor-not-allowed shadow-none"
+                  : "bg-gradient-to-r from-rose-500 via-rose-600 to-violet-600 text-white hover:opacity-95 hover:shadow-[0_0_30px_rgba(244,63,94,0.25)] active:scale-[0.98]"
               }`}
             >
               {isLoading ? (
@@ -132,19 +139,19 @@ export function Login({ onLoginSuccess }: LoginProps) {
                   <span className="text-[10px] font-bold uppercase tracking-widest">{isRegistering ? "Criando..." : "Entrando..."}</span>
                 </div>
               ) : (
-                <span className="relative z-10 text-[10px] font-bold uppercase tracking-widest">{isRegistering ? "Criar conta" : "Entrar"}</span>
+                <span className="relative z-10 text-[10px] font-black uppercase tracking-widest">{isRegistering ? "Criar conta" : "Entrar"}</span>
               )}
             </button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-8 text-center">
             <button
               onClick={() => {
                 setIsRegistering(!isRegistering);
                 setError("");
               }}
               disabled={isLoading}
-              className="text-xs font-bold text-[var(--primary)] hover:text-[var(--primary)]/80 transition-all cursor-pointer uppercase tracking-widest"
+              className="text-[10px] font-bold text-slate-400 hover:text-white transition-all cursor-pointer uppercase tracking-widest"
             >
               {isRegistering ? "Já tenho uma conta" : "Não tenho uma conta"}
             </button>
