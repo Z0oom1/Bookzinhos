@@ -7,13 +7,100 @@ import { BookCard } from "../components/BookCard";
 import type { Book, ReadingProgress, GlobalStatus } from "../lib/types";
 import { triggerBackgroundCoverGeneration } from "../lib/coverExtractor";
 
+const THEMES: Record<string, { bg: string; text: string; primary: string; accent: string; border: string; accentText: string }> = {
+  "lavender-mint": {
+    bg: "from-[var(--lavender)]/20 via-slate-50/40 to-[var(--mint)]/20",
+    text: "text-purple-900",
+    primary: "text-purple-600 bg-purple-50",
+    accent: "rgba(147, 51, 234, 0.08)",
+    border: "border-purple-200/50",
+    accentText: "text-purple-700"
+  },
+  "peach-lavender": {
+    bg: "from-[var(--peach)]/25 via-slate-50/40 to-[var(--lavender)]/25",
+    text: "text-rose-905",
+    primary: "text-rose-600 bg-rose-50",
+    accent: "rgba(244, 63, 94, 0.08)",
+    border: "border-rose-200/50",
+    accentText: "text-rose-700"
+  },
+  "mint-sky": {
+    bg: "from-[var(--mint)]/20 via-slate-50/40 to-[var(--sky)]/20",
+    text: "text-teal-900",
+    primary: "text-teal-600 bg-teal-50",
+    accent: "rgba(13, 148, 136, 0.08)",
+    border: "border-teal-200/50",
+    accentText: "text-teal-700"
+  },
+  "blush-lavender": {
+    bg: "from-[var(--blush)]/30 via-slate-50/40 to-[var(--lavender)]/25",
+    text: "text-pink-900",
+    primary: "text-pink-600 bg-pink-50",
+    accent: "rgba(219, 39, 119, 0.08)",
+    border: "border-pink-200/50",
+    accentText: "text-pink-700"
+  },
+  "peach-mint": {
+    bg: "from-[var(--peach)]/25 via-slate-50/40 to-[var(--mint)]/25",
+    text: "text-amber-900",
+    primary: "text-amber-600 bg-amber-50",
+    accent: "rgba(217, 119, 6, 0.08)",
+    border: "border-amber-200/50",
+    accentText: "text-amber-700"
+  },
+  "lemon-peach": {
+    bg: "from-[var(--lemon)]/20 via-slate-50/40 to-[var(--peach)]/25",
+    text: "text-amber-950",
+    primary: "text-amber-700 bg-amber-50/50",
+    accent: "rgba(245, 158, 11, 0.08)",
+    border: "border-amber-200/40",
+    accentText: "text-amber-800"
+  },
+  "sky-mint": {
+    bg: "from-[var(--sky)]/25 via-slate-50/40 to-[var(--mint)]/25",
+    text: "text-sky-900",
+    primary: "text-sky-600 bg-sky-50",
+    accent: "rgba(2, 132, 199, 0.08)",
+    border: "border-sky-200/50",
+    accentText: "text-sky-700"
+  },
+  "lavender-peach": {
+    bg: "from-[var(--lavender)]/25 via-slate-50/40 to-[var(--peach)]/25",
+    text: "text-indigo-900",
+    primary: "text-indigo-600 bg-indigo-50",
+    accent: "rgba(79, 70, 229, 0.08)",
+    border: "border-indigo-200/50",
+    accentText: "text-indigo-700"
+  },
+  "mint-peach": {
+    bg: "from-[var(--mint)]/20 via-slate-50/40 to-[var(--peach)]/25",
+    text: "text-emerald-900",
+    primary: "text-emerald-600 bg-emerald-50",
+    accent: "rgba(5, 150, 105, 0.08)",
+    border: "border-emerald-200/50",
+    accentText: "text-emerald-700"
+  },
+  "blush-mint": {
+    bg: "from-[var(--blush)]/30 via-slate-50/40 to-[var(--mint)]/25",
+    text: "text-rose-900",
+    primary: "text-rose-600 bg-rose-50",
+    accent: "rgba(225, 29, 72, 0.08)",
+    border: "border-rose-200/50",
+    accentText: "text-rose-700"
+  }
+};
+
+const getBookThemeKey = (book: Book) => {
+  const list = ["lavender-mint", "peach-lavender", "mint-sky", "blush-lavender", "peach-mint", "lemon-peach", "sky-mint", "lavender-peach", "mint-peach", "blush-mint"];
+  return book.coverColor ?? list[parseInt(book.id, 10) % list.length];
+};
+
 export function Home() {
   const userName = localStorage.getItem("books-username") || "Leitora";
   const [books, setBooks] = useState<Book[]>([]);
   const [progress, setProgress] = useState<ReadingProgress[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
   const [search, setSearch] = useState("");
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   
   const [status, setStatus] = useState<GlobalStatus | null>(null);
@@ -87,6 +174,28 @@ export function Home() {
     return { text: "Boa noite", icon: "🌙" };
   };
 
+  // Algoritmo de livro mais lido (maior progresso, desempatando pelo último lido)
+  const activeProgress = progress.filter((p) => p.progress > 0);
+  const mostReadProgress = activeProgress.length > 0 
+    ? [...activeProgress].sort((a, b) => {
+        if (b.progress !== a.progress) {
+          return b.progress - a.progress;
+        }
+        return b.lastReadAt - a.lastReadAt;
+      })[0] 
+    : null;
+  const mostReadBook = mostReadProgress 
+    ? books.find((b) => b.id === mostReadProgress.bookId) 
+    : null;
+
+  const getTheme = () => {
+    if (!mostReadBook) return THEMES["lavender-mint"];
+    const key = getBookThemeKey(mostReadBook);
+    return THEMES[key] || THEMES["lavender-mint"];
+  };
+
+  const activeTheme = getTheme();
+
   const recent = [...books].sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0)).slice(0, 8);
   
   const currentlyReading = progress.find((p) => p.status === "lendo");
@@ -111,7 +220,7 @@ export function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-transparent no-scrollbar pb-12">
+    <div className={`min-h-screen bg-gradient-to-br ${activeTheme.bg} no-scrollbar pb-12 transition-all duration-700`}>
       {/* Wrapper Centralizado */}
       <div className="max-w-4xl mx-auto px-6 py-8 md:py-12 space-y-10 animate-fade-in">
         
@@ -119,7 +228,7 @@ export function Home() {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-black text-slate-800 tracking-tight">
+              <h1 className={`text-3xl font-black ${activeTheme.text} tracking-tight transition-colors duration-700`}>
                 {getGreeting().text}, {userName}!
               </h1>
               <span className="text-3xl animate-float inline-block select-none">{getGreeting().icon}</span>
@@ -132,16 +241,16 @@ export function Home() {
                 setStatusEmote(status?.emote || "🐼");
                 setIsEditingStatus(true);
               }}
-              className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/70 hover:bg-white backdrop-blur-md rounded-full border border-slate-100 hover:border-slate-200 shadow-sm cursor-pointer transition-all active:scale-95 text-[11px] font-bold text-slate-600 group"
+              className={`inline-flex items-center gap-2 px-3 py-1.5 bg-white/70 hover:bg-white backdrop-blur-md rounded-full border ${activeTheme.border} shadow-sm cursor-pointer transition-all duration-700 active:scale-95 text-[11px] font-bold text-slate-600 group`}
             >
               <span className="text-base select-none">{status?.emote || "🐼"}</span>
-              <span className="text-slate-400 font-black uppercase text-[9px] tracking-wider border-r border-slate-200 pr-2">
+              <span className={`font-black uppercase text-[9px] tracking-wider border-r ${activeTheme.border} pr-2 ${activeTheme.accentText} transition-all duration-700`}>
                 {status?.username || "Status"}
               </span>
               <span className="truncate max-w-[150px] md:max-w-[280px] italic text-slate-650 font-medium">
                 "{status?.content || "Como você está se sentindo?"}"
               </span>
-              <span className="w-5 h-5 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity ml-1">
+              <span className="w-5 h-5 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100/50 opacity-0 group-hover:opacity-100 transition-opacity ml-1">
                 <Edit3 className="w-2.5 h-2.5 text-[var(--primary)]" />
               </span>
             </div>
@@ -182,9 +291,12 @@ export function Home() {
             {/* HERO CURRENT READING */}
             {currentBook && currentlyReading ? (
               <section className="space-y-4 animate-fade-in">
-                <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Leitura Atual</h2>
+                <div className="flex items-center gap-2 pl-1">
+                  <BookOpen className={`w-4 h-4 ${activeTheme.accentText} transition-colors duration-700`} />
+                  <h2 className="text-[10px] font-black text-slate-450 uppercase tracking-widest">Leitura Atual</h2>
+                </div>
                 <Link to={`/read/${currentBook.id}`} className="block group">
-                  <div className="bg-white/60 hover:bg-white/85 backdrop-blur-lg rounded-[2.5rem] p-6 md:p-8 shadow-[0_15px_45px_rgba(0,0,0,0.015)] hover:shadow-[0_15px_30px_rgba(0,0,0,0.03)] border border-white/90 flex flex-col md:flex-row gap-6 md:gap-8 relative overflow-hidden transition-all duration-300 active:scale-[0.995]">
+                  <div className={`bg-white/65 hover:bg-white/85 backdrop-blur-lg rounded-[2.5rem] p-6 md:p-8 shadow-[0_15px_45px_rgba(0,0,0,0.012)] hover:shadow-[0_15px_30px_rgba(0,0,0,0.025)] border-2 ${activeTheme.border} flex flex-col md:flex-row gap-6 md:gap-8 relative overflow-hidden transition-all duration-700 active:scale-[0.995]`}>
                     
                     {/* Glass backdrop glow */}
                     <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--primary)]/5 rounded-bl-full pointer-events-none" />
@@ -210,7 +322,7 @@ export function Home() {
                     {/* Book Metadata & Progress details */}
                     <div className="flex-1 flex flex-col justify-between py-2 text-center md:text-left min-w-0">
                       <div className="space-y-3">
-                        <span className="inline-block px-3 py-1 bg-[var(--primary)]/10 text-[9px] font-black rounded-full text-[var(--primary)] uppercase tracking-wider">
+                        <span className={`inline-block px-3 py-1 ${activeTheme.accentText} bg-white/80 text-[9px] font-black rounded-full border ${activeTheme.border} uppercase tracking-wider transition-all duration-700`}>
                           Páginas lidas: {currentlyReading.currentPage + 1} de {currentlyReading.totalPages}
                         </span>
                         <h3 className="font-black text-slate-800 text-xl md:text-2xl line-clamp-1 leading-snug group-hover:text-[var(--primary)] transition-colors mt-2">
@@ -229,15 +341,15 @@ export function Home() {
                           <span className="bg-[var(--primary)]/10 text-[var(--primary)] px-2.5 py-0.5 rounded-md">
                             {currentlyReading.progress}% concluído
                           </span>
-                          <span className="text-[9px] font-black uppercase text-[var(--primary)] group-hover:translate-x-1 transition-transform inline-flex items-center gap-1">
+                          <span className={`text-[9px] font-black uppercase ${activeTheme.accentText} group-hover:translate-x-1 transition-all duration-750 inline-flex items-center gap-1`}>
                             Abrir Leitor →
                           </span>
                         </div>
                         
-                        {/* Elegant custom progress bar */}
+                        {/* Dynamic Cover matching progress bar */}
                         <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden shadow-inner border border-slate-200/10">
                           <div 
-                            className="bg-gradient-to-r from-[var(--primary)] to-[var(--lavender)] h-full rounded-full transition-all duration-500" 
+                            className={`bg-gradient-to-r ${getCoverGradient(currentBook)} h-full rounded-full transition-all duration-500`} 
                             style={{ width: `${currentlyReading.progress}%` }} 
                           />
                         </div>
@@ -249,7 +361,7 @@ export function Home() {
             ) : (
               /* No reading active placeholder */
               <section className="animate-fade-in">
-                <div className="bg-white/40 backdrop-blur-md rounded-[2.5rem] p-10 text-center border border-slate-200/50 space-y-3 shadow-[0_15px_45px_rgba(0,0,0,0.01)]">
+                <div className={`bg-white/40 backdrop-blur-md rounded-[2.5rem] p-10 text-center border-2 ${activeTheme.border} space-y-3 shadow-[0_15px_45px_rgba(0,0,0,0.01)] transition-all duration-700`}>
                   <div className="text-4xl select-none">📖</div>
                   <h3 className="font-black text-slate-700 text-sm uppercase tracking-widest">Nenhuma leitura ativa</h3>
                   <p className="text-xs text-slate-400 font-semibold max-w-sm mx-auto leading-relaxed">
@@ -269,12 +381,12 @@ export function Home() {
             <section className="space-y-4 animate-fade-in">
               <div className="flex items-center justify-between px-1">
                 <div className="flex items-center gap-2">
-                  <Bookmark className="w-4 h-4 text-[var(--primary)]" />
-                  <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sua Estante Recente</h2>
+                  <Bookmark className={`w-4 h-4 ${activeTheme.accentText} transition-colors duration-700`} />
+                  <h2 className="text-[10px] font-black text-slate-450 uppercase tracking-widest">Sua Estante Recente</h2>
                 </div>
                 <Link 
                   to="/library" 
-                  className="text-[9px] font-black text-[var(--primary)] uppercase tracking-wider hover:underline"
+                  className={`text-[9px] font-black ${activeTheme.accentText} uppercase tracking-wider hover:underline transition-colors duration-700`}
                 >
                   Ver Tudo
                 </Link>
