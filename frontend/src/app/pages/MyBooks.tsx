@@ -5,10 +5,12 @@ import { fetchBooks, fetchAllProgress, fetchSavedIds } from "../lib/api";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import { BookCard } from "../components/BookCard";
 import type { Book, ReadingProgress } from "../lib/types";
+import { useOpenBook } from "../lib/readerChoice";
 
 type TabKey = "lendo" | "recomendados" | "finalizado" | "favoritos";
 
 export function MyBooks() {
+  const openBook = useOpenBook();
   const [books, setBooks] = useState<Book[]>([]);
   const [progress, setProgress] = useState<ReadingProgress[]>([]);
   const [savedIds, setSavedIds] = useState<string[]>([]);
@@ -164,13 +166,13 @@ export function MyBooks() {
                   </div>
                 </div>
               </div>
-              <Link 
-                to={`/read/${currentBook.id}`} 
-                className="relative z-10 flex items-center justify-center gap-1.5 w-full py-3.5 bg-[var(--primary)] text-white rounded-xl font-extrabold text-[10px] uppercase tracking-widest transition-all active:scale-[0.98] shadow-md hover:shadow-lg"
+              <button
+                onClick={() => openBook(currentBook)}
+                className="relative z-10 flex items-center justify-center gap-1.5 w-full py-3.5 bg-[var(--primary)] text-white rounded-xl font-extrabold text-[10px] uppercase tracking-widest transition-all active:scale-[0.98] shadow-md hover:shadow-lg cursor-pointer"
               >
                 <Play className="w-3.5 h-3.5 fill-current" />
                 Continuar
-              </Link>
+              </button>
             </div>
           ) : activeTab === "lendo" && (
             <div className="bg-white/50 backdrop-blur-xl rounded-[2.25rem] p-8 text-center shadow-[0_8px_30px_rgba(0,0,0,0.02)] border border-white/80 animate-fade-in">
@@ -352,13 +354,13 @@ export function MyBooks() {
                         </div>
                       </div>
                     </div>
-                    <Link 
-                      to={`/read/${currentBook.id}`} 
-                      className="relative z-10 flex items-center justify-center gap-1.5 w-full py-3 bg-[var(--primary)] text-white rounded-xl font-extrabold text-[10px] uppercase tracking-widest transition-all active:scale-[0.98] shadow-md hover:shadow-lg"
+                    <button
+                      onClick={() => openBook(currentBook)}
+                      className="relative z-10 flex items-center justify-center gap-1.5 w-full py-3 bg-[var(--primary)] text-white rounded-xl font-extrabold text-[10px] uppercase tracking-widest transition-all active:scale-[0.98] shadow-md hover:shadow-lg cursor-pointer"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
                       Continuar
-                    </Link>
+                    </button>
                   </div>
                 ) : (
                   <div className="bg-white/50 rounded-[2.25rem] p-8 text-center border-2 border-dashed border-slate-200">

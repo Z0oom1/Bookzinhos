@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { BookOpen, Clock, Award, Pencil, X, Check, Settings } from "lucide-react";
+import { BookOpen, Clock, Award, Pencil, X, Check, Settings, Smartphone, HelpCircle } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
 import { fetchBooks, fetchAllProgress, fetchStats, updateProfile, fetchUserProfile, isOfflineMode, setOfflineMode } from "../lib/api";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import type { Book, ReadingProgress, Stats } from "../lib/types";
+import { getSavedReaderMode, setSavedReaderMode, type ReaderMode } from "../lib/readerChoice";
 
 const AVATARS = ["🐼", "🦊", "🐰", "🌸", "🎀", "✨", "🦋", "🌷", "🍡"];
 
@@ -22,6 +23,13 @@ export function Profile() {
 
   // Offline Mode State
   const [isOffline, setIsOffline] = useState(isOfflineMode);
+
+  // Reader Mode Preference State
+  const [readerMode, setReaderMode] = useState<ReaderMode | null>(() => getSavedReaderMode());
+  const handleSetReaderMode = (mode: ReaderMode | null) => {
+    setSavedReaderMode(mode);
+    setReaderMode(mode);
+  };
 
   const handleToggleOffline = () => {
     const next = !isOffline;
@@ -328,7 +336,38 @@ export function Profile() {
           </div>
         )}
 
-
+        {/* Preferência de Leitor */}
+        <div className="bg-white/70 backdrop-blur-xl rounded-[2.25rem] p-6 border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.02)] animate-fade-in space-y-4" style={{ animationDelay: "0.35s" }}>
+          <h2 className="text-[var(--text-main)] font-extrabold text-base flex items-center gap-2">
+            <Settings className="w-5 h-5 text-[var(--primary)]" /> Preferência de Leitura
+          </h2>
+          <p className="text-[11px] text-[var(--text-muted)] font-semibold leading-relaxed -mt-2">
+            Escolha como abrir os livros com PDF. Você pode mudar isso quando quiser.
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              onClick={() => handleSetReaderMode("app")}
+              className={`flex flex-col items-center gap-2 p-3.5 rounded-2xl border-2 transition-all cursor-pointer ${readerMode === "app" ? "border-[var(--primary)] bg-[var(--primary)]/5" : "border-slate-100 hover:border-slate-200"}`}
+            >
+              <BookOpen className={`w-5 h-5 ${readerMode === "app" ? "text-[var(--primary)]" : "text-slate-400"}`} />
+              <span className="text-[9px] font-extrabold uppercase tracking-wider text-[var(--text-main)]">App</span>
+            </button>
+            <button
+              onClick={() => handleSetReaderMode("native")}
+              className={`flex flex-col items-center gap-2 p-3.5 rounded-2xl border-2 transition-all cursor-pointer ${readerMode === "native" ? "border-[var(--primary)] bg-[var(--primary)]/5" : "border-slate-100 hover:border-slate-200"}`}
+            >
+              <Smartphone className={`w-5 h-5 ${readerMode === "native" ? "text-[var(--primary)]" : "text-slate-400"}`} />
+              <span className="text-[9px] font-extrabold uppercase tracking-wider text-[var(--text-main)]">Sistema</span>
+            </button>
+            <button
+              onClick={() => handleSetReaderMode(null)}
+              className={`flex flex-col items-center gap-2 p-3.5 rounded-2xl border-2 transition-all cursor-pointer ${readerMode === null ? "border-[var(--primary)] bg-[var(--primary)]/5" : "border-slate-100 hover:border-slate-200"}`}
+            >
+              <HelpCircle className={`w-5 h-5 ${readerMode === null ? "text-[var(--primary)]" : "text-slate-400"}`} />
+              <span className="text-[9px] font-extrabold uppercase tracking-wider text-[var(--text-main)]">Perguntar</span>
+            </button>
+          </div>
+        </div>
 
         <div className="pt-8 text-center animate-fade-in" style={{ animationDelay: "0.5s" }}>
           <button

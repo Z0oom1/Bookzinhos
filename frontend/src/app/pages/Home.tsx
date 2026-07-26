@@ -6,6 +6,7 @@ import { getCoverGradient, getFullUrl } from "../lib/types";
 import { BookCard } from "../components/BookCard";
 import type { Book, ReadingProgress, GlobalStatus } from "../lib/types";
 import { triggerBackgroundCoverGeneration } from "../lib/coverExtractor";
+import { useOpenBook } from "../lib/readerChoice";
 
 const THEMES: Record<string, { bg: string; text: string; primary: string; accent: string; border: string; accentText: string }> = {
   "lavender-mint": {
@@ -96,6 +97,7 @@ const getBookThemeKey = (book: Book) => {
 };
 
 export function Home() {
+  const openBook = useOpenBook();
   const userName = localStorage.getItem("books-username") || "Leitora";
   const [books, setBooks] = useState<Book[]>([]);
   const [progress, setProgress] = useState<ReadingProgress[]>([]);
@@ -247,7 +249,7 @@ export function Home() {
               <span className={`font-black uppercase text-[9px] tracking-wider border-r ${activeTheme.border} pr-2 ${activeTheme.accentText} transition-all duration-700`}>
                 {status?.username || "Status"}
               </span>
-              <span className="truncate max-w-[150px] md:max-w-[280px] italic text-slate-650 font-medium">
+              <span className="truncate max-w-[150px] md:max-w-[280px] italic text-slate-600 font-medium">
                 "{status?.content || "Como você está se sentindo?"}"
               </span>
               <span className="w-5 h-5 rounded-full bg-slate-50 flex items-center justify-center border border-slate-100/50 opacity-0 group-hover:opacity-100 transition-opacity ml-1">
@@ -274,7 +276,7 @@ export function Home() {
           <section className="space-y-5 animate-fade-in">
             <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">Resultados da Busca</h2>
             {!searchResults || searchResults.length === 0 ? (
-              <div className="text-center py-16 bg-white/50 rounded-3xl border border-slate-150/40">
+              <div className="text-center py-16 bg-white/50 rounded-3xl border border-slate-200/40">
                 <p className="text-xs text-slate-400 font-bold">Nenhum livro mágico encontrado. 🐾</p>
               </div>
             ) : (
@@ -293,9 +295,9 @@ export function Home() {
               <section className="space-y-4 animate-fade-in">
                 <div className="flex items-center gap-2 pl-1">
                   <BookOpen className={`w-4 h-4 ${activeTheme.accentText} transition-colors duration-700`} />
-                  <h2 className="text-[10px] font-black text-slate-450 uppercase tracking-widest">Leitura Atual</h2>
+                  <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Leitura Atual</h2>
                 </div>
-                <Link to={`/read/${currentBook.id}`} className="block group">
+                <div role="button" tabIndex={0} onClick={() => openBook(currentBook)} onKeyDown={(e) => e.key === "Enter" && openBook(currentBook)} className="block group cursor-pointer">
                   <div className={`bg-gradient-to-br ${getCoverGradient(currentBook)} rounded-[2.5rem] p-6 md:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.08)] border border-white/50 flex flex-col md:flex-row gap-6 md:gap-8 relative overflow-hidden transition-all duration-700 active:scale-[0.995] hover:shadow-[0_25px_60px_rgba(0,0,0,0.12)]`}>
                     
                     {/* Glass backdrop glow */}
@@ -331,7 +333,7 @@ export function Home() {
                         <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">
                           {currentBook.author}
                         </p>
-                        <p className="text-xs text-slate-750 line-clamp-2 md:line-clamp-3 leading-relaxed font-semibold mt-2">
+                        <p className="text-xs text-slate-700 line-clamp-2 md:line-clamp-3 leading-relaxed font-semibold mt-2">
                           {currentBook.description || "Sem descrição disponível para este livro."}
                         </p>
                       </div>
@@ -356,7 +358,7 @@ export function Home() {
                       </div>
                     </div>
                   </div>
-                </Link>
+                </div>
               </section>
             ) : (
               /* No reading active placeholder */
@@ -382,7 +384,7 @@ export function Home() {
               <div className="flex items-center justify-between px-1">
                 <div className="flex items-center gap-2">
                   <Bookmark className={`w-4 h-4 ${activeTheme.accentText} transition-colors duration-700`} />
-                  <h2 className="text-[10px] font-black text-slate-450 uppercase tracking-widest">Sua Estante Recente</h2>
+                  <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sua Estante Recente</h2>
                 </div>
                 <Link 
                   to="/library" 
@@ -458,14 +460,14 @@ export function Home() {
               onChange={(e) => setStatusInput(e.target.value)}
               maxLength={100}
               placeholder="Qual seu status do dia?..."
-              className="w-full bg-slate-50/70 p-4 rounded-2xl border border-slate-100/50 outline-none text-xs text-slate-700 h-24 resize-none font-semibold placeholder:text-slate-450 border border-slate-100"
+              className="w-full bg-slate-50/70 p-4 rounded-2xl border border-slate-100/50 outline-none text-xs text-slate-700 h-24 resize-none font-semibold placeholder:text-slate-400 border border-slate-100"
             />
 
             {/* Modal Actions */}
             <div className="flex gap-3 pt-2">
               <button 
                 onClick={() => setIsEditingStatus(false)}
-                className="flex-grow py-3 bg-slate-50 border border-slate-100 hover:bg-slate-100 text-slate-450 font-black text-[9px] uppercase tracking-widest rounded-xl transition-colors cursor-pointer active:scale-95"
+                className="flex-grow py-3 bg-slate-50 border border-slate-100 hover:bg-slate-100 text-slate-400 font-black text-[9px] uppercase tracking-widest rounded-xl transition-colors cursor-pointer active:scale-95"
               >
                 Cancelar
               </button>
@@ -474,7 +476,7 @@ export function Home() {
                 disabled={!statusInput.trim()}
                 className={`flex-grow py-3 font-black text-[9px] uppercase tracking-widest rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer ${
                   !statusInput.trim()
-                    ? "bg-slate-100 text-slate-350 cursor-not-allowed shadow-none"
+                    ? "bg-slate-100 text-slate-300 cursor-not-allowed shadow-none"
                     : "bg-[var(--primary)] text-white shadow-[var(--primary)]/10 hover:shadow-[var(--primary)]/20 active:scale-[0.98]"
                 }`}
               >

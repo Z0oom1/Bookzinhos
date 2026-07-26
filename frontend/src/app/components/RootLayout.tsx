@@ -3,6 +3,7 @@ import { Home, Library, Heart, PenLine, User, Users } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { fetchNotifications } from "../lib/api";
 import { useDeviceTier } from "./ui/use-device-tier";
+import { ReaderChoiceProvider } from "../lib/readerChoice";
 
 export function RootLayout() {
   const location = useLocation();
@@ -456,7 +457,9 @@ export function RootLayout() {
       <div className="flex justify-center items-center min-h-screen bg-slate-100">
         <div className="w-full max-w-lg h-screen flex flex-col bg-background relative overflow-hidden shadow-2xl border-x border-slate-200/40">
           <main className={`flex-1 overflow-y-auto ${hideNav ? "" : "pb-32"}`}>
-            <Outlet />
+            <ReaderChoiceProvider>
+              <Outlet />
+            </ReaderChoiceProvider>
           </main>
 
           {!hideNav && (
@@ -552,7 +555,9 @@ export function RootLayout() {
         )}
 
         <main className="flex-1 overflow-y-auto bg-slate-50/20">
-          <Outlet />
+          <ReaderChoiceProvider>
+            <Outlet />
+          </ReaderChoiceProvider>
         </main>
       </div>
     );
@@ -666,7 +671,9 @@ export function RootLayout() {
 
           {/* Page Contents */}
           <main className={`flex-1 overflow-y-auto ${hideNav ? "pt-10 lg:pt-0" : ""} bg-slate-50/20`}>
-            <Outlet />
+            <ReaderChoiceProvider>
+              <Outlet />
+            </ReaderChoiceProvider>
           </main>
 
           {!isFullScreen && (

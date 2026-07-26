@@ -187,12 +187,6 @@ export function Library() {
     { key: "aesthetic-reads", label: "Aesthetic reads", count: aestheticReads.length },
   ];
 
-  const mobileChunkSize = 3;
-  const chunkedBooksMobile = [];
-  for (let i = 0; i < filteredBooksMobile.length; i += mobileChunkSize) {
-    chunkedBooksMobile.push(filteredBooksMobile.slice(i, i + mobileChunkSize));
-  }
-
   if (isLoading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="text-5xl animate-bounce-in">🐼</div>
@@ -321,38 +315,40 @@ export function Library() {
 
   return (
     <div className="min-h-screen md:min-h-0 md:h-full bg-transparent overflow-x-hidden">
-      {/* Mobile view (<lg) */}
-      <div className="md:hidden max-w-2xl mx-auto px-4 py-8 space-y-8 relative z-10">
-        <div className="text-center mb-6 animate-fade-in relative">
-          <h1 className="text-3xl font-extrabold text-[var(--text-main)] tracking-tight mb-1">A Biblioteca 📚</h1>
-          <p className="text-[var(--text-muted)] text-[11px] font-bold uppercase tracking-widest mt-1.5">Encontre sua próxima aventura</p>
+      {/* Mobile view (<md) */}
+      <div className="md:hidden max-w-2xl mx-auto px-4 py-8 space-y-7 relative z-10">
+        <div className="flex items-start justify-between gap-4 animate-fade-in">
+          <div>
+            <h1 className="text-2xl font-extrabold text-[var(--text-main)] tracking-tight leading-tight">A Biblioteca 📚</h1>
+            <p className="text-[var(--text-muted)] text-[11px] font-bold mt-1">{filteredBooksMobile.length} {filteredBooksMobile.length === 1 ? "livro" : "livros"} para explorar</p>
+          </div>
           <Link
             to="/upload"
-            className="absolute right-0 top-1/2 -translate-y-1/2 px-3.5 py-2 bg-[var(--primary)] text-white rounded-xl font-extrabold text-[9px] uppercase tracking-widest shadow-md hover:scale-102 active:scale-95 transition-all cursor-pointer"
+            className="flex-shrink-0 px-4 py-2.5 bg-[var(--primary)] text-white rounded-2xl font-extrabold text-[9px] uppercase tracking-widest shadow-md shadow-[var(--primary)]/15 hover:shadow-lg active:scale-95 transition-all cursor-pointer"
           >
             + Adicionar
           </Link>
         </div>
 
-        <div className="relative animate-fade-in mx-1">
-          <Search className="absolute left-4.5 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--primary)] opacity-70" />
+        <div className="relative animate-fade-in">
+          <Search className="absolute left-4.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--text-muted)]" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Procurar nos pergaminhos..."
-            className="w-full pl-12 pr-4.5 py-4 bg-white/70 backdrop-blur-xl rounded-[1.75rem] outline-none border border-white/80 focus:border-[var(--primary)]/30 focus:ring-[3px] focus:ring-[var(--primary)]/5 transition-all shadow-[0_8px_30px_rgba(0,0,0,0.01)] text-xs text-[var(--text-main)] font-semibold placeholder:text-[var(--text-muted)]"
+            placeholder="Buscar por título ou autor..."
+            className="w-full pl-12 pr-4.5 py-3.5 bg-white/80 backdrop-blur-xl rounded-2xl outline-none border border-white focus:border-[var(--primary)]/30 focus:ring-4 focus:ring-[var(--primary)]/5 transition-all shadow-[0_4px_20px_rgba(15,23,42,0.04)] text-xs text-[var(--text-main)] font-semibold placeholder:text-[var(--text-muted)]"
           />
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-2 px-1 custom-scrollbar no-scrollbar">
+        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar -mx-4 px-4">
           {availableGenres.map((genre) => (
             <button
               key={genre}
               onClick={() => setSelectedGenre(genre)}
-              className={`px-4.5 py-2 rounded-full whitespace-nowrap transition-all active:scale-95 font-extrabold text-[10px] border uppercase tracking-widest cursor-pointer ${selectedGenre === genre
-                  ? "bg-[var(--primary)] text-white border-transparent shadow-sm"
-                  : "bg-white/70 text-[var(--text-muted)] border-white/95 hover:bg-white hover:border-slate-200"
+              className={`px-4 py-2 rounded-full whitespace-nowrap transition-all active:scale-95 font-extrabold text-[10px] border uppercase tracking-widest cursor-pointer flex-shrink-0 ${selectedGenre === genre
+                  ? "bg-[var(--primary)] text-white border-transparent shadow-sm shadow-[var(--primary)]/20"
+                  : "bg-white/80 text-[var(--text-muted)] border-slate-100 hover:border-slate-200"
                 }`}
             >
               {genre}
@@ -361,44 +357,33 @@ export function Library() {
         </div>
 
         {filteredBooksMobile.length === 0 ? (
-          <div className="text-center py-20 text-[var(--text-muted)] bg-white/40 rounded-[2rem] border border-white/50">
+          <div className="text-center py-20 text-[var(--text-muted)] bg-white/50 rounded-[2rem] border border-slate-100">
             <div className="text-5xl mb-4 opacity-40">🕸️</div>
             <p className="font-bold text-xs">Esta seção da biblioteca está vazia...</p>
           </div>
         ) : (
-          <div className="space-y-12 mt-10">
-            {chunkedBooksMobile.map((row, rowIndex) => (
-              <div key={rowIndex} className="relative pt-6 px-4 flex justify-around items-end h-[160px] animate-fade-in" style={{ animationDelay: `${rowIndex * 0.15}s` }}>
-
-                {row.map((book) => (
-                  <div key={book.id} className="relative z-10 flex flex-col items-center">
-                    <BookCard
-                      book={book}
-                      variant="shelf"
-                      onDeleted={(id) => setBooks((b) => b.filter((x) => x.id !== id))}
-                      onEdited={(updated) => setBooks((b) => b.map((x) => x.id === updated.id ? updated : x))}
-                    />
-
-                    <button
-                      onClick={() => handleToggleSave(book.id)}
-                      className="absolute -top-3.5 -right-3.5 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-white shadow-md active:scale-90 hover:scale-105 transition-transform border border-slate-100 cursor-pointer text-xs"
-                    >
-                      {savedIds.includes(book.id) ? "❤️" : "🤍"}
-                    </button>
-                  </div>
-                ))}
-
-                <div className="absolute bottom-0 left-0 right-0 h-4 bg-gradient-to-b from-[#A0522D] to-[#8B4513] rounded-sm shadow-[0_10px_20px_rgba(0,0,0,0.4)] z-0 border-t border-[#CD853F]" />
-                <div className="absolute -bottom-2 left-1 right-1 h-2 bg-[#5C4033] rounded-b-md shadow-2xl z-0" />
-
-                <div className="absolute -bottom-4 left-4 w-2 h-6 bg-[#3E2723] rounded-b-sm shadow-md z-0" />
-                <div className="absolute -bottom-4 right-4 w-2 h-6 bg-[#3E2723] rounded-b-sm shadow-md z-0" />
+          <div className="grid grid-cols-2 gap-4 animate-fade-in">
+            {filteredBooksMobile.map((book) => (
+              <div key={book.id} className="relative">
+                <BookCard
+                  book={book}
+                  progress={progress.find((p) => p.bookId === book.id)}
+                  variant="grid"
+                  onDeleted={(id) => setBooks((b) => b.filter((x) => x.id !== id))}
+                  onEdited={(updated) => setBooks((b) => b.map((x) => x.id === updated.id ? updated : x))}
+                />
+                <button
+                  onClick={() => handleToggleSave(book.id)}
+                  className="absolute top-2 right-2 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow-sm active:scale-90 hover:scale-105 transition-transform border border-white/80 cursor-pointer text-xs"
+                >
+                  {savedIds.includes(book.id) ? "❤️" : "🤍"}
+                </button>
               </div>
             ))}
           </div>
         )}
 
-        <p className="text-center text-[10px] text-[var(--text-muted)] pt-8 animate-fade-in opacity-70 font-extrabold uppercase tracking-widest">
+        <p className="text-center text-[10px] text-[var(--text-muted)] pt-4 opacity-70 font-extrabold uppercase tracking-widest">
           💡 Pressione e segure um livro para opções avançadas
         </p>
       </div>

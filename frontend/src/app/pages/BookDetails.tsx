@@ -4,10 +4,12 @@ import { useState, useEffect } from "react";
 import { fetchBook, fetchSavedIds, toggleSaved, fetchProgress, fetchAllUsers, sendMessage, saveProgress } from "../lib/api";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import type { Book, ReadingProgress, UserProfile } from "../lib/types";
+import { useOpenBook } from "../lib/readerChoice";
 
 export function BookDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const openBook = useOpenBook();
   const [book, setBook] = useState<Book | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -243,7 +245,7 @@ export function BookDetails() {
           <div className="flex gap-3">
             {(book.pages && book.pages.length > 0) || book.pdfPath ? (
               <button
-                onClick={() => navigate(`/read/${id}`)}
+                onClick={() => openBook(book)}
                 className="flex-1 flex items-center justify-center gap-2 py-4 bg-[var(--primary)] text-white rounded-2xl font-extrabold text-[10px] uppercase tracking-widest transition-all active:scale-[0.98] shadow-md hover:shadow-lg hover:shadow-[var(--primary)]/15 relative overflow-hidden group cursor-pointer"
               >
                 <Play className="w-4 h-4 fill-current animate-pulse-soft" />
