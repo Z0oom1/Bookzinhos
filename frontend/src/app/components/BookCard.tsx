@@ -300,18 +300,20 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
     <>
       <div
         {...pressHandlers}
-        className="bg-white/70 backdrop-blur-xl border border-white/80 rounded-[2rem] p-3.5 shadow-[0_8px_30px_rgba(0,0,0,0.01)] hover:shadow-[0_12px_30px_rgba(0,0,0,0.03)] hover:-translate-y-0.5 transition-all cursor-pointer select-none"
+        className="cursor-pointer select-none group"
       >
-        <div className="w-full aspect-[2/3] rounded-2xl overflow-hidden mb-3.5 shadow-sm border border-slate-100/50">{coverContent}</div>
-        <h4 className="text-xs font-extrabold text-[var(--text-main)] line-clamp-2 mb-2 leading-relaxed">{book.title}</h4>
-        {localProgress && (
-          <div className="space-y-1.5 pt-0.5">
-            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden shadow-inner">
-              <div className="bg-gradient-to-r from-[var(--primary)] to-[var(--lavender)] h-1.5 rounded-full" style={{ width: `${localProgress.progress}%` }} />
+        <div className="relative w-full aspect-[2/3] rounded-md overflow-hidden bg-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.12),0_6px_16px_-4px_rgba(0,0,0,0.18)] ring-1 ring-black/5 transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_2px_4px_rgba(0,0,0,0.14),0_12px_24px_-4px_rgba(0,0,0,0.24)]">
+          {coverContent}
+          {!!localProgress && localProgress.progress > 0 && (
+            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-black/15">
+              <div className="h-full bg-[var(--primary)]" style={{ width: `${localProgress.progress}%` }} />
             </div>
-            <p className="text-[9px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest">{localProgress.progress}% concluído</p>
-          </div>
-        )}
+          )}
+        </div>
+        <div className="mt-2.5 px-0.5">
+          <h4 className="text-[13px] font-semibold text-slate-800 line-clamp-2 leading-snug">{book.title}</h4>
+          <p className="text-[12px] text-slate-500 mt-0.5 truncate">{book.author}</p>
+        </div>
       </div>
       {showMenu && (
         <BookContextMenu

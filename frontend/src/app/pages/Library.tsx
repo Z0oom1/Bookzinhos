@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   Search, BookOpen, Bookmark, CheckCircle2, Heart, Folder,
   Layers, FileText, Grid, List, Users, Sparkles, Clock
@@ -16,20 +16,7 @@ export function Library() {
   const [selectedGenre, setSelectedGenre] = useState("Todos");
   const [selectedCategory, setSelectedCategory] = useState("todos");
   const [search, setSearch] = useState("");
-  const [containerWidth, setContainerWidth] = useState(800);
-  const mainRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    if (!mainRef.current) return;
-    const observer = new ResizeObserver((entries) => {
-      for (let entry of entries) {
-        setContainerWidth(entry.contentRect.width);
-      }
-    });
-    observer.observe(mainRef.current);
-    return () => observer.disconnect();
-  }, [isLoading]);
 
   useEffect(() => {
     const loadData = () => {
@@ -193,83 +180,15 @@ export function Library() {
     </div>
   );
 
-  const renderDesktopShelf = (title: string, booksList: Book[], dotColorClass: string, categoryKey: string, isGrid = false) => {
-    if (isGrid) {
-      const chunkSize = Math.max(Math.floor((containerWidth - 100) / 128), 2);
-      const chunks = [];
-      for (let i = 0; i < booksList.length; i += chunkSize) {
-        chunks.push(booksList.slice(i, i + chunkSize));
-      }
-
-      return (
-        <div className="bg-[#faf6f3] rounded-3xl p-6 shadow-sm border border-[#f5ebe6] space-y-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
-              <span className={`w-2.5 h-2.5 rounded-full ${dotColorClass}`} />
-              <span className="text-xs font-black text-slate-800 uppercase tracking-wider">{title}</span>
-            </div>
-            {categoryKey && (
-              <button
-                onClick={() => setSelectedCategory(categoryKey)}
-                className="px-3.5 py-1.5 bg-white border border-[#f0e5de] hover:bg-slate-50 text-slate-600 rounded-xl text-[9px] font-bold uppercase tracking-widest active:scale-95 transition-all cursor-pointer"
-              >
-                Ver todos
-              </button>
-            )}
-          </div>
-
-          {booksList.length === 0 ? (
-            <div className="text-center py-8 text-slate-400 text-xs font-semibold">
-              Nenhum livro nesta estante.
-            </div>
-          ) : (
-            <div className="space-y-8">
-              {chunks.map((chunk, chunkIdx) => (
-                <div key={chunkIdx} className="relative pt-2 pb-6 px-4">
-                  <div className="flex justify-start gap-8 items-end relative z-10 px-2">
-                    {chunk.map((book) => {
-                      const prog = progress.find((p) => p.bookId === book.id);
-                      return (
-                        <div key={book.id} className="relative z-10 flex flex-col items-center w-24 flex-shrink-0 transition-transform hover:-translate-y-1 hover:scale-105">
-                          <BookCard
-                            book={book}
-                            progress={prog}
-                            variant="shelf"
-                            onDeleted={(id) => setBooks((b) => b.filter((x) => x.id !== id))}
-                            onEdited={(updated) => setBooks((b) => b.map((x) => x.id === updated.id ? updated : x))}
-                          />
-
-                          <button
-                            onClick={() => handleToggleSave(book.id)}
-                            className="absolute -top-2 -right-2 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-white shadow-md active:scale-90 hover:scale-105 transition-transform border border-slate-100 cursor-pointer text-xs"
-                          >
-                            {savedIds.includes(book.id) ? "❤️" : "🤍"}
-                          </button>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div className="absolute bottom-1 left-0 right-0 h-3 bg-gradient-to-b from-[#f3e9e3] to-[#e8dcd5] rounded-full shadow-[0_6px_10px_rgba(0,0,0,0.04)] z-0 border-t border-[#fdfbf9]" />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // Horizontal Scrolling Shelf
+  const renderDesktopShelf = (title: string, booksList: Book[], _dotColorClass: string, categoryKey: string) => {
     return (
-      <div className="bg-[#faf6f3] rounded-3xl p-6 shadow-sm border border-[#f5ebe6] space-y-5">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className={`w-2.5 h-2.5 rounded-full ${dotColorClass}`} />
-            <span className="text-xs font-black text-slate-800 uppercase tracking-wider">{title}</span>
-          </div>
+          <h3 className="text-[15px] font-semibold text-slate-800">{title}</h3>
           {categoryKey && (
             <button
               onClick={() => setSelectedCategory(categoryKey)}
-              className="px-3.5 py-1.5 bg-white border border-[#f0e5de] hover:bg-slate-50 text-slate-600 rounded-xl text-[9px] font-bold uppercase tracking-widest active:scale-95 transition-all cursor-pointer"
+              className="text-[12px] font-medium text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
             >
               Ver todos
             </button>
@@ -277,36 +196,31 @@ export function Library() {
         </div>
 
         {booksList.length === 0 ? (
-          <div className="text-center py-8 text-slate-400 text-xs font-semibold">
-            Nenhum livro nesta estante.
+          <div className="text-center py-10 text-slate-400 text-xs font-medium bg-slate-50/60 rounded-xl">
+            Nenhum livro nesta seção.
           </div>
         ) : (
-          <div className="relative pt-2 pb-6 px-4">
-            <div className="flex justify-start gap-8 items-end relative z-10 px-2 overflow-x-auto styled-scrollbar">
-              {booksList.map((book) => {
-                const prog = progress.find((p) => p.bookId === book.id);
-                return (
-                  <div key={book.id} className="relative z-10 flex flex-col items-center w-24 flex-shrink-0 transition-transform hover:-translate-y-1 hover:scale-105 mb-1">
-                    <BookCard
-                      book={book}
-                      progress={prog}
-                      variant="shelf"
-                      onDeleted={(id) => setBooks((b) => b.filter((x) => x.id !== id))}
-                      onEdited={(updated) => setBooks((b) => b.map((x) => x.id === updated.id ? updated : x))}
-                    />
-
-                    <button
-                      onClick={() => handleToggleSave(book.id)}
-                      className="absolute -top-2 -right-2 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-white shadow-md active:scale-90 hover:scale-105 transition-transform border border-slate-100 cursor-pointer text-xs"
-                    >
-                      {savedIds.includes(book.id) ? "❤️" : "🤍"}
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="absolute bottom-2 left-0 right-0 h-3 bg-gradient-to-b from-[#f3e9e3] to-[#e8dcd5] rounded-full shadow-[0_6px_10px_rgba(0,0,0,0.04)] z-0 border-t border-[#fdfbf9]" />
+          <div className="grid gap-x-5 gap-y-8" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))" }}>
+            {booksList.map((book) => {
+              const prog = progress.find((p) => p.bookId === book.id);
+              return (
+                <div key={book.id} className="relative">
+                  <BookCard
+                    book={book}
+                    progress={prog}
+                    variant="grid"
+                    onDeleted={(id) => setBooks((b) => b.filter((x) => x.id !== id))}
+                    onEdited={(updated) => setBooks((b) => b.map((x) => x.id === updated.id ? updated : x))}
+                  />
+                  <button
+                    onClick={() => handleToggleSave(book.id)}
+                    className="absolute top-1.5 right-1.5 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-white/95 shadow-sm active:scale-90 hover:scale-105 transition-transform cursor-pointer text-xs"
+                  >
+                    {savedIds.includes(book.id) ? "❤️" : "🤍"}
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -319,25 +233,25 @@ export function Library() {
       <div className="md:hidden max-w-2xl mx-auto px-4 py-8 space-y-7 relative z-10">
         <div className="flex items-start justify-between gap-4 animate-fade-in">
           <div>
-            <h1 className="text-2xl font-extrabold text-[var(--text-main)] tracking-tight leading-tight">A Biblioteca 📚</h1>
-            <p className="text-[var(--text-muted)] text-[11px] font-bold mt-1">{filteredBooksMobile.length} {filteredBooksMobile.length === 1 ? "livro" : "livros"} para explorar</p>
+            <h1 className="text-xl font-semibold text-slate-900 tracking-tight leading-tight">Biblioteca</h1>
+            <p className="text-slate-400 text-[12px] mt-0.5">{filteredBooksMobile.length} {filteredBooksMobile.length === 1 ? "livro" : "livros"}</p>
           </div>
           <Link
             to="/upload"
-            className="flex-shrink-0 px-4 py-2.5 bg-[var(--primary)] text-white rounded-2xl font-extrabold text-[9px] uppercase tracking-widest shadow-md shadow-[var(--primary)]/15 hover:shadow-lg active:scale-95 transition-all cursor-pointer"
+            className="flex-shrink-0 px-3.5 py-2 bg-[var(--primary)] text-white rounded-lg font-medium text-[12px] shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer"
           >
             + Adicionar
           </Link>
         </div>
 
         <div className="relative animate-fade-in">
-          <Search className="absolute left-4.5 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-[var(--text-muted)]" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por título ou autor..."
-            className="w-full pl-12 pr-4.5 py-3.5 bg-white/80 backdrop-blur-xl rounded-2xl outline-none border border-white focus:border-[var(--primary)]/30 focus:ring-4 focus:ring-[var(--primary)]/5 transition-all shadow-[0_4px_20px_rgba(15,23,42,0.04)] text-xs text-[var(--text-main)] font-semibold placeholder:text-[var(--text-muted)]"
+            className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-xl outline-none border border-slate-100 focus:border-[var(--primary)]/30 focus:ring-2 focus:ring-[var(--primary)]/5 focus:bg-white transition-all text-sm text-slate-700 placeholder:text-slate-400"
           />
         </div>
 
@@ -346,9 +260,9 @@ export function Library() {
             <button
               key={genre}
               onClick={() => setSelectedGenre(genre)}
-              className={`px-4 py-2 rounded-full whitespace-nowrap transition-all active:scale-95 font-extrabold text-[10px] border uppercase tracking-widest cursor-pointer flex-shrink-0 ${selectedGenre === genre
-                  ? "bg-[var(--primary)] text-white border-transparent shadow-sm shadow-[var(--primary)]/20"
-                  : "bg-white/80 text-[var(--text-muted)] border-slate-100 hover:border-slate-200"
+              className={`px-3.5 py-1.5 rounded-full whitespace-nowrap transition-all active:scale-95 font-medium text-[12px] border cursor-pointer flex-shrink-0 ${selectedGenre === genre
+                  ? "bg-slate-900 text-white border-transparent"
+                  : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
                 }`}
             >
               {genre}
@@ -357,12 +271,12 @@ export function Library() {
         </div>
 
         {filteredBooksMobile.length === 0 ? (
-          <div className="text-center py-20 text-[var(--text-muted)] bg-white/50 rounded-[2rem] border border-slate-100">
-            <div className="text-5xl mb-4 opacity-40">🕸️</div>
-            <p className="font-bold text-xs">Esta seção da biblioteca está vazia...</p>
+          <div className="text-center py-20 text-slate-400 bg-slate-50 rounded-xl border border-slate-100">
+            <div className="text-4xl mb-4 opacity-40">🕸️</div>
+            <p className="font-medium text-sm">Esta seção da biblioteca está vazia...</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4 animate-fade-in">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-7 animate-fade-in">
             {filteredBooksMobile.map((book) => (
               <div key={book.id} className="relative">
                 <BookCard
@@ -374,7 +288,7 @@ export function Library() {
                 />
                 <button
                   onClick={() => handleToggleSave(book.id)}
-                  className="absolute top-2 right-2 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-white/90 backdrop-blur-sm shadow-sm active:scale-90 hover:scale-105 transition-transform border border-white/80 cursor-pointer text-xs"
+                  className="absolute top-1.5 right-1.5 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-white/95 shadow-sm active:scale-90 hover:scale-105 transition-transform cursor-pointer text-xs"
                 >
                   {savedIds.includes(book.id) ? "❤️" : "🤍"}
                 </button>
@@ -450,7 +364,7 @@ export function Library() {
           </div>
         </aside>
 
-        <main ref={mainRef} className="flex-1 p-8 overflow-y-auto space-y-8 bg-slate-50/30">
+        <main className="flex-1 p-8 overflow-y-auto space-y-8 bg-slate-50/30">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
               <div className="flex items-center gap-3.5">
@@ -500,8 +414,7 @@ export function Library() {
                 "Todos os Livros",
                 [...books].sort((a, b) => a.title.localeCompare(b.title, "pt")),
                 "bg-blue-500",
-                "",
-                true
+                ""
               )}
             </div>
           ) : selectedCategory === "minha-biblioteca" && !search.trim() && selectedGenre === "Todos" ? (
