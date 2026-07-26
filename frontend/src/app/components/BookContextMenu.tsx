@@ -1,8 +1,10 @@
-import { BookOpen, Pencil, Trash2, MessageSquare, X, PauseCircle, PlayCircle, Star, Clock } from "lucide-react";
+import { BookOpen, Pencil, Trash2, MessageSquare, X, PauseCircle, PlayCircle, Star, Clock, Download, Loader2 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import type { Book } from "../lib/types";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useDeviceTier } from "./ui/use-device-tier";
+import { downloadRemoteFile, safeFileName } from "../lib/download";
 
 interface Props {
   book: Book;
@@ -19,16 +21,22 @@ interface Props {
 
 export function BookContextMenu({ book, isPaused, onClose, onRead, onEdit, onDelete, onFeedback, onPause, onReadLater, menuPos }: Props) {
   const coverUrl = getFullUrl(book.coverImagePath);
-  const [isDesktop, setIsDesktop] = useState(false);
+  const pdfUrl = getFullUrl(book.pdfPath);
+  const tier = useDeviceTier();
+  const isDesktop = tier === "desktop";
+  const [isDownloading, setIsDownloading] = useState(false);
 
-  useEffect(() => {
-    const checkIsDesktop = () => {
-      setIsDesktop(window.innerWidth >= 1024);
-    };
-    checkIsDesktop();
-    window.addEventListener("resize", checkIsDesktop);
-    return () => window.removeEventListener("resize", checkIsDesktop);
-  }, []);
+  const handleDownload = async () => {
+    if (!pdfUrl || isDownloading) return;
+    setIsDownloading(true);
+    try {
+      await downloadRemoteFile(pdfUrl, safeFileName(book.title, "pdf"));
+    } catch (err) {
+      console.error("Erro ao baixar PDF", err);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   let posX = menuPos?.x ?? 100;
   let posY = menuPos?.y ?? 100;
@@ -95,6 +103,21 @@ export function BookContextMenu({ book, isPaused, onClose, onRead, onEdit, onDel
               <BookOpen className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
               <span>Mergulhar na Leitura</span>
             </button>
+
+            {pdfUrl && (
+              <button
+                onClick={handleDownload}
+                disabled={isDownloading}
+                className="flex items-center gap-3 px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-slate-700 hover:bg-[var(--primary)] hover:text-white transition-all group cursor-pointer disabled:opacity-50"
+              >
+                {isDownloading ? (
+                  <Loader2 className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
+                )}
+                <span>{isDownloading ? "Baixando..." : "Baixar PDF"}</span>
+              </button>
+            )}
 
             {onPause && (
               <button
@@ -229,7 +252,22 @@ export function BookContextMenu({ book, isPaused, onClose, onRead, onEdit, onDel
         </button>
 
         {/* Secondary Actions Grid */}
-        <div className="grid grid-cols-5 gap-2">
+        <div className="grid grid-cols-4 gap-2">
+          {pdfUrl && (
+            <button
+              onClick={handleDownload}
+              disabled={isDownloading}
+              className="flex flex-col items-center gap-2 group disabled:opacity-50"
+            >
+              <div className="w-14 h-14 bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-600 rounded-[1.2rem] flex items-center justify-center group-hover:scale-110 shadow-sm border border-white transition-all duration-300">
+                {isDownloading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Download className="w-6 h-6" />}
+              </div>
+              <span className="text-[10px] font-black text-[var(--text-main)] uppercase tracking-wider">
+                {isDownloading ? "Baixando" : "Baixar"}
+              </span>
+            </button>
+          )}
+
           {onPause && (
             <button
               onClick={onPause}

@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
-import { ArrowLeft, Settings, ChevronLeft, ChevronRight, PenLine, PauseCircle, PlayCircle, CheckCircle, ZoomIn, ZoomOut, Maximize2, Minimize2, List, Download, Loader2 } from "lucide-react";
+import { ArrowLeft, Settings, ChevronLeft, ChevronRight, PenLine, PauseCircle, PlayCircle, CheckCircle, ZoomIn, ZoomOut, RotateCcw, Maximize2, Minimize2, List, Download, Loader2 } from "lucide-react";
 import { fetchBook, fetchProgress, saveProgress, fetchChapters, saveChapter, deleteChapter } from "../lib/api";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import type { Book, ReadingProgress, BookChapter } from "../lib/types";
+import { useDeviceTier } from "../components/ui/use-device-tier";
+import { downloadRemoteFile, safeFileName } from "../lib/download";
 // @ts-ignore
 import pdfjsWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
 
@@ -12,6 +14,7 @@ type Theme = "light" | "cream" | "sepia";
 export function BookReader() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const tier = useDeviceTier();
   const [book, setBook] = useState<Book | null>(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [showMenu, setShowMenu] = useState(false);
@@ -25,7 +28,7 @@ export function BookReader() {
   const [isFinished, setIsFinished] = useState(false);
   const [jumpPageInput, setJumpPageInput] = useState("");
   const [zoomScale, setZoomScale] = useState(1);
-  const [bookMode, setBookMode] = useState(false);
+  const [bookMode, setBookMode] = useState(() => tier !== "mobile");
   const [transitionDirection, setTransitionDirection] = useState<"next" | "prev">("next");
   const touchStartRef = useRef<{ x: number, y: number, time: number } | null>(null);
   const initialPinchDistRef = useRef<number | null>(null);
@@ -77,18 +80,7 @@ export function BookReader() {
     if (!pdfUrl || isDownloading) return;
     setIsDownloading(true);
     try {
-      const response = await fetch(pdfUrl);
-      if (!response.ok) throw new Error("Falha ao buscar o arquivo");
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const safeName = (book?.title || "livro").replace(/[\\/:*?"<>|]+/g, " ").trim();
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = `${safeName}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 4000);
+      await downloadRemoteFile(pdfUrl, safeFileName(book?.title || "livro", "pdf"));
     } catch (err) {
       console.error("Erro ao baixar PDF", err);
       setErrorMessage("Não foi possível baixar o PDF agora. Tente novamente.");
@@ -124,7 +116,7 @@ export function BookReader() {
     Promise.all([fetchBook(id), fetchProgress(id)]).then(([b, p]) => {
       setBook(b);
       if (p) {
-        setCurrentPage(p.currentPage);
+        setCurrentPage(bookMode ? p.currentPage - (p.currentPage % 2) : p.currentPage);
         setIsPaused(p.status === "pausado");
         setIsFinished(p.status === "finalizado");
       }
@@ -685,29 +677,48 @@ export function BookReader() {
 
       {/* Top Menu */}
       <div className={`absolute top-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-b border-slate-100 transition-all duration-350 shadow-md z-[9998] pointer-events-none ${showMenu ? "translate-y-0" : "-translate-y-full"}`}>
-        <div className="max-w-2xl mx-auto px-4 py-3.5 flex items-center justify-between pointer-events-auto">
-          <button onClick={() => navigate(-1)} className="p-2.5 hover:bg-slate-100 rounded-full transition-all active:scale-95 cursor-pointer">
+        <div className={`${bookMode ? "max-w-4xl" : "max-w-2xl"} mx-auto px-3 md:px-6 py-3 md:py-4 flex items-center justify-between gap-1 pointer-events-auto transition-all`}>
+          <button onClick={() => navigate(-1)} className="p-2.5 hover:bg-slate-100 rounded-full transition-all active:scale-95 cursor-pointer flex-shrink-0">
             <ArrowLeft className="w-5 h-5 text-[var(--text-main)]" />
           </button>
           <div className="flex flex-col items-center flex-1 min-w-0">
-            <h3 className="text-[var(--text-main)] truncate px-4 font-extrabold text-sm w-full text-center">{book?.title}</h3>
+            <h3 className="text-[var(--text-main)] truncate px-2 font-extrabold text-sm w-full text-center">{book?.title}</h3>
             {currentChapter && (
               <span className="text-[10px] font-bold text-[var(--text-muted)] truncate px-4 uppercase tracking-widest leading-none mt-0.5 animate-fade-in">
                 Capítulo {currentChapter.number}: {currentChapter.chapter.title}
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1.5">
-            <button onClick={() => handleZoom(0.2)} className="p-2 hover:bg-slate-100 rounded-full transition-all active:scale-95 cursor-pointer">
+          <div className="flex items-center gap-0.5 md:gap-1.5 flex-shrink-0">
+            <button title="Aumentar zoom" onClick={() => handleZoom(0.2)} className="p-2 hover:bg-slate-100 rounded-full transition-all active:scale-95 cursor-pointer hidden sm:inline-flex">
               <ZoomIn className="w-4 h-4 text-[var(--text-main)]" />
             </button>
-            <button onClick={() => handleZoom(-0.2)} className="p-2 hover:bg-slate-100 rounded-full transition-all active:scale-95 cursor-pointer">
+            <button title="Diminuir zoom" onClick={() => handleZoom(-0.2)} className="p-2 hover:bg-slate-100 rounded-full transition-all active:scale-95 cursor-pointer hidden sm:inline-flex">
               <ZoomOut className="w-4 h-4 text-[var(--text-main)]" />
             </button>
-            <button onClick={resetZoom} className="p-2 hover:bg-slate-100 rounded-full transition-all active:scale-95 flex items-center gap-1 text-[9px] font-extrabold text-[var(--text-main)] uppercase tracking-widest cursor-pointer">
-              <Maximize2 className="w-4 h-4" /> Normal
+            <button title="Redefinir zoom" onClick={resetZoom} className="p-2 hover:bg-slate-100 rounded-full transition-all active:scale-95 cursor-pointer hidden sm:inline-flex">
+              <RotateCcw className="w-4 h-4 text-[var(--text-main)]" />
             </button>
-            <button onClick={() => setShowSettings(!showSettings)} className="p-2 hover:bg-slate-100 rounded-full transition-all active:scale-95 cursor-pointer">
+            {pdfUrl && (
+              <button
+                title="Baixar PDF"
+                onClick={handleDownloadPdf}
+                disabled={isDownloading}
+                className="p-2 hover:bg-slate-100 rounded-full transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+              >
+                {isDownloading ? <Loader2 className="w-4.5 h-4.5 text-[var(--text-main)] animate-spin" /> : <Download className="w-4.5 h-4.5 text-[var(--text-main)]" />}
+              </button>
+            )}
+            {fullscreenSupported && (
+              <button
+                title={isNativeFullscreen ? "Sair da tela cheia" : "Tela cheia"}
+                onClick={toggleNativeFullscreen}
+                className="p-2 hover:bg-slate-100 rounded-full transition-all active:scale-95 cursor-pointer"
+              >
+                {isNativeFullscreen ? <Minimize2 className="w-4.5 h-4.5 text-[var(--text-main)]" /> : <Maximize2 className="w-4.5 h-4.5 text-[var(--text-main)]" />}
+              </button>
+            )}
+            <button title="Ajustes" onClick={() => setShowSettings(!showSettings)} className="p-2 hover:bg-slate-100 rounded-full transition-all active:scale-95 cursor-pointer">
               <Settings className="w-5 h-5 text-[var(--text-main)]" />
             </button>
           </div>
@@ -715,8 +726,8 @@ export function BookReader() {
       </div>
 
       {/* Bottom Menu */}
-      <div className={`absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-100 transition-all duration-350 shadow-[0_-10px_45px_rgba(0,0,0,0.06)] z-40 px-4 pb-8 pt-4 ${showMenu ? "translate-y-0" : "translate-y-full"}`}>
-        <div className="max-w-2xl mx-auto space-y-4">
+      <div className={`absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-slate-100 transition-all duration-350 shadow-[0_-10px_45px_rgba(0,0,0,0.06)] z-40 px-4 md:px-6 pb-8 pt-4 ${showMenu ? "translate-y-0" : "translate-y-full"}`}>
+        <div className={`${bookMode ? "max-w-4xl" : "max-w-2xl"} mx-auto space-y-4 transition-all`}>
           <div className="flex items-center justify-between gap-4">
             <button onClick={goPrev} disabled={currentPage === 0} className="p-2.5 hover:bg-slate-50 border border-transparent hover:border-slate-100 rounded-full transition-all active:scale-90 disabled:opacity-30 cursor-pointer">
               <ChevronLeft className="w-5 h-5 text-[var(--text-main)]" />
@@ -818,35 +829,10 @@ export function BookReader() {
 
       {/* Settings Panel */}
       {showSettings && (
-        <div className="absolute inset-0 bg-black/30 flex items-end z-50 backdrop-blur-sm animate-fade-in" onClick={() => setShowSettings(false)}>
-          <div className="w-full bg-white rounded-t-[2.5rem] p-8 space-y-8 shadow-2xl animate-slide-up border border-slate-100" onClick={e => e.stopPropagation()}>
+        <div className="absolute inset-0 bg-black/30 flex items-end justify-center z-50 backdrop-blur-sm animate-fade-in" onClick={() => setShowSettings(false)}>
+          <div className="w-full md:max-w-lg md:mb-6 bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] p-8 space-y-8 shadow-2xl animate-slide-up border border-slate-100" onClick={e => e.stopPropagation()}>
             <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto" />
             <h3 className="text-[var(--text-main)] font-extrabold text-base text-center uppercase tracking-widest">Ajustes de Leitura 🐾</h3>
-
-            {pdfUrl && (
-              <div className="space-y-4">
-                <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest px-1">Tela Cheia & PDF</label>
-                <div className="flex gap-3">
-                  {fullscreenSupported && (
-                    <button
-                      onClick={toggleNativeFullscreen}
-                      className="flex-1 flex flex-col items-center justify-center gap-1.5 py-4 rounded-xl transition-all active:scale-95 font-extrabold text-[10px] uppercase tracking-widest border border-slate-200 bg-slate-50 text-[var(--text-main)] hover:bg-slate-100 cursor-pointer"
-                    >
-                      {isNativeFullscreen ? <Minimize2 className="w-4.5 h-4.5" /> : <Maximize2 className="w-4.5 h-4.5" />}
-                      {isNativeFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}
-                    </button>
-                  )}
-                  <button
-                    onClick={handleDownloadPdf}
-                    disabled={isDownloading}
-                    className="flex-1 flex flex-col items-center justify-center gap-1.5 py-4 rounded-xl transition-all active:scale-95 font-extrabold text-[10px] uppercase tracking-widest border border-slate-200 bg-slate-50 text-[var(--text-main)] hover:bg-slate-100 cursor-pointer disabled:opacity-50"
-                  >
-                    {isDownloading ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : <Download className="w-4.5 h-4.5" />}
-                    {isDownloading ? "Baixando..." : "Baixar PDF"}
-                  </button>
-                </div>
-              </div>
-            )}
 
             {!pdfUrl && (
               <div className="space-y-4">
@@ -978,8 +964,8 @@ export function BookReader() {
 
       {/* Drawer Mobile de Capítulos */}
       {showMobileChapters && (
-        <div className="absolute inset-0 bg-black/35 flex items-end z-[9999] backdrop-blur-sm animate-fade-in" onClick={() => setShowMobileChapters(false)}>
-          <div className="w-full bg-white rounded-t-[2.5rem] p-6 space-y-6 shadow-2xl animate-slide-up border border-slate-100 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="absolute inset-0 bg-black/35 flex items-end justify-center z-[9999] backdrop-blur-sm animate-fade-in" onClick={() => setShowMobileChapters(false)}>
+          <div className="w-full md:max-w-lg md:mb-6 bg-white rounded-t-[2.5rem] md:rounded-[2.5rem] p-6 space-y-6 shadow-2xl animate-slide-up border border-slate-100 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto" />
             <h3 className="text-[var(--text-main)] font-extrabold text-base text-center uppercase tracking-widest">Capítulos do Livro 📖</h3>
             
