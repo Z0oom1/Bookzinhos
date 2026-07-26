@@ -320,9 +320,9 @@ export function Library() {
   };
 
   return (
-    <div className="min-h-screen lg:min-h-0 lg:h-full bg-transparent overflow-x-hidden">
+    <div className="min-h-screen md:min-h-0 md:h-full bg-transparent overflow-x-hidden">
       {/* Mobile view (<lg) */}
-      <div className="lg:hidden max-w-2xl mx-auto px-4 py-8 space-y-8 relative z-10">
+      <div className="md:hidden max-w-2xl mx-auto px-4 py-8 space-y-8 relative z-10">
         <div className="text-center mb-6 animate-fade-in relative">
           <h1 className="text-3xl font-extrabold text-[var(--text-main)] tracking-tight mb-1">A Biblioteca 📚</h1>
           <p className="text-[var(--text-muted)] text-[11px] font-bold uppercase tracking-widest mt-1.5">Encontre sua próxima aventura</p>
@@ -404,7 +404,7 @@ export function Library() {
       </div>
 
       {/* Desktop view (>=lg) */}
-      <div className="hidden lg:flex flex-row h-full min-h-[calc(85vh-3.5rem)] bg-slate-50/10">
+      <div className="hidden md:flex flex-row h-full min-h-[calc(85vh-3.5rem)] bg-slate-50/10">
         <aside className="w-64 border-r border-slate-100 bg-white p-6 flex flex-col justify-between flex-shrink-0">
           <div className="space-y-6">
             <h2 className="text-2xl font-black text-slate-800 tracking-tight">Biblioteca</h2>

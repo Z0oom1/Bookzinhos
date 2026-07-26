@@ -104,10 +104,10 @@ export function Notes() {
   };
 
   return (
-    <div className="min-h-screen lg:min-h-0 lg:h-full bg-transparent overflow-x-hidden no-scrollbar">
+    <div className="min-h-screen md:min-h-0 md:h-full bg-transparent overflow-x-hidden no-scrollbar">
       
       {/* Mobile-only View */}
-      <div className="lg:hidden pb-32">
+      <div className="md:hidden pb-32">
         {/* Sticky Header */}
         <div className="bg-white/75 backdrop-blur-xl sticky top-0 z-20 px-4 py-4 flex items-center justify-between border-b border-slate-100 shadow-[0_2px_15px_rgba(0,0,0,0.015)] animate-fade-in">
           <h1 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-1.5">
@@ -319,7 +319,7 @@ export function Notes() {
       </div>
 
       {/* Desktop Widescreen Layout (>=lg) - Split Pane */}
-      <div className="hidden lg:flex flex-row h-full min-h-[calc(85vh-3.5rem)] overflow-hidden no-scrollbar bg-slate-50/10 rounded-3xl border border-white/20">
+      <div className="hidden md:flex flex-row h-full min-h-[calc(85vh-3.5rem)] overflow-hidden no-scrollbar bg-slate-50/10 rounded-3xl border border-white/20">
         
         {/* Left Column (Books Selector Sidebar) */}
         <aside className="w-80 border-r border-slate-100 bg-white p-6 flex flex-col space-y-6 flex-shrink-0 no-scrollbar">

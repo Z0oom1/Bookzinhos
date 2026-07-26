@@ -2,10 +2,12 @@ import { Outlet, useLocation, Link, useNavigate } from "react-router";
 import { Home, Library, Heart, PenLine, User, Users } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { fetchNotifications } from "../lib/api";
+import { useDeviceTier } from "./ui/use-device-tier";
 
 export function RootLayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const tier = useDeviceTier();
   const [unreadCount, setUnreadCount] = useState(0);
   const [userAvatar, setUserAvatar] = useState("🐼");
   const [currentDateString, setCurrentDateString] = useState("");
@@ -447,10 +449,11 @@ export function RootLayout() {
   const isRead = location.pathname.startsWith("/read/");
   const hideNav = new URLSearchParams(location.search).get("hideNav") === "true" || isChat || isRead;
 
-  return (
-    <>
-      {/* Mobile View */}
-      <div className="lg:hidden flex justify-center items-center min-h-screen bg-slate-100">
+  const allNavItems = [...navItems, { path: "/profile", icon: User, label: "Eu", desktopLabel: "Eu" } as NavItem];
+
+  if (tier === "mobile") {
+    return (
+      <div className="flex justify-center items-center min-h-screen bg-slate-100">
         <div className="w-full max-w-lg h-screen flex flex-col bg-background relative overflow-hidden shadow-2xl border-x border-slate-200/40">
           <main className={`flex-1 overflow-y-auto ${hideNav ? "" : "pb-32"}`}>
             <Outlet />
@@ -459,7 +462,7 @@ export function RootLayout() {
           {!hideNav && (
             <nav className="absolute bottom-0 left-0 right-0 z-50 px-2 pb-6">
               <div className="bg-white/90 backdrop-blur-3xl border border-white/40 shadow-[0_15px_40px_rgba(0,0,0,0.12)] rounded-[2.5rem] h-20 flex items-center justify-between px-2">
-                {[...navItems, { path: "/profile", icon: User, label: "Eu", desktopLabel: "Eu" } as NavItem].map(({ path, icon: Icon, label, badge }) => (
+                {allNavItems.map(({ path, icon: Icon, label, badge }) => (
                   <Link
                     key={path}
                     to={path}
@@ -473,7 +476,7 @@ export function RootLayout() {
                             : "text-[var(--text-muted)] opacity-50"
                         }`}
                       />
-                      
+
                       {/* Badge de Notificações */}
                       {typeof badge === 'number' && badge > 0 ? (
                         <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-sm px-1 z-10 animate-in zoom-in duration-300">
@@ -501,12 +504,67 @@ export function RootLayout() {
           )}
         </div>
       </div>
+    );
+  }
 
+  if (tier === "tablet") {
+    return (
+      <div className="flex flex-col w-screen h-screen overflow-hidden bg-background">
+        {!hideNav && (
+          <header className="h-16 border-b border-slate-100 bg-white/90 backdrop-blur-xl flex items-center justify-between px-6 flex-shrink-0">
+            <span className="text-sm font-black text-slate-800 tracking-tight flex items-center gap-1.5 select-none">
+              myBooks <span className="text-base">🐼</span>
+            </span>
+
+            <nav className="flex items-center gap-1.5">
+              {navItems.map(({ path, desktopLabel, badge }) => (
+                <Link
+                  key={path}
+                  to={path}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all relative ${
+                    isActive(path)
+                      ? "bg-[var(--primary)]/10 text-[var(--primary)]"
+                      : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                  }`}
+                >
+                  <span>{desktopLabel}</span>
+                  {typeof badge === 'number' && badge > 0 && (
+                    <span className="absolute -top-1 -right-1.5 min-w-[16px] h-[16px] bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center px-0.5">
+                      {badge > 99 ? "99+" : badge}
+                    </span>
+                  )}
+                </Link>
+              ))}
+            </nav>
+
+            <div className="flex items-center gap-4">
+              <span className="text-xs font-bold text-slate-500 hidden xl:inline">{currentDateString}</span>
+              <Link
+                to="/profile"
+                className={`w-9 h-9 rounded-full bg-slate-50 overflow-hidden border flex items-center justify-center text-base hover:scale-105 active:scale-95 transition-all cursor-pointer ${
+                  isActive("/profile") ? "border-[var(--primary)] ring-2 ring-[var(--primary)]/10" : "border-slate-200"
+                }`}
+              >
+                {userAvatar}
+              </Link>
+            </div>
+          </header>
+        )}
+
+        <main className="flex-1 overflow-y-auto bg-slate-50/20">
+          <Outlet />
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <>
       {/* Desktop-only View */}
-      <div 
+      <div
         ref={parentRef}
         style={isFullScreen ? {} : { backgroundImage: "url('/mac_wallpaper.png')", backgroundSize: "cover", backgroundPosition: "center" }}
-        className={`hidden lg:flex items-center justify-center w-screen h-screen overflow-hidden select-none relative ${
+        className={`flex items-center justify-center w-screen h-screen overflow-hidden select-none relative ${
           isFullScreen ? "bg-background" : "p-8"
         }`}
       >

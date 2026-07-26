@@ -51,10 +51,10 @@ export function Social() {
   ];
 
   return (
-    <div className="min-h-screen lg:min-h-0 lg:h-full bg-transparent overflow-x-hidden no-scrollbar">
+    <div className="min-h-screen md:min-h-0 md:h-full bg-transparent overflow-x-hidden no-scrollbar">
       
       {/* Mobile-only View */}
-      <div className="lg:hidden pb-32">
+      <div className="md:hidden pb-32">
         <div className="bg-white/70 backdrop-blur-xl sticky top-0 z-20 px-4 py-4.5 flex items-center justify-between border-b border-white/60 shadow-sm animate-fade-in">
           <div className="flex items-center gap-4">
             <button
@@ -159,7 +159,7 @@ export function Social() {
       </div>
 
       {/* Desktop Widescreen Layout (>=lg) */}
-      <div className="hidden lg:flex flex-row h-full min-h-[calc(85vh-3.5rem)] bg-slate-50/10 overflow-hidden no-scrollbar">
+      <div className="hidden md:flex flex-row h-full min-h-[calc(85vh-3.5rem)] bg-slate-50/10 overflow-hidden no-scrollbar">
         <aside className="w-64 border-r border-slate-100 bg-white p-6 flex flex-col justify-between flex-shrink-0 no-scrollbar">
           <div className="space-y-6">
             <h2 className="text-2xl font-black text-slate-800 tracking-tight">Comunidade</h2>

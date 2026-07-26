@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router";
-import { ArrowLeft, Settings, ChevronLeft, ChevronRight, PenLine, PauseCircle, PlayCircle, CheckCircle, ZoomIn, ZoomOut, Maximize2, List } from "lucide-react";
+import { ArrowLeft, Settings, ChevronLeft, ChevronRight, PenLine, PauseCircle, PlayCircle, CheckCircle, ZoomIn, ZoomOut, Maximize2, Minimize2, List, Download, Loader2 } from "lucide-react";
 import { fetchBook, fetchProgress, saveProgress, fetchChapters, saveChapter, deleteChapter } from "../lib/api";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import type { Book, ReadingProgress, BookChapter } from "../lib/types";
@@ -45,9 +45,57 @@ export function BookReader() {
   const panStartRef = useRef({ x: 0, y: 0 });
   const hasDraggedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const readerRootRef = useRef<HTMLDivElement>(null);
 
   const [readerWidth, setReaderWidth] = useState(512);
   const lastTapRef = useRef<number>(0);
+
+  // Fullscreen (Fullscreen API) & Download PDF
+  const [isNativeFullscreen, setIsNativeFullscreen] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const fullscreenSupported = typeof document !== "undefined" && !!document.documentElement.requestFullscreen;
+
+  useEffect(() => {
+    const handleFullscreenChange = () => setIsNativeFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  const toggleNativeFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await readerRootRef.current?.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.error("Erro ao alternar tela cheia", err);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!pdfUrl || isDownloading) return;
+    setIsDownloading(true);
+    try {
+      const response = await fetch(pdfUrl);
+      if (!response.ok) throw new Error("Falha ao buscar o arquivo");
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const safeName = (book?.title || "livro").replace(/[\\/:*?"<>|]+/g, " ").trim();
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `${safeName}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 4000);
+    } catch (err) {
+      console.error("Erro ao baixar PDF", err);
+      setErrorMessage("Não foi possível baixar o PDF agora. Tente novamente.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   useEffect(() => {
     const el = containerRef.current;
@@ -538,7 +586,7 @@ export function BookReader() {
 
   if (isLoading) {
     return (
-      <div className="h-screen lg:h-full bg-background flex items-center justify-center">
+      <div className="h-screen md:h-full bg-background flex items-center justify-center">
         <div className="text-5xl animate-bounce-in">🐼</div>
       </div>
     );
@@ -546,7 +594,7 @@ export function BookReader() {
 
   if (!book) {
     return (
-      <div className="h-screen lg:h-full bg-background flex items-center justify-center">
+      <div className="h-screen md:h-full bg-background flex items-center justify-center">
         <div className="text-center space-y-4 p-8">
           <div className="text-4xl">📚</div>
           <h2 className="text-foreground font-extrabold text-lg">Livro não encontrado</h2>
@@ -557,7 +605,7 @@ export function BookReader() {
   }
 
   return (
-    <div className={`h-screen lg:h-full ${themeStyles[theme]} transition-colors duration-300 relative select-none overflow-hidden font-medium`}>
+    <div ref={readerRootRef} className={`h-screen md:h-full ${themeStyles[theme]} transition-colors duration-300 relative select-none overflow-hidden font-medium`}>
       <div 
         ref={containerRef}
         onMouseDown={handleMouseDown}
@@ -774,7 +822,32 @@ export function BookReader() {
           <div className="w-full bg-white rounded-t-[2.5rem] p-8 space-y-8 shadow-2xl animate-slide-up border border-slate-100" onClick={e => e.stopPropagation()}>
             <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto" />
             <h3 className="text-[var(--text-main)] font-extrabold text-base text-center uppercase tracking-widest">Ajustes de Leitura 🐾</h3>
-            
+
+            {pdfUrl && (
+              <div className="space-y-4">
+                <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest px-1">Tela Cheia & PDF</label>
+                <div className="flex gap-3">
+                  {fullscreenSupported && (
+                    <button
+                      onClick={toggleNativeFullscreen}
+                      className="flex-1 flex flex-col items-center justify-center gap-1.5 py-4 rounded-xl transition-all active:scale-95 font-extrabold text-[10px] uppercase tracking-widest border border-slate-200 bg-slate-50 text-[var(--text-main)] hover:bg-slate-100 cursor-pointer"
+                    >
+                      {isNativeFullscreen ? <Minimize2 className="w-4.5 h-4.5" /> : <Maximize2 className="w-4.5 h-4.5" />}
+                      {isNativeFullscreen ? "Sair da Tela Cheia" : "Tela Cheia"}
+                    </button>
+                  )}
+                  <button
+                    onClick={handleDownloadPdf}
+                    disabled={isDownloading}
+                    className="flex-1 flex flex-col items-center justify-center gap-1.5 py-4 rounded-xl transition-all active:scale-95 font-extrabold text-[10px] uppercase tracking-widest border border-slate-200 bg-slate-50 text-[var(--text-main)] hover:bg-slate-100 cursor-pointer disabled:opacity-50"
+                  >
+                    {isDownloading ? <Loader2 className="w-4.5 h-4.5 animate-spin" /> : <Download className="w-4.5 h-4.5" />}
+                    {isDownloading ? "Baixando..." : "Baixar PDF"}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {!pdfUrl && (
               <div className="space-y-4">
                 <div className="flex justify-between items-center px-1">
