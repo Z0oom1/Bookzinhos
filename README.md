@@ -1,41 +1,81 @@
-# Books da Helo
+# myBooks
 
-Aplicativo mobile/tablet para leitura de livros em PDF com foco em jornada emocional, descoberta social e gamificacao.
+Rede social de leitura: um acervo de PDFs compartilhado, notas e resenhas públicas,
+perfis com seguidores e um feed do que a comunidade está lendo.
 
-## Stack
+## Estrutura
 
-- Expo + React Native + TypeScript
-- React Navigation (tabs + stack)
-- AsyncStorage para persistencia local/offline
-- `react-native-pdf` para leitura de PDF
+```
+Bookzinhos-main/
+├── server/            ← API Node/Express + SQLite (ou Turso) — a fonte da verdade
+├── frontend/          ← Web app (React + Vite + Tailwind) — o app em si
+├── Livros/            ← Solte PDFs aqui: o watcher importa sozinho para o acervo
+├── AppWebView.tsx     ← Casca Expo/Android que abre o web app
+└── scripts/copy-web.js
+```
 
-## Funcionalidades implementadas
+Tudo o que aparece no app mora no servidor. Não existe estado só-local: uma resenha,
+um banner ou um livro novo aparece para todos os leitores na próxima carga da tela.
 
-- Autenticacao (cadastro/login simplificado por nome)
-- Home com busca, "Em alta", "Queridinhos", "Recentes" e recomendacoes
-- Biblioteca publica com filtros, ordenacao e seguir leitores
-- Upload de PDF com metadados e visibilidade publica/privada
-- My Books com status (Lendo, Finalizado, Pausado), progresso e tempo
-- Leitor PDF com:
-  - salvamento automatico de pagina
-  - tema Claro/Escuro/Sepia
-  - paginas favoritas
-  - menu minimalista ocultavel
-- Notinhas com pandas (1 a 5 pandas = 2 a 10), emocao rapida e historico de versoes
-- Tela de detalhes do livro com comentarios
-- Perfil com estatisticas, estante, historico e conquistas
-- Base para gamificacao e insights
+## Rodando localmente
 
-## Como rodar
+Dois terminais, na raiz do projeto:
 
-1. Instale Node.js LTS: https://nodejs.org
-2. No projeto:
-   - `npm install`
-   - `npx expo start`
-3. Rode no Android/iOS via Expo Go, emulador, ou web.
+```bash
+npm run dev:server
+```
 
-## Observacoes legais e de produto
+```bash
+npm run dev:web
+```
 
-- O app suporta livro privado ou compartilhado.
-- Para conteudo publico, use apenas materiais com permissao de distribuicao (dominio publico ou autoria propria).
-- Monetizacao premium esta preparada como extensao futura (estatisticas avancadas, temas, backup ilimitado).
+O app abre em `http://localhost:5173` e fala com a API em `http://localhost:3001`.
+(`npm run dev` sobe os dois de uma vez.)
+
+Antes de subir mudanças, vale rodar:
+
+```bash
+npm run typecheck --prefix frontend
+```
+
+## Contas
+
+| Conta   | Senha    | O que faz                                                     |
+| ------- | -------- | ------------------------------------------------------------- |
+| `Admin` | `537942` | Painel completo — banners, mural, acervo e leitores (emote 🐶) |
+| `Caio`  | `1234`   | Leitor comum                                                   |
+| `Helo`  | `1234`   | Leitor comum                                                   |
+
+Qualquer pessoa pode criar a própria conta pela tela de entrada.
+Detalhes do painel: [ADMIN.md](ADMIN.md).
+
+## O que o app faz
+
+**Leitura**
+- Acervo compartilhado de PDFs, com importação automática da pasta `Livros/`
+- Leitor próprio com progresso, capítulos, temas e zoom — ou o visualizador do aparelho
+- Diário privado por livro, separado das resenhas públicas
+
+**Social**
+- Nota de 1 a 5 estrelas + resenha pública, uma por leitor em cada livro
+- Curtidas e respostas encadeadas em cada resenha, com marcação de spoiler
+- Perfis públicos: bio, estante em destaque, resenhas, lidos, favoritos
+- Seguir leitores e um feed com "tudo" ou "quem eu sigo"
+- Chat privado com indicação de livros (Pandinhas de Amor)
+
+**Descoberta**
+- Banners no topo da home, montados pelo Admin
+- Mural com recados e indicações da curadoria
+- Rankings automáticos: **Mais lidos** e **Melhores avaliados**
+- Biblioteca com busca, filtros por status e gênero, ordenação e visão em grade ou lista
+
+## Publicando
+
+Deploy do servidor e geração do APK: [COMO_DAR_DEPLOY.md](COMO_DAR_DEPLOY.md) e
+[COMO_USAR.md](COMO_USAR.md).
+
+## Observações de produto
+
+- O app aceita livro privado ou compartilhado.
+- Para conteúdo público, use apenas material com permissão de distribuição
+  (domínio público ou autoria própria).
