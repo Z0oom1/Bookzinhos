@@ -1,179 +1,138 @@
 /**
- * API Wrapper com suporte Offline (LocalStorage fallback)
+ * Cliente HTTP do myBooks.
+ *
+ * Além dos wrappers de rota, há um cache curto em memória com deduplicação de
+ * requisições: várias telas pedindo `/books` ao mesmo tempo geram uma única
+ * chamada de rede, e um segundo pedido dentro da janela de cache é respondido
+ * na hora. Isso é o que faz a navegação parecer instantânea.
  */
 
 import { API_BASE_URL } from "./config";
-import type { BookChapter } from "./types";
+import type {
+  AdminOverview, Banner, Book, BookChapter, ChatMessage, FeedItem, HomeData, HomePost,
+  Note, Notifications, ReadingProgress, Review, ReviewComment, Stats, UserProfile,
+} from "./types";
 
-// --- HELPERS E INTERRUPTOR MODO OFFLINE ---
-export function isOfflineMode(): boolean {
-  return false;
+// ─── Cache + deduplicação ─────────────────────────────────────────────────────
+
+interface CacheEntry {
+  value: unknown;
+  at: number;
 }
 
-export function setOfflineMode(value: boolean): void {
-  localStorage.setItem("offline-mode", "false");
+const cache = new Map<string, CacheEntry>();
+const inFlight = new Map<string, Promise<unknown>>();
+
+/** Janela padrão do cache. Curta o bastante para não servir dado velho. */
+const DEFAULT_TTL = 8000;
+
+function cacheKey(path: string): string {
+  return `${localStorage.getItem("books-username") || "anon"}::${path}`;
 }
 
-// --- INDEXEDDB PARA ARMAZENAMENTO DE ARQUIVOS GRANDES ---
-function openOfflineDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open("myBooksOffline", 1);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains("files")) {
-        db.createObjectStore("files");
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function storeOfflineFile(key: string, file: Blob): Promise<void> {
-  return openOfflineDB().then(db => {
-    return new Promise<void>((resolve, reject) => {
-      const tx = db.transaction("files", "readwrite");
-      const store = tx.objectStore("files");
-      const req = store.put(file, key);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-  });
-}
-
-function getOfflineFile(key: string): Promise<Blob | null> {
-  return openOfflineDB().then(db => {
-    return new Promise<Blob | null>((resolve, reject) => {
-      const tx = db.transaction("files", "readonly");
-      const store = tx.objectStore("files");
-      const req = store.get(key);
-      req.onsuccess = () => resolve(req.result || null);
-      req.onerror = () => reject(req.error);
-    });
-  });
-}
-
-function deleteOfflineFile(key: string): Promise<void> {
-  return openOfflineDB().then(db => {
-    return new Promise<void>((resolve, reject) => {
-      const tx = db.transaction("files", "readwrite");
-      const store = tx.objectStore("files");
-      const req = store.delete(key);
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-  });
-}
-
-const objectUrlCache = new Map<string, string>();
-
-async function resolveLocalPath(path: string | null | undefined): Promise<string | null> {
-  if (!path) return null;
-  if (path.startsWith("local://")) {
-    const key = path.substring(8);
-    if (objectUrlCache.has(key)) {
-      return objectUrlCache.get(key)!;
-    }
-    try {
-      const blob = await getOfflineFile(key);
-      if (blob) {
-        const url = URL.createObjectURL(blob);
-        objectUrlCache.set(key, url);
-        return url;
-      }
-    } catch (err) {
-      console.error("Erro ao carregar arquivo offline do IndexedDB:", err);
-    }
-    return null;
+/** Invalida entradas de cache cujo caminho contenha algum dos trechos dados. */
+export function invalidate(...fragments: string[]): void {
+  if (fragments.length === 0) {
+    cache.clear();
+    return;
   }
-  return path;
-}
-
-async function resolveBookPaths(book: any) {
-  if (!book) return book;
-  const newBook = { ...book };
-  if (newBook.pdfPath) {
-    newBook.pdfPath = await resolveLocalPath(newBook.pdfPath);
+  for (const key of [...cache.keys()]) {
+    if (fragments.some((f) => key.includes(f))) cache.delete(key);
   }
-  if (newBook.coverImagePath) {
-    newBook.coverImagePath = await resolveLocalPath(newBook.coverImagePath);
-  }
-  return newBook;
 }
 
-async function resolveBooksPaths(books: any[]) {
-  if (!books) return [];
-  return Promise.all(books.map(resolveBookPaths));
-}
-
-// --- DADOS INICIAIS MOCKADOS OFFLINE ---
-const LOCAL_USERS = [
-  { username: "Caio", bio: "Lendo clássicos offline 📖", avatar: "🐼", shelf: ["pequeno-principe"], pandinhas: 10 },
-  { username: "Helo", bio: "Apaixonada por histórias que transformam 💕", avatar: "🎀", shelf: ["dom-casmurro"], pandinhas: 15 }
-];
-
-const INITIAL_LOCAL_BOOKS: any[] = [];
-
-async function request(method: string, path: string, body?: any) {
+async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const url = `${API_BASE_URL}${path}`;
   const userId = localStorage.getItem("books-username") || "anonymous";
 
   const res = await fetch(url, {
     method,
-    headers: {
-      "Content-Type": "application/json",
-      "x-user-id": userId
-    },
-    body: body ? JSON.stringify(body) : undefined,
+    headers: { "Content-Type": "application/json", "x-user-id": userId },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
   });
 
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  if (res.status === 404) return null as T;
+  if (!res.ok) throw new Error(await readError(res));
+  if (res.status === 204) return null as T;
+  return res.json() as Promise<T>;
 }
 
-// --- LIVROS ---
-export async function fetchBooks() {
-  if (isOfflineMode()) {
-    let booksStr = localStorage.getItem("local-books");
-    if (!booksStr) {
-      localStorage.setItem("local-books", JSON.stringify(INITIAL_LOCAL_BOOKS));
-      booksStr = JSON.stringify(INITIAL_LOCAL_BOOKS);
-    }
-    const parsed = JSON.parse(booksStr);
+/** GET com cache e deduplicação. `ttl: 0` força ida ao servidor. */
+async function cachedGet<T>(path: string, ttl = DEFAULT_TTL): Promise<T> {
+  const key = cacheKey(path);
 
-    // Clean up offline duplicates (keeping oldest)
-    const uniqueMap = new Map<string, any>();
-    const sorted = [...parsed].sort((a: any, b: any) => a.addedAt - b.addedAt);
-    sorted.forEach((book: any) => {
-      const key = `${book.title.trim().toLowerCase()}|${(book.author || "").trim().toLowerCase()}`;
-      if (!uniqueMap.has(key)) {
-        uniqueMap.set(key, book);
-      }
+  if (ttl > 0) {
+    const hit = cache.get(key);
+    if (hit && Date.now() - hit.at < ttl) return hit.value as T;
+  }
+
+  const running = inFlight.get(key);
+  if (running) return running as Promise<T>;
+
+  const promise = request<T>("GET", path)
+    .then((value) => {
+      cache.set(key, { value, at: Date.now() });
+      return value;
+    })
+    .finally(() => {
+      inFlight.delete(key);
     });
-    const cleaned = Array.from(uniqueMap.values());
-    if (cleaned.length !== parsed.length) {
-      localStorage.setItem("local-books", JSON.stringify(cleaned));
-    }
 
-    return resolveBooksPaths(cleaned);
-  }
-  return request("GET", "/books");
+  inFlight.set(key, promise);
+  return promise;
 }
 
-export async function fetchBook(id: string) {
-  if (isOfflineMode()) {
-    let booksStr = localStorage.getItem("local-books");
-    if (!booksStr) {
-      localStorage.setItem("local-books", JSON.stringify(INITIAL_LOCAL_BOOKS));
-      booksStr = JSON.stringify(INITIAL_LOCAL_BOOKS);
-    }
-    const parsed = JSON.parse(booksStr);
-    const b = parsed.find((x: any) => x.id === id);
-    if (!b) return null;
-    return resolveBookPaths(b);
+/** Upload multipart (arquivos) — nunca passa pelo cache. */
+async function upload<T>(method: string, path: string, form: FormData): Promise<T> {
+  const userId = localStorage.getItem("books-username") || "anonymous";
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method,
+    headers: { "x-user-id": userId },
+    body: form,
+  });
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<T>;
+}
+
+/** Extrai a mensagem de erro do corpo da resposta, seja JSON ou texto puro. */
+async function readError(res: Response): Promise<string> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text).error || text || `Erro ${res.status}`;
+  } catch {
+    return text || `Erro ${res.status}`;
   }
-  return request("GET", `/books/${id}`);
+}
+
+// ─── Compatibilidade: o modo offline foi removido ─────────────────────────────
+export function isOfflineMode(): boolean {
+  return false;
+}
+export function setOfflineMode(_value: boolean): void {
+  /* modo offline descontinuado — o app é sempre sincronizado com o servidor */
+}
+
+// ─── HOME (uma chamada monta a tela inteira) ──────────────────────────────────
+
+export function fetchHome(force = false): Promise<HomeData> {
+  return cachedGet<HomeData>("/home", force ? 0 : DEFAULT_TTL);
+}
+
+// ─── LIVROS ───────────────────────────────────────────────────────────────────
+
+export function fetchBooks(force = false): Promise<Book[]> {
+  return cachedGet<Book[]>("/books", force ? 0 : DEFAULT_TTL);
+}
+
+export function fetchBook(id: string, force = false): Promise<Book | null> {
+  return cachedGet<Book | null>(`/books/${id}`, force ? 0 : DEFAULT_TTL);
+}
+
+/** Registra a abertura de um livro para o ranking "Mais lidos". */
+export function registerBookOpen(id: string): void {
+  request("POST", `/books/${id}/open`).catch(() => {
+    /* métrica: falhar aqui não pode atrapalhar a leitura */
+  });
 }
 
 export async function uploadBook(data: {
@@ -185,138 +144,69 @@ export async function uploadBook(data: {
   coverColor: string;
   pdfFile: File;
   coverFile?: File;
-}) {
-  // Check for duplicate title and author first
-  try {
-    const existingBooks = await fetchBooks();
-    const duplicate = existingBooks.find(
-      (b: any) => 
-        b.title.trim().toLowerCase() === data.title.trim().toLowerCase() &&
-        (b.author || "").trim().toLowerCase() === (data.author || "").trim().toLowerCase()
-    );
-    if (duplicate) {
-      throw new Error("Você já possui um livro com este título e autor!");
-    }
-  } catch (err) {
-    if (err instanceof Error && err.message.includes("Você já possui")) {
-      throw err;
-    }
-  }
-
-  if (isOfflineMode()) {
-    const id = "local_" + Date.now();
-    await storeOfflineFile(`${id}_pdf`, data.pdfFile);
-    if (data.coverFile) {
-      await storeOfflineFile(`${id}_cover`, data.coverFile);
-    }
-
-    const newBook = {
-      id,
-      title: data.title,
-      author: data.author || "Autor Desconhecido",
-      description: data.description || "",
-      genre: data.genre || "Outros",
-      rating: 5,
-      reviewCount: 0,
-      isPublic: false,
-      coverColor: data.coverColor,
-      addedAt: Date.now(),
-      pdfPath: `local://${id}_pdf`,
-      coverImagePath: data.coverFile ? `local://${id}_cover` : null,
-      isUserBook: true,
-      reviews: [],
-      pages: []
-    };
-
-    let booksStr = localStorage.getItem("local-books");
-    const list = booksStr ? JSON.parse(booksStr) : [...INITIAL_LOCAL_BOOKS];
-    list.unshift(newBook);
-    localStorage.setItem("local-books", JSON.stringify(list));
-    return resolveBookPaths(newBook);
-  }
-
+}): Promise<Book> {
   const userId = localStorage.getItem("books-username") || "anonymous";
 
+  const existing = await fetchBooks(true).catch(() => [] as Book[]);
+  const duplicate = existing.find(
+    (b) =>
+      b.title.trim().toLowerCase() === data.title.trim().toLowerCase() &&
+      (b.author || "").trim().toLowerCase() === (data.author || "").trim().toLowerCase()
+  );
+  if (duplicate) throw new Error("Já existe um livro com este título e autor!");
+
   try {
-    // 1. Tenta obter URLs pré-assinadas para o upload direto para o S3
+    // Caminho rápido: upload direto para o storage via URL assinada.
     const presignedRes = await fetch(`${API_BASE_URL}/books/presigned-url`, {
       method: "POST",
-      headers: { 
-        "Content-Type": "application/json",
-        "x-user-id": userId
-      },
-      body: JSON.stringify({
-        fileName: data.pdfFile.name,
-        fileType: "application/pdf"
-      })
+      headers: { "Content-Type": "application/json", "x-user-id": userId },
+      body: JSON.stringify({ fileName: data.pdfFile.name, fileType: "application/pdf" }),
     });
 
     if (presignedRes.ok) {
       const pdfS3Data = await presignedRes.json();
-      
-      // Upload do PDF direto para o S3
       const pdfUploadRes = await fetch(pdfS3Data.uploadUrl, {
         method: "PUT",
         headers: { "Content-Type": "application/pdf" },
-        body: data.pdfFile
+        body: data.pdfFile,
       });
-      if (!pdfUploadRes.ok) throw new Error("Erro no upload do PDF para o S3");
+      if (!pdfUploadRes.ok) throw new Error("Erro no upload do PDF");
 
-      let coverUrl = null;
+      let coverUrl: string | null = null;
       if (data.coverFile) {
-        // Obter URL assinada para a capa
         const coverPresignedRes = await fetch(`${API_BASE_URL}/books/presigned-url`, {
           method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "x-user-id": userId
-          },
-          body: JSON.stringify({
-            fileName: data.coverFile.name,
-            fileType: data.coverFile.type
-          })
+          headers: { "Content-Type": "application/json", "x-user-id": userId },
+          body: JSON.stringify({ fileName: data.coverFile.name, fileType: data.coverFile.type }),
         });
-
         if (coverPresignedRes.ok) {
           const coverS3Data = await coverPresignedRes.json();
           const coverUploadRes = await fetch(coverS3Data.uploadUrl, {
             method: "PUT",
             headers: { "Content-Type": data.coverFile.type },
-            body: data.coverFile
+            body: data.coverFile,
           });
-          if (coverUploadRes.ok) {
-            coverUrl = coverS3Data.downloadUrl;
-          }
+          if (coverUploadRes.ok) coverUrl = coverS3Data.downloadUrl;
         }
       }
 
-      // Envia os metadados e as URLs do S3 como JSON para o servidor
-      const serverRes = await fetch(`${API_BASE_URL}/books`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "x-user-id": userId
-        },
-        body: JSON.stringify({
-          title: data.title,
-          author: data.author,
-          description: data.description,
-          genre: data.genre,
-          isPublic: String(data.isPublic),
-          coverColor: data.coverColor,
-          pdfUrl: pdfS3Data.downloadUrl,
-          coverUrl
-        })
+      const book = await request<Book>("POST", "/books", {
+        title: data.title,
+        author: data.author,
+        description: data.description,
+        genre: data.genre,
+        isPublic: String(data.isPublic),
+        coverColor: data.coverColor,
+        pdfUrl: pdfS3Data.downloadUrl,
+        coverUrl,
       });
-
-      if (!serverRes.ok) throw new Error(await serverRes.text());
-      return serverRes.json();
+      invalidate("/books", "/home");
+      return book;
     }
   } catch (err) {
-    console.warn("Upload via S3 falhou ou não está configurado. Usando fallback tradicional...", err);
+    console.warn("Upload direto indisponível, usando o servidor como intermediário.", err);
   }
 
-  // FALLBACK: Upload multipart via Express (com limites do servidor)
   const form = new FormData();
   form.append("title", data.title);
   form.append("author", data.author);
@@ -327,329 +217,293 @@ export async function uploadBook(data: {
   form.append("pdf", data.pdfFile);
   if (data.coverFile) form.append("cover", data.coverFile);
 
-  const res = await fetch(`${API_BASE_URL}/books`, {
-    method: "POST",
-    headers: { "x-user-id": userId },
-    body: form,
-  });
-  if (!res.ok) throw new Error(await res.text());
-  return res.json();
+  const book = await upload<Book>("POST", "/books", form);
+  invalidate("/books", "/home");
+  return book;
 }
 
-export async function editBook(id: string, data: any) {
-  if (isOfflineMode()) {
-    let booksStr = localStorage.getItem("local-books");
-    const list = booksStr ? JSON.parse(booksStr) : [...INITIAL_LOCAL_BOOKS];
-    const idx = list.findIndex((x: any) => x.id === id);
-    if (idx !== -1) {
-      list[idx] = { ...list[idx], ...data };
-      localStorage.setItem("local-books", JSON.stringify(list));
-      return resolveBookPaths(list[idx]);
-    }
-    return null;
-  }
-  return request("PUT", `/books/${id}`, data);
+export async function editBook(id: string, data: Record<string, unknown>): Promise<Book> {
+  const book = await request<Book>("PUT", `/books/${id}`, data);
+  invalidate("/books", "/home");
+  return book;
 }
 
-export async function deleteBook(id: string) {
-  if (isOfflineMode()) {
-    let booksStr = localStorage.getItem("local-books");
-    const list = booksStr ? JSON.parse(booksStr) : [...INITIAL_LOCAL_BOOKS];
-    const filtered = list.filter((x: any) => x.id !== id);
-    localStorage.setItem("local-books", JSON.stringify(filtered));
-    await deleteOfflineFile(`${id}_pdf`);
-    await deleteOfflineFile(`${id}_cover`);
-    return { ok: true };
-  }
-  return request("DELETE", `/books/${id}`);
+/** Atualiza um livro enviando um novo arquivo de capa. */
+export async function editBookWithCover(id: string, data: Record<string, string>, coverFile: File): Promise<Book> {
+  const form = new FormData();
+  Object.entries(data).forEach(([k, v]) => form.append(k, v));
+  form.append("cover", coverFile);
+  const book = await upload<Book>("PUT", `/books/${id}`, form);
+  invalidate("/books", "/home");
+  return book;
 }
 
-// --- PROGRESSO E STATUS ---
-export async function fetchAllProgress() {
-  if (isOfflineMode()) {
-    const progStr = localStorage.getItem("local-progress");
-    return progStr ? JSON.parse(progStr) : [];
-  }
-  return request("GET", "/progress");
+export async function deleteBook(id: string): Promise<{ ok: boolean }> {
+  const res = await request<{ ok: boolean }>("DELETE", `/books/${id}`);
+  invalidate("/books", "/home");
+  return res;
 }
 
-export async function fetchProgress(bookId: string) {
-  if (isOfflineMode()) {
-    const progStr = localStorage.getItem("local-progress");
-    const list = progStr ? JSON.parse(progStr) : [];
-    return list.find((x: any) => x.bookId === bookId) || null;
-  }
-  return request("GET", `/progress/${bookId}`);
+// ─── PROGRESSO ────────────────────────────────────────────────────────────────
+
+export function fetchAllProgress(force = false): Promise<ReadingProgress[]> {
+  return cachedGet<ReadingProgress[]>("/progress", force ? 0 : DEFAULT_TTL);
 }
 
-export async function saveProgress(p: any) {
-  if (isOfflineMode()) {
-    const progStr = localStorage.getItem("local-progress");
-    const list = progStr ? JSON.parse(progStr) : [];
-    const idx = list.findIndex((x: any) => x.bookId === p.bookId);
-    if (idx !== -1) {
-      list[idx] = { ...list[idx], ...p, lastReadAt: Date.now() };
-    } else {
-      list.push({ ...p, startedAt: Date.now(), lastReadAt: Date.now() });
-    }
-    localStorage.setItem("local-progress", JSON.stringify(list));
-    return p;
-  }
-  return request("PUT", `/progress/${p.bookId}`, p);
+export function fetchProgress(bookId: string): Promise<ReadingProgress | null> {
+  return cachedGet<ReadingProgress | null>(`/progress/${bookId}`, 2000);
 }
 
-// --- AUTENTICAÇÃO ---
-export async function login(username: string, password: string) {
-  if (isOfflineMode()) {
-    localStorage.setItem("books-username", username);
-    localStorage.setItem("books-avatar", "🐼");
-    localStorage.setItem("books-bio", "Modo Offline Ativo 🐾");
-    return { username, bio: "Modo Offline Ativo 🐾", avatar: "🐼", shelf: [] };
-  }
-  return request("POST", "/auth/login", { username, password });
+export async function saveProgress(p: Partial<ReadingProgress> & { bookId: string }): Promise<ReadingProgress> {
+  const res = await request<ReadingProgress>("PUT", `/progress/${p.bookId}`, p);
+  invalidate("/progress", "/home", "/stats", "/books");
+  return res;
 }
 
-export async function register(username: string, password: string) {
-  if (isOfflineMode()) {
-    localStorage.setItem("books-username", username);
-    localStorage.setItem("books-avatar", "🐼");
-    localStorage.setItem("books-bio", "Modo Offline Ativo 🐾");
-    return { username, bio: "Modo Offline Ativo 🐾", avatar: "🐼", shelf: [] };
-  }
-  return request("POST", "/auth/register", { username, password });
+// ─── AUTENTICAÇÃO ─────────────────────────────────────────────────────────────
+
+export function login(username: string, password: string): Promise<UserProfile> {
+  invalidate();
+  return request<UserProfile>("POST", "/auth/login", { username, password });
 }
 
-// --- FAVORITOS ---
-export async function fetchSavedIds() {
-  if (isOfflineMode()) {
-    const savedStr = localStorage.getItem("local-saved-ids");
-    return savedStr ? JSON.parse(savedStr) : [];
-  }
-  return request("GET", "/saved");
+export function register(username: string, password: string): Promise<UserProfile> {
+  invalidate();
+  return request<UserProfile>("POST", "/auth/register", { username, password });
 }
 
-export async function toggleSaved(bookId: string, isSaved: boolean) {
-  if (isOfflineMode()) {
-    const savedStr = localStorage.getItem("local-saved-ids");
-    let list = savedStr ? JSON.parse(savedStr) : [];
-    if (isSaved) {
-      list = list.filter((x: any) => x !== bookId);
-    } else {
-      if (!list.includes(bookId)) list.push(bookId);
-    }
-    localStorage.setItem("local-saved-ids", JSON.stringify(list));
-    return !isSaved;
-  }
-  return request(isSaved ? "DELETE" : "POST", `/saved/${bookId}`);
+export async function updateProfile(bio: string, avatar: string, shelf: string[]): Promise<UserProfile> {
+  const res = await request<UserProfile>("PUT", "/auth/me", { bio, avatar, shelf });
+  invalidate("/users", "/home");
+  return res;
 }
 
-// --- USUÁRIOS E PERFIL ---
-export async function fetchAllUsers() {
-  if (isOfflineMode()) {
-    return LOCAL_USERS;
-  }
-  return request("GET", "/users");
+// ─── FAVORITOS ────────────────────────────────────────────────────────────────
+
+export function fetchSavedIds(force = false): Promise<string[]> {
+  return cachedGet<string[]>("/saved", force ? 0 : DEFAULT_TTL);
 }
 
-export async function fetchUserProfile(username: string) {
-  if (isOfflineMode()) {
-    const u = LOCAL_USERS.find(x => x.username.toLowerCase() === username.toLowerCase());
-    if (u) return u;
-    const myName = localStorage.getItem("books-username") || "Leitora";
-    const myBio = localStorage.getItem("books-bio") || "Apaixonada por histórias que transformam";
-    const myAvatar = localStorage.getItem("books-avatar") || "🐼";
-    const shelfStr = localStorage.getItem("profile-shelf");
-    const shelf = shelfStr ? JSON.parse(shelfStr) : [];
-    return { username: myName, bio: myBio, avatar: myAvatar, shelf, pandinhas: 5 };
-  }
-  return request("GET", `/users/${username}`);
+export async function toggleSaved(bookId: string, isSaved: boolean): Promise<{ saved: boolean }> {
+  const res = await request<{ saved: boolean }>(isSaved ? "DELETE" : "POST", `/saved/${bookId}`);
+  invalidate("/saved", "/home");
+  return res;
 }
 
-export async function updateProfile(bio: string, avatar: string, shelf: string[]) {
-  if (isOfflineMode()) {
-    localStorage.setItem("books-bio", bio);
-    localStorage.setItem("books-avatar", avatar);
-    localStorage.setItem("profile-shelf", JSON.stringify(shelf));
-    return { ok: true };
-  }
-  return request("PUT", "/auth/me", { bio, avatar, shelf });
+// ─── USUÁRIOS E SOCIAL ────────────────────────────────────────────────────────
+
+export function fetchAllUsers(force = false): Promise<UserProfile[]> {
+  return cachedGet<UserProfile[]>("/users", force ? 0 : DEFAULT_TTL);
 }
 
-export async function fetchStats() {
-  if (isOfflineMode()) {
-    const progStr = localStorage.getItem("local-progress");
-    const progress = progStr ? JSON.parse(progStr) : [];
-    const notesStr = localStorage.getItem("local-notes");
-    const notes = notesStr ? JSON.parse(notesStr) : [];
-    const finished = progress.filter((p: any) => p.status === "finalizado").length;
-    const reading = progress.filter((p: any) => p.status === "lendo").length;
-    return { finished, reading, notesCount: notes.length };
-  }
-  return request("GET", "/stats");
+export function fetchUserProfile(username: string, force = false): Promise<UserProfile | null> {
+  return cachedGet<UserProfile | null>(`/users/${encodeURIComponent(username)}`, force ? 0 : DEFAULT_TTL);
 }
 
-// --- NOTAS E DIÁRIO ---
-export async function fetchBookNotes(bookId: string) {
-  if (isOfflineMode()) {
-    const notesStr = localStorage.getItem("local-notes");
-    const list = notesStr ? JSON.parse(notesStr) : [];
-    return list.filter((n: any) => n.bookId === bookId);
-  }
-  return request("GET", `/notes/book/${bookId}`);
+export async function followUser(username: string): Promise<{ following: boolean; followers: number }> {
+  const res = await request<{ following: boolean; followers: number }>("POST", `/users/${encodeURIComponent(username)}/follow`);
+  invalidate("/users", "/feed");
+  return res;
 }
 
-export async function addNote(data: any) {
-  if (isOfflineMode()) {
-    const now = new Date();
-    const dateLabel = now.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-    const id = "note-" + Date.now();
-    const newNote = {
-      id,
-      bookId: data.bookId,
-      date: dateLabel,
-      feedback: data.feedback,
-      rating: data.rating,
-      createdAt: Date.now()
-    };
-    const notesStr = localStorage.getItem("local-notes");
-    const list = notesStr ? JSON.parse(notesStr) : [];
-    list.unshift(newNote);
-    localStorage.setItem("local-notes", JSON.stringify(list));
-    return newNote;
-  }
-  return request("POST", "/notes", data);
+export async function unfollowUser(username: string): Promise<{ following: boolean; followers: number }> {
+  const res = await request<{ following: boolean; followers: number }>("DELETE", `/users/${encodeURIComponent(username)}/follow`);
+  invalidate("/users", "/feed");
+  return res;
 }
 
-export async function deleteNote(id: string) {
-  if (isOfflineMode()) {
-    const notesStr = localStorage.getItem("local-notes");
-    const list = notesStr ? JSON.parse(notesStr) : [];
-    const filtered = list.filter((n: any) => n.id !== id);
-    localStorage.setItem("local-notes", JSON.stringify(filtered));
-    return { ok: true };
-  }
-  return request("DELETE", `/notes/${id}`);
+export function fetchFeed(scope: "all" | "following" = "all", force = false): Promise<FeedItem[]> {
+  return cachedGet<FeedItem[]>(`/feed?scope=${scope}`, force ? 0 : DEFAULT_TTL);
 }
 
-// --- CHAT E MENSAGENS ---
-export async function fetchChat(target: string) {
-  if (isOfflineMode()) {
-    const chatStr = localStorage.getItem(`local-chat-${target.toLowerCase()}`);
-    const messages = chatStr ? JSON.parse(chatStr) : [];
-    const nick = localStorage.getItem(`local-nickname-${target.toLowerCase()}`);
-    return { messages, nickname: nick };
-  }
-  return request("GET", `/chat/${target}`);
+export function fetchStats(force = false): Promise<Stats> {
+  return cachedGet<Stats>("/stats", force ? 0 : DEFAULT_TTL);
 }
 
-export async function fetchMessages(target: string) {
-  if (isOfflineMode()) {
-    const chatStr = localStorage.getItem(`local-chat-${target.toLowerCase()}`);
-    return chatStr ? JSON.parse(chatStr) : [];
-  }
-  return request("GET", `/chat/${target}`);
+// ─── RESENHAS (nota + comentário público) ─────────────────────────────────────
+
+export function fetchReviews(bookId: string, force = false): Promise<Review[]> {
+  return cachedGet<Review[]>(`/books/${bookId}/reviews`, force ? 0 : 3000);
 }
 
-export async function sendMessage(target: string, content: string, bookId?: string) {
-  if (isOfflineMode()) {
-    const myName = localStorage.getItem("books-username") || "Você";
-    const newMsg = {
-      id: Date.now(),
-      sender: myName,
-      receiver: target,
-      content,
-      shared_book_id: bookId || null,
-      is_read: 1,
-      created_at: Date.now()
-    };
-    const chatKey = `local-chat-${target.toLowerCase()}`;
-    const chatStr = localStorage.getItem(chatKey);
-    const list = chatStr ? JSON.parse(chatStr) : [];
-    list.push(newMsg);
-    localStorage.setItem(chatKey, JSON.stringify(list));
-
-    if (target.toLowerCase() === "helo" || target.toLowerCase() === "caio") {
-      setTimeout(() => {
-        const replies = [
-          "Que legal! Vou dar uma olhada nesse livro 🐾",
-          "Adorei a recomendação! ✨",
-          "Ah! Esse livro parece maravilhoso! 💕",
-          "Obrigado por compartilhar comigo! 🐼",
-          "Nossa, que demais! Já salvei na minha lista 📖"
-        ];
-        const replyContent = replies[Math.floor(Math.random() * replies.length)];
-        const replyMsg = {
-          id: Date.now() + 1,
-          sender: target,
-          receiver: myName,
-          content: replyContent,
-          shared_book_id: null,
-          is_read: 0,
-          created_at: Date.now()
-        };
-        const currentChat = localStorage.getItem(chatKey);
-        const currentList = currentChat ? JSON.parse(currentChat) : [];
-        currentList.push(replyMsg);
-        localStorage.setItem(chatKey, JSON.stringify(currentList));
-      }, 1000);
-    }
-    return { ok: true };
-  }
-  return request("POST", `/chat/${target}`, { content, sharedBookId: bookId || null });
+export async function saveReview(
+  bookId: string,
+  data: { rating: number; comment: string; hasSpoiler?: boolean }
+): Promise<{ rating: number; reviewCount: number; reviews: Review[] }> {
+  const res = await request<{ rating: number; reviewCount: number; reviews: Review[] }>(
+    "POST", `/books/${bookId}/reviews`, data
+  );
+  invalidate("/books", "/home", "/feed", "/users", "/stats");
+  return res;
 }
 
-export async function setNickname(target: string, nickname: string) {
-  if (isOfflineMode()) {
-    localStorage.setItem(`local-nickname-${target.toLowerCase()}`, nickname);
-    return { ok: true };
-  }
-  return request("POST", `/chat/nickname/${target}`, { nickname });
+export async function deleteReview(reviewId: number): Promise<void> {
+  await request("DELETE", `/reviews/${reviewId}`);
+  invalidate("/books", "/home", "/feed", "/users", "/stats");
 }
 
-export async function fetchNotifications() {
-  if (isOfflineMode()) {
-    return { unreadCount: 0, details: {} };
-  }
+export async function toggleReviewLike(reviewId: number): Promise<{ likes: number; likedByMe: boolean }> {
+  const res = await request<{ likes: number; likedByMe: boolean }>("POST", `/reviews/${reviewId}/like`);
+  invalidate("/books", "/home", "/feed");
+  return res;
+}
+
+export async function addReviewComment(reviewId: number, content: string): Promise<ReviewComment[]> {
+  const res = await request<ReviewComment[]>("POST", `/reviews/${reviewId}/comments`, { content });
+  invalidate("/books", "/home", "/feed");
+  return res;
+}
+
+export async function deleteReviewComment(reviewId: number, commentId: number): Promise<void> {
+  await request("DELETE", `/reviews/${reviewId}/comments/${commentId}`);
+  invalidate("/books", "/home", "/feed");
+}
+
+// ─── BANNERS (Admin) ──────────────────────────────────────────────────────────
+
+export function fetchBanners(all = false, force = false): Promise<Banner[]> {
+  return cachedGet<Banner[]>(`/banners${all ? "?all=true" : ""}`, force ? 0 : DEFAULT_TTL);
+}
+
+export async function createBanner(data: {
+  title?: string; subtitle?: string; linkUrl?: string; bookId?: string; sortOrder?: number; imageFile?: File | null; imageUrl?: string;
+}): Promise<Banner> {
+  const form = new FormData();
+  if (data.title) form.append("title", data.title);
+  if (data.subtitle) form.append("subtitle", data.subtitle);
+  if (data.linkUrl) form.append("linkUrl", data.linkUrl);
+  if (data.bookId) form.append("bookId", data.bookId);
+  if (data.sortOrder != null) form.append("sortOrder", String(data.sortOrder));
+  if (data.imageUrl) form.append("imageUrl", data.imageUrl);
+  if (data.imageFile) form.append("image", data.imageFile);
+  const res = await upload<Banner>("POST", "/banners", form);
+  invalidate("/banners", "/home");
+  return res;
+}
+
+export async function updateBanner(id: number, data: Record<string, string | number | boolean>, imageFile?: File | null): Promise<Banner> {
+  const form = new FormData();
+  Object.entries(data).forEach(([k, v]) => form.append(k, String(v)));
+  if (imageFile) form.append("image", imageFile);
+  const res = await upload<Banner>("PUT", `/banners/${id}`, form);
+  invalidate("/banners", "/home");
+  return res;
+}
+
+export async function deleteBanner(id: number): Promise<void> {
+  await request("DELETE", `/banners/${id}`);
+  invalidate("/banners", "/home");
+}
+
+// ─── POSTAGENS DA HOME (Admin) ────────────────────────────────────────────────
+
+export function fetchPosts(all = false, force = false): Promise<HomePost[]> {
+  return cachedGet<HomePost[]>(`/posts${all ? "?all=true" : ""}`, force ? 0 : DEFAULT_TTL);
+}
+
+export async function createPost(data: {
+  title?: string; content?: string; bookId?: string; isPinned?: boolean; imageFile?: File | null;
+}): Promise<HomePost> {
+  const form = new FormData();
+  if (data.title) form.append("title", data.title);
+  if (data.content) form.append("content", data.content);
+  if (data.bookId) form.append("bookId", data.bookId);
+  form.append("isPinned", String(!!data.isPinned));
+  if (data.imageFile) form.append("image", data.imageFile);
+  const res = await upload<HomePost>("POST", "/posts", form);
+  invalidate("/posts", "/home");
+  return res;
+}
+
+export async function updatePost(id: number, data: Record<string, string | number | boolean>, imageFile?: File | null): Promise<HomePost> {
+  const form = new FormData();
+  Object.entries(data).forEach(([k, v]) => form.append(k, String(v)));
+  if (imageFile) form.append("image", imageFile);
+  const res = await upload<HomePost>("PUT", `/posts/${id}`, form);
+  invalidate("/posts", "/home");
+  return res;
+}
+
+export async function deletePost(id: number): Promise<void> {
+  await request("DELETE", `/posts/${id}`);
+  invalidate("/posts", "/home");
+}
+
+export async function togglePostLike(id: number): Promise<{ likes: number; likedByMe: boolean }> {
+  const res = await request<{ likes: number; likedByMe: boolean }>("POST", `/posts/${id}/like`);
+  invalidate("/posts", "/home");
+  return res;
+}
+
+export function fetchAdminOverview(): Promise<AdminOverview> {
+  return cachedGet<AdminOverview>("/admin/overview", 0);
+}
+
+// ─── NOTAS E DIÁRIO ───────────────────────────────────────────────────────────
+
+export function fetchBookNotes(bookId: string): Promise<Note[]> {
+  return cachedGet<Note[]>(`/notes/book/${bookId}`, 3000);
+}
+
+export async function addNote(data: { bookId: string; feedback: string; rating: number }): Promise<Note> {
+  const res = await request<Note>("POST", "/notes", data);
+  invalidate("/notes", "/stats");
+  return res;
+}
+
+export async function deleteNote(id: string): Promise<void> {
+  await request("DELETE", `/notes/${id}`);
+  invalidate("/notes", "/stats");
+}
+
+// ─── CHAT E MENSAGENS ─────────────────────────────────────────────────────────
+
+export function fetchChat(target: string): Promise<{ messages: ChatMessage[]; nickname: string | null }> {
+  return request("GET", `/chat/${encodeURIComponent(target)}`);
+}
+
+export function fetchMessages(target: string): Promise<{ messages: ChatMessage[]; nickname: string | null }> {
+  return request("GET", `/chat/${encodeURIComponent(target)}`);
+}
+
+export async function sendMessage(target: string, content: string, bookId?: string): Promise<{ ok: boolean }> {
+  return request("POST", `/chat/${encodeURIComponent(target)}`, { content, sharedBookId: bookId || null });
+}
+
+export function setNickname(target: string, nickname: string): Promise<{ ok: boolean }> {
+  return request("POST", `/chat/nickname/${encodeURIComponent(target)}`, { nickname });
+}
+
+export function fetchNotifications(): Promise<Notifications> {
   return request("GET", "/notifications");
 }
 
-// --- GLOBAL STATUS (SHOUTBOX) ---
-export async function fetchGlobalStatus() {
-  if (isOfflineMode()) {
-    const statusStr = localStorage.getItem("local-status");
-    if (statusStr) return JSON.parse(statusStr);
-    return { username: "Sistema", content: "Bem-vindo ao modo Offline! 🐾", emote: "🐼", updated_at: Date.now() };
-  }
-  return request("GET", "/status");
+// ─── STATUS GLOBAL ────────────────────────────────────────────────────────────
+
+export function fetchGlobalStatus(): Promise<{ username: string; content: string; emote: string; updated_at: number } | null> {
+  return cachedGet("/status", 5000);
 }
 
 export async function updateGlobalStatus(content: string, emote: string) {
-  if (isOfflineMode()) {
-    const username = localStorage.getItem("books-username") || "Você";
-    const newStatus = { username, content, emote, updated_at: Date.now() };
-    localStorage.setItem("local-status", JSON.stringify(newStatus));
-    return newStatus;
-  }
-  return request("POST", "/status", { content, emote });
+  const res = await request("POST", "/status", { content, emote });
+  invalidate("/status", "/home");
+  return res;
 }
+
+// ─── CAPÍTULOS ────────────────────────────────────────────────────────────────
 
 export async function fetchChapters(bookId: string): Promise<BookChapter[]> {
-  if (isOfflineMode()) {
-    return [];
-  }
-  return (await request("GET", `/books/${bookId}/chapters`)) || [];
+  return (await cachedGet<BookChapter[]>(`/books/${bookId}/chapters`, 5000)) || [];
 }
 
-export async function saveChapter(bookId: string, startPage: number, title: string): Promise<any> {
-  if (isOfflineMode()) {
-    return { success: true };
-  }
-  return request("POST", `/books/${bookId}/chapters`, { startPage, title });
+export async function saveChapter(bookId: string, startPage: number, title: string) {
+  const res = await request("POST", `/books/${bookId}/chapters`, { startPage, title });
+  invalidate(`/books/${bookId}/chapters`);
+  return res;
 }
 
-export async function deleteChapter(bookId: string, startPage: number): Promise<any> {
-  if (isOfflineMode()) {
-    return { success: true };
-  }
-  return request("DELETE", `/books/${bookId}/chapters/${startPage}`);
+export async function deleteChapter(bookId: string, startPage: number) {
+  const res = await request("DELETE", `/books/${bookId}/chapters/${startPage}`);
+  invalidate(`/books/${bookId}/chapters`);
+  return res;
 }

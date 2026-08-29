@@ -9,7 +9,7 @@ function sql(strings, ...values) {
     format(options) {
       let text = "";
       let formattedValues = [];
-      
+
       for (let i = 0; i < strings.length; i++) {
         text += strings[i];
         if (i < values.length) {
@@ -24,14 +24,13 @@ function sql(strings, ...values) {
           }
         }
       }
-      
+
       return { text, values: formattedValues };
     }
   };
 }
 
 let db;
-let usingTurso = false;
 
 if (process.env.TURSO_DATABASE_URL) {
   console.log("🔌 Conectando ao banco de dados remoto Turso...");
@@ -54,13 +53,15 @@ if (process.env.TURSO_DATABASE_URL) {
       } else if (typeof queryObj === 'string') {
         text = queryObj;
         values = [];
+      } else if (queryObj && typeof queryObj.text === 'string') {
+        text = queryObj.text;
+        values = queryObj.values || [];
       } else {
         throw new Error("Formato de query inválido no wrapper Turso");
       }
 
       // Ignorar PRAGMA journal_mode no Turso
       if (text.toUpperCase().includes("PRAGMA JOURNAL_MODE")) {
-        console.log("   [Turso] Ignorando PRAGMA journal_mode");
         return [];
       }
 
@@ -75,7 +76,6 @@ if (process.env.TURSO_DATABASE_URL) {
       });
     }
   };
-  usingTurso = true;
 } else {
   console.log("🔌 Conectando ao banco de dados SQLite local (via sqlite3)...");
   const sqlite3 = require("sqlite3");
@@ -125,11 +125,38 @@ if (process.env.TURSO_DATABASE_URL) {
   };
 }
 
+// Conta administradora do myBooks (controla livros, banners e posts da home).
+const ADMIN_USERNAME = "Admin";
+const ADMIN_PASSWORD = "537942";
+const ADMIN_AVATAR = "\u{1F436}"; // 🐶
+
+/** Executa uma query ignorando erros esperados (coluna já existe, índice duplicado...). */
+async function trySql(query, label) {
+  try {
+    await db.query(query);
+    return true;
+  } catch (err) {
+    if (label) console.log(`   ↷ ${label}: ${err.message}`);
+    return false;
+  }
+}
+
+/** Adiciona uma coluna se ela ainda não existir na tabela. */
+async function ensureColumn(table, column, definition) {
+  try {
+    const info = await db.query({ text: `PRAGMA table_info(${table})`, values: [] });
+    if (info.some((c) => c.name === column)) return false;
+  } catch (err) {
+    return false;
+  }
+  return trySql({ text: `ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`, values: [] }, `ALTER ${table}.${column}`);
+}
+
 // ─── Schema ───────────────────────────────────────────────────────────────────
 
 async function initDB() {
-  await db.query(sql`PRAGMA foreign_keys = ON`);
-  await db.query(sql`PRAGMA journal_mode = DELETE`);
+  await trySql(sql`PRAGMA foreign_keys = ON`);
+  await trySql(sql`PRAGMA journal_mode = DELETE`);
 
   await db.query(sql`
     CREATE TABLE IF NOT EXISTS users (
@@ -141,9 +168,6 @@ async function initDB() {
       pandinhas INTEGER NOT NULL DEFAULT 0
     )
   `);
-
-  await db.query(sql`INSERT OR IGNORE INTO users (username, password, bio, avatar) VALUES ('Caio', '1234', 'Apaixonado por histórias que transformam', '🐼')`);
-  await db.query(sql`INSERT OR IGNORE INTO users (username, password, bio, avatar) VALUES ('Helo', '1234', 'Apaixonada por histórias que transformam', '🎀')`);
 
   await db.query(sql`
     CREATE TABLE IF NOT EXISTS books (
@@ -165,19 +189,21 @@ async function initDB() {
 
   await db.query(sql`
     CREATE TABLE IF NOT EXISTS book_reviews (
-      id         INTEGER PRIMARY KEY AUTOINCREMENT,
-      book_id    TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-      username   TEXT NOT NULL COLLATE NOCASE,
-      rating     REAL NOT NULL,
-      comment    TEXT NOT NULL,
-      created_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000)
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      book_id     TEXT NOT NULL,
+      username    TEXT NOT NULL COLLATE NOCASE,
+      rating      REAL NOT NULL,
+      comment     TEXT NOT NULL,
+      has_spoiler INTEGER NOT NULL DEFAULT 0,
+      created_at  INTEGER NOT NULL DEFAULT 0,
+      updated_at  INTEGER NOT NULL DEFAULT 0
     )
   `);
 
   await db.query(sql`
     CREATE TABLE IF NOT EXISTS book_pages (
       id       INTEGER PRIMARY KEY AUTOINCREMENT,
-      book_id  TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+      book_id  TEXT NOT NULL,
       page_num INTEGER NOT NULL,
       content  TEXT NOT NULL
     )
@@ -186,7 +212,7 @@ async function initDB() {
   await db.query(sql`
     CREATE TABLE IF NOT EXISTS reading_progress (
       username     TEXT NOT NULL COLLATE NOCASE,
-      book_id      TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+      book_id      TEXT NOT NULL,
       current_page INTEGER NOT NULL DEFAULT 0,
       total_pages  INTEGER NOT NULL DEFAULT 1,
       progress     REAL NOT NULL DEFAULT 0,
@@ -201,7 +227,7 @@ async function initDB() {
     CREATE TABLE IF NOT EXISTS notes (
       id         TEXT PRIMARY KEY,
       username   TEXT NOT NULL COLLATE NOCASE,
-      book_id    TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+      book_id    TEXT NOT NULL,
       date_label TEXT NOT NULL,
       feedback   TEXT NOT NULL,
       rating     REAL NOT NULL,
@@ -212,8 +238,8 @@ async function initDB() {
   await db.query(sql`
     CREATE TABLE IF NOT EXISTS saved_books (
       username TEXT NOT NULL COLLATE NOCASE,
-      book_id  TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-      saved_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
+      book_id  TEXT NOT NULL,
+      saved_at INTEGER NOT NULL DEFAULT 0,
       PRIMARY KEY (username, book_id)
     )
   `);
@@ -221,8 +247,8 @@ async function initDB() {
   await db.query(sql`
     CREATE TABLE IF NOT EXISTS nicknames (
       from_user TEXT NOT NULL COLLATE NOCASE,
-      to_user TEXT NOT NULL COLLATE NOCASE,
-      nickname TEXT NOT NULL,
+      to_user   TEXT NOT NULL COLLATE NOCASE,
+      nickname  TEXT NOT NULL,
       PRIMARY KEY (from_user, to_user)
     )
   `);
@@ -252,7 +278,7 @@ async function initDB() {
   await db.query(sql`
     CREATE TABLE IF NOT EXISTS book_chapters (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      book_id TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
+      book_id TEXT NOT NULL,
       start_page INTEGER NOT NULL,
       title TEXT NOT NULL,
       created_at INTEGER NOT NULL,
@@ -270,204 +296,182 @@ async function initDB() {
     )
   `);
 
-  // Inicializa status
-  try {
-    await db.query(sql`INSERT OR IGNORE INTO global_status (id, username, content, emote, updated_at) VALUES (1, 'Sistema', 'Bem-vindos ao myBooks! ✨', '🐼', ${Date.now()})`);
-  } catch (err) {
-    console.error("Erro ao inicializar status:", err);
+  // ─── Rede social ────────────────────────────────────────────────────────────
+
+  // Curtidas em resenhas
+  await db.query(sql`
+    CREATE TABLE IF NOT EXISTS review_likes (
+      review_id  INTEGER NOT NULL,
+      username   TEXT NOT NULL COLLATE NOCASE,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (review_id, username)
+    )
+  `);
+
+  // Respostas a resenhas (comentários encadeados)
+  await db.query(sql`
+    CREATE TABLE IF NOT EXISTS review_comments (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      review_id  INTEGER NOT NULL,
+      username   TEXT NOT NULL COLLATE NOCASE,
+      content    TEXT NOT NULL,
+      created_at INTEGER NOT NULL
+    )
+  `);
+
+  // Seguidores
+  await db.query(sql`
+    CREATE TABLE IF NOT EXISTS follows (
+      follower   TEXT NOT NULL COLLATE NOCASE,
+      following  TEXT NOT NULL COLLATE NOCASE,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (follower, following)
+    )
+  `);
+
+  // Banners da home (gerenciados pelo Admin)
+  await db.query(sql`
+    CREATE TABLE IF NOT EXISTS banners (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      title      TEXT NOT NULL DEFAULT '',
+      subtitle   TEXT NOT NULL DEFAULT '',
+      image_url  TEXT,
+      link_url   TEXT,
+      book_id    TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      is_active  INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+
+  // Postagens da home (avisos e curadoria do Admin)
+  await db.query(sql`
+    CREATE TABLE IF NOT EXISTS home_posts (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      author     TEXT NOT NULL COLLATE NOCASE,
+      title      TEXT NOT NULL DEFAULT '',
+      content    TEXT NOT NULL DEFAULT '',
+      image_url  TEXT,
+      book_id    TEXT,
+      is_pinned  INTEGER NOT NULL DEFAULT 0,
+      is_active  INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+
+  // Curtidas em postagens da home
+  await db.query(sql`
+    CREATE TABLE IF NOT EXISTS post_likes (
+      post_id    INTEGER NOT NULL,
+      username   TEXT NOT NULL COLLATE NOCASE,
+      created_at INTEGER NOT NULL,
+      PRIMARY KEY (post_id, username)
+    )
+  `);
+
+  // Aberturas de livro — alimenta o ranking "Mais lidos"
+  await db.query(sql`
+    CREATE TABLE IF NOT EXISTS book_opens (
+      book_id      TEXT NOT NULL,
+      username     TEXT NOT NULL COLLATE NOCASE,
+      opens        INTEGER NOT NULL DEFAULT 1,
+      last_open_at INTEGER NOT NULL,
+      PRIMARY KEY (book_id, username)
+    )
+  `);
+
+  // ─── Migrações de coluna ────────────────────────────────────────────────────
+  await ensureColumn("users", "pandinhas", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("users", "created_at", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("book_reviews", "has_spoiler", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("book_reviews", "created_at", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("book_reviews", "updated_at", "INTEGER NOT NULL DEFAULT 0");
+
+  // ─── Resenhas duplicadas (antes de criar o índice único) ────────────────────
+  await trySql(sql`
+    DELETE FROM book_reviews WHERE id NOT IN (
+      SELECT MAX(id) FROM book_reviews GROUP BY book_id, LOWER(username)
+    )
+  `, "limpeza de resenhas duplicadas");
+
+  // ─── Índices (performance) ──────────────────────────────────────────────────
+  const indexes = [
+    "CREATE INDEX IF NOT EXISTS idx_reviews_book ON book_reviews(book_id)",
+    "CREATE INDEX IF NOT EXISTS idx_reviews_user ON book_reviews(username)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_reviews_unique ON book_reviews(book_id, username)",
+    "CREATE INDEX IF NOT EXISTS idx_review_comments_review ON review_comments(review_id)",
+    "CREATE INDEX IF NOT EXISTS idx_progress_book ON reading_progress(book_id)",
+    "CREATE INDEX IF NOT EXISTS idx_progress_user ON reading_progress(username)",
+    "CREATE INDEX IF NOT EXISTS idx_notes_book ON notes(book_id)",
+    "CREATE INDEX IF NOT EXISTS idx_notes_user ON notes(username)",
+    "CREATE INDEX IF NOT EXISTS idx_saved_user ON saved_books(username)",
+    "CREATE INDEX IF NOT EXISTS idx_pages_book ON book_pages(book_id, page_num)",
+    "CREATE INDEX IF NOT EXISTS idx_chat_unread ON chat_messages(receiver, sender, is_read)",
+    "CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following)",
+    "CREATE INDEX IF NOT EXISTS idx_books_added ON books(added_at)",
+    "CREATE INDEX IF NOT EXISTS idx_opens_book ON book_opens(book_id)",
+  ];
+  for (const stmt of indexes) {
+    await trySql({ text: stmt, values: [] });
   }
 
-  // Migração: adicionar usuários às tabelas
-  try {
-    const tableInfo = await db.query(sql`PRAGMA table_info(reading_progress)`);
-    if (!tableInfo.some(c => c.name === 'username')) {
-      console.log("Realizando migração para multi-usuários...");
-      
-      // Inserir usuários padrão
-      await db.query(sql`INSERT OR IGNORE INTO users (username, password, bio, avatar) VALUES ('Caio', '1234', 'Apaixonado por histórias que transformam', '🐼')`);
-      await db.query(sql`INSERT OR IGNORE INTO users (username, password, bio, avatar) VALUES ('Helo', '1234', 'Apaixonada por histórias que transformam', '🎀')`);
+  // ─── Usuários padrão ────────────────────────────────────────────────────────
+  const now = Date.now();
+  await trySql(sql`INSERT OR IGNORE INTO users (username, password, bio, avatar, pandinhas, is_admin, created_at) VALUES ('Caio', '1234', 'Apaixonado por histórias que transformam', '🐼', 0, 0, ${now})`);
+  await trySql(sql`INSERT OR IGNORE INTO users (username, password, bio, avatar, pandinhas, is_admin, created_at) VALUES ('Helo', '1234', 'Apaixonada por histórias que transformam', '🎀', 0, 0, ${now})`);
 
-      // Migrar reading_progress
-      await db.query(sql`CREATE TABLE reading_progress_new (
-        username     TEXT NOT NULL,
-        book_id      TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-        current_page INTEGER NOT NULL DEFAULT 0,
-        total_pages  INTEGER NOT NULL DEFAULT 1,
-        progress     REAL NOT NULL DEFAULT 0,
-        status       TEXT NOT NULL DEFAULT 'lendo',
-        started_at   INTEGER NOT NULL,
-        last_read_at INTEGER NOT NULL,
-        PRIMARY KEY (username, book_id)
-      )`);
-      await db.query(sql`INSERT INTO reading_progress_new SELECT 'Caio', * FROM reading_progress`);
-      await db.query(sql`DROP TABLE reading_progress`);
-      await db.query(sql`ALTER TABLE reading_progress_new RENAME TO reading_progress`);
+  // Conta administradora — garantida com a senha e o emote corretos a cada boot.
+  await trySql(sql`
+    INSERT OR IGNORE INTO users (username, password, bio, avatar, pandinhas, is_admin, created_at)
+    VALUES (${ADMIN_USERNAME}, ${ADMIN_PASSWORD}, 'Curadoria oficial do myBooks 🐶', ${ADMIN_AVATAR}, 0, 1, ${now})
+  `);
+  await trySql(sql`
+    UPDATE users SET password = ${ADMIN_PASSWORD}, avatar = ${ADMIN_AVATAR}, is_admin = 1
+    WHERE username = ${ADMIN_USERNAME} COLLATE NOCASE
+  `);
 
-      // Migrar saved_books
-      await db.query(sql`CREATE TABLE saved_books_new (
-        username TEXT NOT NULL,
-        book_id  TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-        saved_at INTEGER NOT NULL DEFAULT (strftime('%s','now') * 1000),
-        PRIMARY KEY (username, book_id)
-      )`);
-      await db.query(sql`INSERT INTO saved_books_new SELECT 'Caio', * FROM saved_books`);
-      await db.query(sql`DROP TABLE saved_books`);
-      await db.query(sql`ALTER TABLE saved_books_new RENAME TO saved_books`);
+  await trySql(sql`INSERT OR IGNORE INTO global_status (id, username, content, emote, updated_at) VALUES (1, 'Sistema', 'Bem-vindos ao myBooks! ✨', '🐼', ${now})`);
 
-      // Migrar notes
-      await db.query(sql`CREATE TABLE notes_new (
-        id         TEXT PRIMARY KEY,
-        username   TEXT NOT NULL,
-        book_id    TEXT NOT NULL REFERENCES books(id) ON DELETE CASCADE,
-        date_label TEXT NOT NULL,
-        feedback   TEXT NOT NULL,
-        rating     REAL NOT NULL,
-        created_at INTEGER NOT NULL
-      )`);
-      await db.query(sql`INSERT INTO notes_new SELECT id, 'Caio', book_id, date_label, feedback, rating, created_at FROM notes`);
-      await db.query(sql`DROP TABLE notes`);
-      await db.query(sql`ALTER TABLE notes_new RENAME TO notes`);
-      
-      console.log("Migração concluída com sucesso.");
-    }
-  } catch (err) {
-    console.log("Migration check complete or skipped.");
-  }
+  // ─── Migração: notas do diário viram resenhas públicas ──────────────────────
+  // Antes a nota de um livro vinha do diário pessoal (notes). Agora as resenhas
+  // públicas moram em book_reviews; importamos a nota mais recente de cada leitor.
+  await trySql(sql`
+    INSERT OR IGNORE INTO book_reviews (book_id, username, rating, comment, has_spoiler, created_at, updated_at)
+    SELECT n.book_id, n.username, n.rating, n.feedback, 0, n.created_at, n.created_at
+    FROM notes n
+    WHERE n.created_at = (SELECT MAX(n2.created_at) FROM notes n2 WHERE n2.book_id = n.book_id AND n2.username = n.username COLLATE NOCASE)
+  `, "importação de notas para resenhas");
 
-  // Migração: pandinhas
-  try {
-    const tableInfo = await db.query(sql`PRAGMA table_info(users)`);
-    if (!tableInfo.some(c => c.name === 'pandinhas')) {
-      await db.query(sql`ALTER TABLE users ADD COLUMN pandinhas INTEGER NOT NULL DEFAULT 0`);
-      console.log("Migração de pandinhas concluída.");
-    }
-  } catch (err) {}
+  await trySql(sql`UPDATE book_reviews SET created_at = ${now} WHERE created_at IS NULL OR created_at = 0`);
+  await trySql(sql`UPDATE book_reviews SET updated_at = created_at WHERE updated_at IS NULL OR updated_at = 0`);
+  await trySql(sql`UPDATE users SET created_at = ${now} WHERE created_at IS NULL OR created_at = 0`);
 
-  // Garante usuários padrão
-  try {
-    await db.query(sql`INSERT OR IGNORE INTO users (username, password, bio, avatar) VALUES ('Caio', '1234', 'Apaixonado por histórias que transformam', '🐼')`);
-    await db.query(sql`INSERT OR IGNORE INTO users (username, password, bio, avatar) VALUES ('Helo', '1234', 'Apaixonada por histórias que transformam', '🎀')`);
-  } catch (err) {}
+  // ─── Recalcula médias dos livros a partir das resenhas ──────────────────────
+  await trySql(sql`
+    UPDATE books SET
+      rating = COALESCE((SELECT ROUND(AVG(rating), 1) FROM book_reviews WHERE book_id = books.id), 0),
+      review_count = COALESCE((SELECT COUNT(*) FROM book_reviews WHERE book_id = books.id), 0)
+  `, "recálculo de médias");
 
-  // Garante livros funcionais padrão
-  // Remove livros fictícios padrão e suas dependências
-  try {
-    const oldBookIds = ["pequeno-principe", "dom-casmurro", "amor-perdicao"];
-    for (const bookId of oldBookIds) {
-      await db.query(sql`DELETE FROM book_pages WHERE book_id = ${bookId}`);
-      await db.query(sql`DELETE FROM book_reviews WHERE book_id = ${bookId}`);
-      await db.query(sql`DELETE FROM reading_progress WHERE book_id = ${bookId}`);
-      await db.query(sql`DELETE FROM notes WHERE book_id = ${bookId}`);
-      await db.query(sql`DELETE FROM saved_books WHERE book_id = ${bookId}`);
-      await db.query(sql`DELETE FROM book_recommendations WHERE book_id = ${bookId}`);
-      await db.query(sql`DELETE FROM books WHERE id = ${bookId}`);
-    }
-    console.log("🧹 Removido livros antigos de seed e dependências.");
-  } catch (err) {
-    console.error("Erro ao limpar livros seed antigos:", err);
-  }
-
-  // Deletar duplicatas da tabela de livros (mantendo apenas o mais antigo)
-  try {
-    console.log("🧹 Removendo livros duplicados da base de dados (mantendo o mais antigo)...");
-    await db.query(sql`
-      DELETE FROM books
-      WHERE id NOT IN (
-        SELECT b1.id
-        FROM books b1
-        WHERE b1.id = (
-          SELECT b2.id
-          FROM books b2
-          WHERE LOWER(TRIM(b1.title)) = LOWER(TRIM(b2.title))
-            AND LOWER(TRIM(b1.author)) = LOWER(TRIM(b2.author))
-          ORDER BY b2.added_at ASC, b2.id ASC
-          LIMIT 1
-        )
+  // ─── Limpeza de livros duplicados (mantém o mais antigo) ────────────────────
+  await trySql(sql`
+    DELETE FROM books
+    WHERE id NOT IN (
+      SELECT b1.id FROM books b1
+      WHERE b1.id = (
+        SELECT b2.id FROM books b2
+        WHERE LOWER(TRIM(b1.title)) = LOWER(TRIM(b2.title))
+          AND LOWER(TRIM(b1.author)) = LOWER(TRIM(b2.author))
+        ORDER BY b2.added_at ASC, b2.id ASC
+        LIMIT 1
       )
-    `);
-  } catch (err) {
-    console.error("Erro ao limpar livros duplicados:", err);
-  }
+    )
+  `, "limpeza de livros duplicados");
+
+  console.log("✅ Banco pronto — schema, índices e conta Admin garantidos");
 }
 
-// ─── SEED ────────────────────────────────────────────────────────────────────
-
-async function seedData() {
-  const seedBooks = [
-    { id: "1", title: "A Paciente Silenciosa", author: "Alex Michaelides", description: "Alicia Berenson é uma pintora famosa que mata seu marido com cinco tiros no rosto e, desde então, nunca mais disse uma palavra.", genre: "Suspense", rating: 5, review_count: 1243, cover_color: "lavender-mint" },
-    { id: "2", title: "É Assim que Acaba", author: "Colleen Hoover", description: "Lily Bloom está em Boston para realizar seu sonho de abrir sua própria floricultura.", genre: "Romance", rating: 5, review_count: 2156, cover_color: "peach-lavender" },
-    { id: "3", title: "Daisy Jones & The Six", author: "Taylor Jenkins Reid", description: "A ascensão e queda de uma banda de rock icônica dos anos 70, narrada em formato de documentário.", genre: "Ficção", rating: 4, review_count: 987, cover_color: "mint-sky" },
-    { id: "4", title: "Verity", author: "Colleen Hoover", description: "Lowen Ashby aceita terminar a série de sucesso de Verity Crawford. Mas ao revirar os manuscritos, ela encontra um capítulo que nunca deveria ter sido lido.", genre: "Suspense", rating: 5, review_count: 1876, cover_color: "blush-lavender" },
-    { id: "5", title: "O Conto da Aia", author: "Margaret Atwood", description: "Uma distopia poderosa sobre controle e resistência. Em Gilead, mulheres férteis são forçadas a ser Aias.", genre: "Distopia", rating: 5, review_count: 3241, cover_color: "peach-mint" },
-    { id: "6", title: "Mulheres que Correm com os Lobos", author: "Clarissa Pinkola Estés", description: "Uma jornada profunda ao inconsciente feminino através de mitos e contos de fada.", genre: "Autoconhecimento", rating: 4, review_count: 2098, cover_color: "lemon-peach" },
-    { id: "7", title: "O Poder do Hábito", author: "Charles Duhigg", description: "Como os hábitos funcionam e como podemos transformar nossas vidas mudando ciclos de gatilho, rotina e recompensa.", genre: "Desenvolvimento", rating: 4, review_count: 4512, cover_color: "sky-mint" },
-    { id: "8", title: "Sapiens", author: "Yuval Noah Harari", description: "Uma breve história da humanidade que explora como o Homo sapiens se tornou a espécie dominante do planeta.", genre: "História", rating: 5, review_count: 6789, cover_color: "lavender-peach" },
-  ];
-
-  for (const b of seedBooks) {
-    await db.query(sql`INSERT INTO books (id,title,author,description,genre,rating,review_count,is_public,cover_color,added_at,is_user_book) VALUES (${b.id},${b.title},${b.author},${b.description},${b.genre},${b.rating},${b.review_count},1,${b.cover_color},${Date.now()},0)`);
-  }
-
-  const pages = {
-    "1": ["Alicia Berenson tinha trinta e três anos quando matou o marido. Ele se chamava Gabriel Berenson, era fotógrafo de moda.", "Naquela noite de verão em particular, Gabriel voltou para casa mais tarde que o normal. Alicia estava na cozinha.", "Ela se virou e deu cinco tiros no rosto dele. E depois nunca mais falou uma única palavra.", "O silêncio de Alicia era tão ensurdecedor quanto os tiros. Tornou-se mundialmente famosa."],
-    "2": ["Lily Bloom cresceu observando seu pai destruir sua mãe, noite após noite. Ela jurou que nunca se permitiria estar nessa posição.", "Boston parecia um recomeço. Uma floricultura, um apartamento novo, e a sensação de que desta vez seria diferente.", "Ryle Kincaid entrou em sua vida como uma tempestade — bonito, intenso, irresistível.", "O amor não deveria doer. Mas às vezes, quando você ama demais, esquece que merece algo melhor."],
-    "3": ["Todo mundo sabe quem foi Daisy Jones. Todo mundo sabe a música. Mas ninguém sabe realmente o que aconteceu.", "Ela tinha dezoito anos quando o Whisky a Go Go a colocou no palco pela primeira vez.", "Billy Dunne era casado, comprometido, tentando manter sua vida unida enquanto a banda explodia.", "O álbum Aurora foi lançado em 1977. Três meses depois, a banda se desfez para sempre."],
-    "4": ["Eu não devia estar lendo isso. O manuscrito estava escondido entre papéis antigos.", "Verity Crawford era uma autora brilhante. Seu marido, Jeremy, era ainda mais brilhante.", "As páginas descreviam coisas horríveis. Seriam confissões reais ou apenas ficção?", "No fim, nunca mais conseguiria confiar em ninguém da mesma forma."],
-    "5": ["Offred é o nome que me deram. O nome anterior não importa mais.", "Gilead foi construído sobre os escombros dos Estados Unidos. Sobre nós, as mulheres.", "Toda noite, rezo para que isso termine. Todo dia, finjo que acredito que é Deus que quis assim.", "Mas há resistência. Pequena, frágil, perigosíssima."],
-    "6": ["Dentro de cada mulher existe uma vida selvagem. Uma psique instintiva.", "Contamos histórias para curar. Os contos de fada não são apenas entretenimento."],
-    "7": ["Toda manhã, Eugene Pauly acordava sem saber quem era. Mas conseguia fazer o café.", "Os hábitos nunca desaparecem realmente. Ficam gravados nas estruturas do nosso cérebro."],
-    "8": ["Há cerca de 13,5 bilhões de anos, matéria, energia, tempo e espaço surgiram no Big Bang.", "Durante mais de 2 milhões de anos, os humanos foram criaturas sem grande importância.", "A Revolução Cognitiva aconteceu há cerca de 70 mil anos.", "O segredo do sucesso humano é a nossa capacidade de criar e acreditar em ficções."],
-  };
-
-  for (const [bookId, bookPages] of Object.entries(pages)) {
-    for (let i = 0; i < bookPages.length; i++) {
-      await db.query(sql`INSERT INTO book_pages (book_id,page_num,content) VALUES (${bookId},${i},${bookPages[i]})`);
-    }
-  }
-
-  const reviews = [
-    { book_id: "1", username: "Maria", rating: 5, comment: "Impossível parar de ler!" },
-    { book_id: "1", username: "João", rating: 4, comment: "Final surpreendente" },
-    { book_id: "2", username: "Ana", rating: 5, comment: "Chorei muito!" },
-    { book_id: "4", username: "Fernanda", rating: 5, comment: "Não consegui dormir!" },
-    { book_id: "5", username: "Sofia", rating: 5, comment: "Assustadoramente atual" },
-    { book_id: "8", username: "Rafael", rating: 5, comment: "Livro que muda perspectivas" },
-  ];
-
-  for (const r of reviews) {
-    await db.query(sql`INSERT INTO book_reviews (book_id,username,rating,comment) VALUES (${r.book_id},${r.username},${r.rating},${r.comment})`);
-  }
-
-  const progressData = [
-    { book_id: "1", current_page: 1, total_pages: 4, progress: 65, status: "lendo" },
-    { book_id: "2", current_page: 1, total_pages: 4, progress: 42, status: "lendo" },
-    { book_id: "3", current_page: 2, total_pages: 4, progress: 78, status: "lendo" },
-    { book_id: "4", current_page: 3, total_pages: 4, progress: 100, status: "finalizado" },
-    { book_id: "5", current_page: 3, total_pages: 4, progress: 100, status: "finalizado" },
-    { book_id: "6", current_page: 0, total_pages: 2, progress: 23, status: "pausado" },
-    { book_id: "7", current_page: 1, total_pages: 2, progress: 56, status: "pausado" },
-  ];
-
-  for (const p of progressData) {
-    const t = Date.now();
-    await db.query(sql`INSERT INTO reading_progress (book_id,current_page,total_pages,progress,status,started_at,last_read_at) VALUES (${p.book_id},${p.current_page},${p.total_pages},${p.progress},${p.status},${t},${t})`);
-  }
-
-  const notesData = [
-    { id: "n1", book_id: "1", date_label: "10/04", feedback: "Começando... muito interessante", rating: 4 },
-    { id: "n2", book_id: "1", date_label: "15/04", feedback: "Plot twist incrível!", rating: 5 },
-    { id: "n3", book_id: "2", date_label: "08/04", feedback: "Personagens muito reais", rating: 5 },
-  ];
-
-  for (const n of notesData) {
-    await db.query(sql`INSERT INTO notes (id,book_id,date_label,feedback,rating,created_at) VALUES (${n.id},${n.book_id},${n.date_label},${n.feedback},${n.rating},${Date.now()})`);
-  }
-
-  for (const id of ["4", "5"]) {
-    await db.query(sql`INSERT INTO saved_books (book_id,saved_at) VALUES (${id},${Date.now()})`);
-  }
-
-  console.log("✅ Banco de dados populado com dados iniciais");
-}
-
-module.exports = { db, sql, initDB };
+module.exports = { db, sql, initDB, ADMIN_USERNAME };

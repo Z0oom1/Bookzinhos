@@ -47,7 +47,7 @@ async function uploadToS3(buffer, filename, mimetype) {
     ContentType: mimetype
   });
   await s3Client.send(command);
-  
+
   if (process.env.S3_PUBLIC_URL_PREFIX) {
     return `${process.env.S3_PUBLIC_URL_PREFIX}/${filename}`;
   }
@@ -56,40 +56,60 @@ async function uploadToS3(buffer, filename, mimetype) {
 
 async function uploadToSupabase(buffer, filename, mimetype) {
   if (!supabase) throw new Error("Cliente Supabase não está configurado");
-  const { data, error } = await supabase.storage
+  const { error } = await supabase.storage
     .from(BUCKET)
     .upload(filename, buffer, { contentType: mimetype, upsert: true });
-  if (error) throw new Error("Supabase upload error: " + error.message);
-  const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(filename);
-  return urlData.publicUrl;
+  if (error) throw new Error("Erro no upload para o Supabase: " + error.message);
+  const { data } = supabase.storage.from(BUCKET).getPublicUrl(filename);
+  return data.publicUrl;
 }
 
 async function uploadFileToCloud(buffer, filename, mimetype) {
-  if (s3Client) {
-    return await uploadToS3(buffer, filename, mimetype);
-  } else if (supabase) {
-    return await uploadToSupabase(buffer, filename, mimetype);
-  } else {
-    console.log("📂 Usando armazenamento local para upload:", filename);
-    const uploadsDir = path.join(__dirname, "uploads");
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
-    const safeFilename = filename.replace(/\//g, "-");
-    const filePath = path.join(uploadsDir, safeFilename);
-    fs.writeFileSync(filePath, buffer);
-    return `http://localhost:${PORT}/uploads/${safeFilename}`;
-  }
+  if (s3Client) return uploadToS3(buffer, filename, mimetype);
+  if (supabase) return uploadToSupabase(buffer, filename, mimetype);
+
+  // Fallback local (desenvolvimento)
+  const uploadsDir = path.join(__dirname, "uploads");
+  if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+  const safeFilename = filename.replace(/\//g, "-");
+  const filePath = path.join(uploadsDir, safeFilename);
+  fs.writeFileSync(filePath, buffer);
+  return `http://localhost:${PORT}/uploads/${safeFilename}`;
 }
 
 // ─── MIDDLEWARE ───────────────────────────────────────────────────────────────
 app.use(cors({ origin: "*" }));
-app.use(express.json());
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use(express.json({ limit: "2mb" }));
+app.use("/uploads", express.static(path.join(__dirname, "uploads"), { maxAge: "7d" }));
 
-// ─── UPLOAD ───────────────────────────────────────────────────────────────────
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
 
+/** Nome do usuário logado, vindo do header enviado pelo app. */
+function currentUser(req) {
+  const raw = req.headers["x-user-id"];
+  if (!raw || raw === "anonymous") return null;
+  return String(raw);
+}
+
+async function isAdmin(username) {
+  if (!username) return false;
+  const [row] = await db.query(sql`SELECT is_admin FROM users WHERE username = ${username} COLLATE NOCASE`);
+  return !!(row && Number(row.is_admin) === 1);
+}
+
+/** Bloqueia rotas de administração para quem não é Admin. */
+async function requireAdmin(req, res, next) {
+  try {
+    const me = currentUser(req);
+    if (!(await isAdmin(me))) {
+      return res.status(403).json({ error: "Apenas a conta Admin pode fazer isso." });
+    }
+    req.adminUser = me;
+    next();
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+}
 
 // ─── Health ───────────────────────────────────────────────────────────────────
 app.get("/", (_req, res) => {
@@ -112,36 +132,170 @@ function rowToBook(row) {
     author: row.author,
     description: row.description,
     genre: row.genre,
-    rating: row.rating,
-    reviewCount: row.review_count,
+    rating: Number(row.rating) || 0,
+    reviewCount: Number(row.review_count) || 0,
     isPublic: !!row.is_public,
     coverColor: row.cover_color,
-    addedAt: row.added_at,
-    // Supabase URLs are stored as full URLs now
+    addedAt: Number(row.added_at) || 0,
     pdfPath: row.pdf_path || null,
     coverImagePath: row.cover_image_path || null,
     isUserBook: !!row.is_user_book,
   };
 }
 
+/**
+ * Estatísticas de todos os livros em 3 queries agregadas (antes era 2 queries
+ * por livro — o gargalo da listagem). Retorna um mapa bookId -> stats.
+ */
+async function loadBookStats() {
+  const [ratings, pages, readers] = await Promise.all([
+    db.query(sql`SELECT book_id, AVG(rating) as avg_rating, COUNT(*) as cnt FROM book_reviews GROUP BY book_id`),
+    db.query(sql`SELECT book_id, COUNT(*) as cnt FROM book_pages GROUP BY book_id`),
+    db.query(sql`
+      SELECT book_id,
+             COUNT(*) as readers,
+             SUM(CASE WHEN status = 'finalizado' THEN 1 ELSE 0 END) as finished,
+             MAX(last_read_at) as last_read_at
+      FROM reading_progress GROUP BY book_id
+    `),
+  ]);
+
+  const stats = new Map();
+  const slot = (id) => {
+    if (!stats.has(id)) {
+      stats.set(id, { rating: null, reviewCount: 0, pageCount: 0, readers: 0, finished: 0, lastReadAt: 0 });
+    }
+    return stats.get(id);
+  };
+
+  for (const r of ratings) {
+    const s = slot(r.book_id);
+    s.rating = Math.round(Number(r.avg_rating) * 10) / 10;
+    s.reviewCount = Number(r.cnt);
+  }
+  for (const p of pages) slot(p.book_id).pageCount = Number(p.cnt);
+  for (const r of readers) {
+    const s = slot(r.book_id);
+    s.readers = Number(r.readers);
+    s.finished = Number(r.finished);
+    s.lastReadAt = Number(r.last_read_at) || 0;
+  }
+  return stats;
+}
+
+function decorateBook(book, stats) {
+  const s = stats.get(book.id);
+  if (s) {
+    if (s.rating !== null) {
+      book.rating = s.rating;
+      book.reviewCount = s.reviewCount;
+    }
+    book.pageCount = s.pageCount;
+    book.readers = s.readers;
+    book.finishedCount = s.finished;
+    book.lastReadAt = s.lastReadAt;
+  } else {
+    book.pageCount = 0;
+    book.readers = 0;
+    book.finishedCount = 0;
+    book.lastReadAt = 0;
+  }
+  // Popularidade: leitores valem mais que conclusões isoladas, resenhas somam.
+  book.popularity = (book.readers || 0) * 3 + (book.finishedCount || 0) * 2 + (book.reviewCount || 0);
+  return book;
+}
+
+/** Recalcula média/contagem de um livro depois de mexer nas resenhas. */
+async function refreshBookRating(bookId) {
+  const [stats] = await db.query(sql`SELECT AVG(rating) as avg, COUNT(*) as cnt FROM book_reviews WHERE book_id = ${bookId}`);
+  const avg = stats && stats.avg != null ? Math.round(Number(stats.avg) * 10) / 10 : 0;
+  const cnt = stats ? Number(stats.cnt) : 0;
+  await db.query(sql`UPDATE books SET rating = ${avg}, review_count = ${cnt} WHERE id = ${bookId}`);
+  return { rating: avg, reviewCount: cnt };
+}
+
+/** Monta resenhas com autor, curtidas e respostas — sem N+1. */
+async function loadReviews({ bookId = null, username = null, limit = 100, me = null }) {
+  let reviews;
+  if (bookId) {
+    reviews = await db.query(sql`SELECT * FROM book_reviews WHERE book_id = ${bookId} ORDER BY created_at DESC LIMIT ${limit}`);
+  } else if (username) {
+    reviews = await db.query(sql`SELECT * FROM book_reviews WHERE username = ${username} COLLATE NOCASE ORDER BY created_at DESC LIMIT ${limit}`);
+  } else {
+    reviews = await db.query(sql`SELECT * FROM book_reviews ORDER BY created_at DESC LIMIT ${limit}`);
+  }
+  if (reviews.length === 0) return [];
+
+  const ids = reviews.map((r) => Number(r.id));
+  const idList = ids.join(",");
+  const authors = [...new Set(reviews.map((r) => String(r.username).toLowerCase()))];
+
+  const [likeRows, myLikes, commentRows, userRows, bookRows] = await Promise.all([
+    db.query({ text: `SELECT review_id, COUNT(*) as c FROM review_likes WHERE review_id IN (${idList}) GROUP BY review_id`, values: [] }),
+    me
+      ? db.query({ text: `SELECT review_id FROM review_likes WHERE review_id IN (${idList}) AND username = ? COLLATE NOCASE`, values: [me] })
+      : Promise.resolve([]),
+    db.query({ text: `SELECT * FROM review_comments WHERE review_id IN (${idList}) ORDER BY created_at ASC`, values: [] }),
+    db.query(sql`SELECT username, avatar, bio, is_admin FROM users`),
+    bookId
+      ? Promise.resolve([])
+      : db.query(sql`SELECT id, title, author, cover_image_path, cover_color FROM books`),
+  ]);
+
+  const likeCount = new Map(likeRows.map((r) => [Number(r.review_id), Number(r.c)]));
+  const liked = new Set(myLikes.map((r) => Number(r.review_id)));
+  const userMap = new Map(userRows.map((u) => [String(u.username).toLowerCase(), u]));
+  const bookMap = new Map(bookRows.map((b) => [b.id, b]));
+
+  const commentsByReview = new Map();
+  for (const c of commentRows) {
+    const rid = Number(c.review_id);
+    if (!commentsByReview.has(rid)) commentsByReview.set(rid, []);
+    const author = userMap.get(String(c.username).toLowerCase());
+    commentsByReview.get(rid).push({
+      id: Number(c.id),
+      reviewId: rid,
+      username: c.username,
+      avatar: author ? author.avatar : null,
+      content: c.content,
+      createdAt: Number(c.created_at),
+    });
+  }
+
+  return reviews.map((r) => {
+    const id = Number(r.id);
+    const author = userMap.get(String(r.username).toLowerCase());
+    const book = bookMap.get(r.book_id);
+    return {
+      id,
+      bookId: r.book_id,
+      username: r.username,
+      avatar: author ? author.avatar : null,
+      isAdmin: author ? !!Number(author.is_admin) : false,
+      rating: Number(r.rating),
+      comment: r.comment,
+      hasSpoiler: !!Number(r.has_spoiler),
+      createdAt: Number(r.created_at),
+      updatedAt: Number(r.updated_at),
+      likes: likeCount.get(id) || 0,
+      likedByMe: liked.has(id),
+      comments: commentsByReview.get(id) || [],
+      book: book
+        ? { id: book.id, title: book.title, author: book.author, coverImagePath: book.cover_image_path, coverColor: book.cover_color }
+        : undefined,
+    };
+  });
+}
+
 // ─── BOOKS ────────────────────────────────────────────────────────────────────
 
 app.get("/books", async (_req, res) => {
   try {
-    const books = await db.query(sql`SELECT * FROM books ORDER BY added_at DESC`);
-    const result = await Promise.all(books.map(async (b) => {
-      const book = rowToBook(b);
-      const notes = await db.query(sql`SELECT username, rating, feedback as comment FROM notes WHERE book_id = ${b.id}`);
-      if (notes.length > 0) {
-        book.rating = Math.round(notes.reduce((sum, n) => sum + n.rating, 0) / notes.length);
-        book.reviewCount = notes.length;
-      }
-      book.reviews = notes;
-      const [countRow] = await db.query(sql`SELECT COUNT(*) as c FROM book_pages WHERE book_id = ${b.id}`);
-      book.pageCount = Number(countRow.c);
-      return book;
-    }));
-    res.json(result);
+    const [rows, stats] = await Promise.all([
+      db.query(sql`SELECT * FROM books ORDER BY added_at DESC`),
+      loadBookStats(),
+    ]);
+    res.json(rows.map((r) => decorateBook(rowToBook(r), stats)));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -149,18 +303,47 @@ app.get("/books", async (_req, res) => {
 
 app.get("/books/:id", async (req, res) => {
   try {
+    const me = currentUser(req);
     const [row] = await db.query(sql`SELECT * FROM books WHERE id = ${req.params.id}`);
     if (!row) return res.status(404).json({ error: "Livro não encontrado" });
+
     const book = rowToBook(row);
-    const notes = await db.query(sql`SELECT username, rating, feedback as comment FROM notes WHERE book_id = ${row.id}`);
-    if (notes.length > 0) {
-      book.rating = Math.round(notes.reduce((sum, n) => sum + n.rating, 0) / notes.length);
-      book.reviewCount = notes.length;
-    }
-    book.reviews = notes;
-    const pageRows = await db.query(sql`SELECT content FROM book_pages WHERE book_id = ${row.id} ORDER BY page_num`);
+    const [reviews, pageRows, readerRow] = await Promise.all([
+      loadReviews({ bookId: row.id, me }),
+      db.query(sql`SELECT content FROM book_pages WHERE book_id = ${row.id} ORDER BY page_num`),
+      db.query(sql`
+        SELECT COUNT(*) as readers, SUM(CASE WHEN status = 'finalizado' THEN 1 ELSE 0 END) as finished
+        FROM reading_progress WHERE book_id = ${row.id}
+      `),
+    ]);
+
+    book.reviews = reviews;
     book.pages = pageRows.map((r) => r.content);
+    book.pageCount = pageRows.length;
+    book.readers = readerRow[0] ? Number(readerRow[0].readers) || 0 : 0;
+    book.finishedCount = readerRow[0] ? Number(readerRow[0].finished) || 0 : 0;
+    if (reviews.length > 0) {
+      book.rating = Math.round((reviews.reduce((s, r) => s + r.rating, 0) / reviews.length) * 10) / 10;
+      book.reviewCount = reviews.length;
+    }
     res.json(book);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** Registra uma abertura de livro (alimenta o ranking "Mais lidos"). */
+app.post("/books/:id/open", async (req, res) => {
+  try {
+    const me = currentUser(req) || "anonymous";
+    const now = Date.now();
+    const [existing] = await db.query(sql`SELECT opens FROM book_opens WHERE book_id = ${req.params.id} AND username = ${me} COLLATE NOCASE`);
+    if (existing) {
+      await db.query(sql`UPDATE book_opens SET opens = opens + 1, last_open_at = ${now} WHERE book_id = ${req.params.id} AND username = ${me} COLLATE NOCASE`);
+    } else {
+      await db.query(sql`INSERT INTO book_opens (book_id, username, opens, last_open_at) VALUES (${req.params.id}, ${me}, 1, ${now})`);
+    }
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -184,36 +367,19 @@ app.post("/books/presigned-url", async (req, res) => {
       const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
       const { PutObjectCommand } = require("@aws-sdk/client-s3");
 
-      const command = new PutObjectCommand({
-        Bucket: BUCKET,
-        Key: safeName,
-        ContentType: fileType,
-      });
-
+      const command = new PutObjectCommand({ Bucket: BUCKET, Key: safeName, ContentType: fileType });
       const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
 
-      let downloadUrl = "";
-      if (process.env.S3_PUBLIC_URL_PREFIX) {
-        downloadUrl = `${process.env.S3_PUBLIC_URL_PREFIX}/${safeName}`;
-      } else {
-        downloadUrl = `${process.env.S3_ENDPOINT}/${BUCKET}/${safeName}`;
-      }
+      const downloadUrl = process.env.S3_PUBLIC_URL_PREFIX
+        ? `${process.env.S3_PUBLIC_URL_PREFIX}/${safeName}`
+        : `${process.env.S3_ENDPOINT}/${BUCKET}/${safeName}`;
 
       res.json({ uploadUrl, downloadUrl });
     } else if (supabase) {
-      const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .createSignedUploadUrl(safeName);
-
-      if (error) {
-        throw new Error("Erro ao gerar URL assinada do Supabase: " + error.message);
-      }
-
-      const uploadUrl = data.signedUrl;
+      const { data, error } = await supabase.storage.from(BUCKET).createSignedUploadUrl(safeName);
+      if (error) throw new Error("Erro ao gerar URL assinada do Supabase: " + error.message);
       const { data: urlData } = supabase.storage.from(BUCKET).getPublicUrl(safeName);
-      const downloadUrl = urlData.publicUrl;
-
-      res.json({ uploadUrl, downloadUrl });
+      res.json({ uploadUrl: data.signedUrl, downloadUrl: urlData.publicUrl });
     } else {
       res.status(400).json({ error: "Armazenamento em nuvem não configurado para URLs assinadas" });
     }
@@ -228,31 +394,27 @@ app.post("/books", upload.fields([{ name: "pdf", maxCount: 1 }, { name: "cover",
     const { title, author, description, genre, isPublic, coverColor } = req.body;
     if (!title) return res.status(400).json({ error: "Título é obrigatório" });
 
-    // Check duplicate book (same title and author, case-insensitive)
     const [existing] = await db.query(sql`
-      SELECT id FROM books 
-      WHERE LOWER(TRIM(title)) = LOWER(TRIM(${title})) 
+      SELECT id FROM books
+      WHERE LOWER(TRIM(title)) = LOWER(TRIM(${title}))
         AND LOWER(TRIM(author)) = LOWER(TRIM(${author || ""}))
     `);
     if (existing) {
-      return res.status(400).json({ error: "Você já possui um livro com este título e autor!" });
+      return res.status(400).json({ error: "Já existe um livro com este título e autor!" });
     }
 
     const id = `user-${Date.now()}`;
     const pdfFile = req.files?.pdf?.[0];
     const coverFile = req.files?.cover?.[0];
 
-    // Upload via URL pré-assinada
     let pdfUrl = req.body.pdfUrl || null;
     let coverUrl = req.body.coverUrl || null;
 
     if (!pdfUrl && pdfFile) {
-      const pdfName = `pdfs/${id}-${Date.now()}.pdf`;
-      pdfUrl = await uploadFileToCloud(pdfFile.buffer, pdfName, "application/pdf");
+      pdfUrl = await uploadFileToCloud(pdfFile.buffer, `pdfs/${id}-${Date.now()}.pdf`, "application/pdf");
     }
     if (!coverUrl && coverFile) {
-      const coverName = `covers/${id}-${Date.now()}.jpg`;
-      coverUrl = await uploadFileToCloud(coverFile.buffer, coverName, coverFile.mimetype);
+      coverUrl = await uploadFileToCloud(coverFile.buffer, `covers/${id}-${Date.now()}.jpg`, coverFile.mimetype);
     }
 
     await db.query(sql`
@@ -275,14 +437,13 @@ app.put("/books/:id", upload.fields([{ name: "cover", maxCount: 1 }]), async (re
   try {
     const { title, author, description, genre, isPublic, coverColor } = req.body;
     const coverFile = req.files?.cover?.[0];
-    
+
     const [existing] = await db.query(sql`SELECT * FROM books WHERE id = ${req.params.id}`);
     if (!existing) return res.status(404).json({ error: "Livro não encontrado" });
-    
-    let coverUrl = existing.cover_image_path;
+
+    let coverUrl = req.body.coverUrl ?? existing.cover_image_path;
     if (coverFile) {
-      const coverName = `covers/cover-${req.params.id}-${Date.now()}.jpg`;
-      coverUrl = await uploadFileToCloud(coverFile.buffer, coverName, coverFile.mimetype);
+      coverUrl = await uploadFileToCloud(coverFile.buffer, `covers/cover-${req.params.id}-${Date.now()}.jpg`, coverFile.mimetype);
     }
 
     await db.query(sql`
@@ -291,19 +452,19 @@ app.put("/books/:id", upload.fields([{ name: "cover", maxCount: 1 }]), async (re
         author=${author ?? existing.author},
         description=${description ?? existing.description},
         genre=${genre || existing.genre},
-        is_public=${isPublic === "false" ? 0 : 1},
+        is_public=${isPublic === "false" || isPublic === false ? 0 : 1},
         cover_color=${coverColor || existing.cover_color},
         cover_image_path=${coverUrl}
       WHERE id=${req.params.id}
     `);
     const [updated] = await db.query(sql`SELECT * FROM books WHERE id = ${req.params.id}`);
     const book = rowToBook(updated);
-    book.reviews = await db.query(sql`SELECT username, rating, feedback as comment FROM notes WHERE book_id = ${req.params.id}`);
-    book.pages = (await db.query(sql`SELECT content FROM book_pages WHERE book_id = ${req.params.id} ORDER BY page_num`)).map(r => r.content);
+    book.reviews = await loadReviews({ bookId: req.params.id, me: currentUser(req) });
+    book.pages = (await db.query(sql`SELECT content FROM book_pages WHERE book_id = ${req.params.id} ORDER BY page_num`)).map((r) => r.content);
     res.json(book);
-  } catch (err) { 
+  } catch (err) {
     console.error("Error updating book:", err);
-    res.status(500).json({ error: err.message }); 
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -311,49 +472,71 @@ app.post("/books/:id/cover", upload.fields([{ name: "cover", maxCount: 1 }]), as
   try {
     const coverFile = req.files?.cover?.[0];
     if (!coverFile) return res.status(400).json({ error: "Arquivo de capa obrigatório" });
-    
-    const coverName = `covers/cover-${req.params.id}-${Date.now()}.jpg`;
-    const coverUrl = await uploadFileToCloud(coverFile.buffer, coverName, coverFile.mimetype);
 
+    const coverUrl = await uploadFileToCloud(coverFile.buffer, `covers/cover-${req.params.id}-${Date.now()}.jpg`, coverFile.mimetype);
     await db.query(sql`UPDATE books SET cover_image_path=${coverUrl} WHERE id=${req.params.id}`);
     res.json({ coverImagePath: coverUrl });
-  } catch (err) { 
+  } catch (err) {
     console.error("Error uploading cover:", err);
-    res.status(500).json({ error: err.message }); 
+    res.status(500).json({ error: err.message });
   }
 });
 
 app.delete("/books/:id", async (req, res) => {
   try {
-    const [row] = await db.query(sql`SELECT pdf_path, cover_image_path FROM books WHERE id = ${req.params.id}`);
+    const id = req.params.id;
+    const [row] = await db.query(sql`SELECT pdf_path, cover_image_path FROM books WHERE id = ${id}`);
     if (!row) return res.status(404).json({ error: "Livro não encontrado" });
-    if (row.pdf_path && fs.existsSync(row.pdf_path)) fs.unlinkSync(row.pdf_path);
-    if (row.cover_image_path && fs.existsSync(row.cover_image_path)) fs.unlinkSync(row.cover_image_path);
-    
+    if (row.pdf_path && !row.pdf_path.startsWith("http") && fs.existsSync(row.pdf_path)) fs.unlinkSync(row.pdf_path);
+    if (row.cover_image_path && !row.cover_image_path.startsWith("http") && fs.existsSync(row.cover_image_path)) fs.unlinkSync(row.cover_image_path);
+
     // Cascata explícita para compatibilidade com Turso/SQLite
-    await db.query(sql`DELETE FROM book_pages WHERE book_id = ${req.params.id}`);
-    await db.query(sql`DELETE FROM book_reviews WHERE book_id = ${req.params.id}`);
-    await db.query(sql`DELETE FROM reading_progress WHERE book_id = ${req.params.id}`);
-    await db.query(sql`DELETE FROM notes WHERE book_id = ${req.params.id}`);
-    await db.query(sql`DELETE FROM saved_books WHERE book_id = ${req.params.id}`);
-    await db.query(sql`DELETE FROM book_recommendations WHERE book_id = ${req.params.id}`);
-    await db.query(sql`DELETE FROM book_chapters WHERE book_id = ${req.params.id}`);
-    await db.query(sql`DELETE FROM books WHERE id = ${req.params.id}`);
-    
+    await db.query(sql`DELETE FROM review_likes WHERE review_id IN (SELECT id FROM book_reviews WHERE book_id = ${id})`);
+    await db.query(sql`DELETE FROM review_comments WHERE review_id IN (SELECT id FROM book_reviews WHERE book_id = ${id})`);
+    await db.query(sql`DELETE FROM book_pages WHERE book_id = ${id}`);
+    await db.query(sql`DELETE FROM book_reviews WHERE book_id = ${id}`);
+    await db.query(sql`DELETE FROM reading_progress WHERE book_id = ${id}`);
+    await db.query(sql`DELETE FROM notes WHERE book_id = ${id}`);
+    await db.query(sql`DELETE FROM saved_books WHERE book_id = ${id}`);
+    await db.query(sql`DELETE FROM book_recommendations WHERE book_id = ${id}`);
+    await db.query(sql`DELETE FROM book_chapters WHERE book_id = ${id}`);
+    await db.query(sql`DELETE FROM book_opens WHERE book_id = ${id}`);
+    await db.query(sql`DELETE FROM books WHERE id = ${id}`);
+
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ─── AUTH ───────────────────────────────────────────────────────────────────────
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+
+function publicUser(user) {
+  return {
+    username: user.username,
+    bio: user.bio,
+    avatar: user.avatar,
+    shelf: user.shelf ? safeParse(user.shelf) : [],
+    pandinhas: Number(user.pandinhas) || 0,
+    isAdmin: !!Number(user.is_admin),
+  };
+}
+
+function safeParse(value) {
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 app.post("/auth/login", async (req, res) => {
   try {
     const { username, password } = req.body;
     const [user] = await db.query(sql`SELECT * FROM users WHERE username = ${username} COLLATE NOCASE AND password = ${password}`);
     if (!user) return res.status(401).json({ error: "Usuário ou senha incorretos." });
-    res.json({ username: user.username, bio: user.bio, avatar: user.avatar, shelf: user.shelf ? JSON.parse(user.shelf) : [] });
+    res.json(publicUser(user));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -363,10 +546,12 @@ app.post("/auth/register", async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: "Usuário e senha são obrigatórios." });
-    const [existing] = await db.query(sql`SELECT * FROM users WHERE username = ${username} COLLATE NOCASE`);
+    if (username.trim().length < 2) return res.status(400).json({ error: "O nome precisa de pelo menos 2 letras." });
+    const [existing] = await db.query(sql`SELECT 1 FROM users WHERE username = ${username} COLLATE NOCASE`);
     if (existing) return res.status(400).json({ error: "Este usuário já existe." });
-    await db.query(sql`INSERT INTO users (username, password, bio, avatar) VALUES (${username}, ${password}, 'Apaixonada por histórias que transformam', '🐼')`);
-    res.status(201).json({ username, bio: 'Apaixonada por histórias que transformam', avatar: '🐼', shelf: [] });
+    const bio = "Novo leitor por aqui ✨";
+    await db.query(sql`INSERT INTO users (username, password, bio, avatar, pandinhas, is_admin, created_at) VALUES (${username}, ${password}, ${bio}, '🐼', 0, 0, ${Date.now()})`);
+    res.status(201).json({ username, bio, avatar: "🐼", shelf: [], pandinhas: 0, isAdmin: false });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -375,41 +560,628 @@ app.post("/auth/register", async (req, res) => {
 app.put("/auth/me", async (req, res) => {
   try {
     const { bio, avatar, shelf } = req.body;
-    const username = req.headers['x-user-id'];
+    const username = currentUser(req);
     if (!username) return res.status(401).json({ error: "Não autorizado" });
-    await db.query(sql`UPDATE users SET bio=${bio}, avatar=${avatar}, shelf=${JSON.stringify(shelf)} WHERE username=${username} COLLATE NOCASE`);
+    await db.query(sql`UPDATE users SET bio=${bio}, avatar=${avatar}, shelf=${JSON.stringify(shelf || [])} WHERE username=${username} COLLATE NOCASE`);
+    const [user] = await db.query(sql`SELECT * FROM users WHERE username = ${username} COLLATE NOCASE`);
+    res.json(publicUser(user));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── USUÁRIOS / PERFIS ────────────────────────────────────────────────────────
+
+/** Lista de leitores com contadores sociais — usada na aba Social. */
+app.get("/users", async (req, res) => {
+  try {
+    const me = currentUser(req);
+    const [rows, followRows, reviewRows, finishedRows, myFollowing] = await Promise.all([
+      db.query(sql`SELECT username, bio, avatar, pandinhas, is_admin FROM users`),
+      db.query(sql`SELECT following, COUNT(*) as c FROM follows GROUP BY following`),
+      db.query(sql`SELECT username, COUNT(*) as c FROM book_reviews GROUP BY username`),
+      db.query(sql`SELECT username, COUNT(*) as c FROM reading_progress WHERE status = 'finalizado' GROUP BY username`),
+      me ? db.query(sql`SELECT following FROM follows WHERE follower = ${me} COLLATE NOCASE`) : Promise.resolve([]),
+    ]);
+
+    const followers = new Map(followRows.map((r) => [String(r.following).toLowerCase(), Number(r.c)]));
+    const reviews = new Map(reviewRows.map((r) => [String(r.username).toLowerCase(), Number(r.c)]));
+    const finished = new Map(finishedRows.map((r) => [String(r.username).toLowerCase(), Number(r.c)]));
+    const following = new Set(myFollowing.map((r) => String(r.following).toLowerCase()));
+
+    res.json(rows.map((u) => {
+      const key = String(u.username).toLowerCase();
+      return {
+        username: u.username,
+        bio: u.bio,
+        avatar: u.avatar,
+        pandinhas: Number(u.pandinhas) || 0,
+        isAdmin: !!Number(u.is_admin),
+        followers: followers.get(key) || 0,
+        reviewCount: reviews.get(key) || 0,
+        finishedCount: finished.get(key) || 0,
+        isFollowedByMe: following.has(key),
+      };
+    }));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/users/:username", async (req, res) => {
+  try {
+    const me = currentUser(req);
+    const target = req.params.username;
+    const [row] = await db.query(sql`SELECT * FROM users WHERE username = ${target} COLLATE NOCASE`);
+    if (!row) return res.status(404).json({ error: "Usuário não encontrado" });
+
+    const [followerRows, followingRows, reviews, progressRows, savedRows, meFollows] = await Promise.all([
+      db.query(sql`SELECT follower FROM follows WHERE following = ${target} COLLATE NOCASE`),
+      db.query(sql`SELECT following FROM follows WHERE follower = ${target} COLLATE NOCASE`),
+      loadReviews({ username: target, me, limit: 30 }),
+      db.query(sql`SELECT book_id, status, progress, last_read_at FROM reading_progress WHERE username = ${target} COLLATE NOCASE`),
+      db.query(sql`SELECT book_id FROM saved_books WHERE username = ${target} COLLATE NOCASE ORDER BY saved_at DESC`),
+      me ? db.query(sql`SELECT 1 FROM follows WHERE follower = ${me} COLLATE NOCASE AND following = ${target} COLLATE NOCASE`) : Promise.resolve([]),
+    ]);
+
+    const profile = publicUser(row);
+    profile.followers = followerRows.length;
+    profile.following = followingRows.length;
+    profile.followerNames = followerRows.map((r) => r.follower);
+    profile.followingNames = followingRows.map((r) => r.following);
+    profile.isFollowedByMe = meFollows.length > 0;
+    profile.reviews = reviews;
+    profile.savedIds = savedRows.map((r) => r.book_id);
+    profile.reading = progressRows.filter((p) => p.status === "lendo").map((p) => p.book_id);
+    profile.finishedIds = progressRows.filter((p) => p.status === "finalizado").map((p) => p.book_id);
+    profile.stats = {
+      finished: profile.finishedIds.length,
+      reading: profile.reading.length,
+      reviews: reviews.length,
+      saved: profile.savedIds.length,
+    };
+    res.json(profile);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/users/:username/follow", async (req, res) => {
+  try {
+    const me = currentUser(req);
+    const target = req.params.username;
+    if (!me) return res.status(401).json({ error: "Entre na sua conta para seguir leitores." });
+    if (me.toLowerCase() === target.toLowerCase()) return res.status(400).json({ error: "Você não pode seguir a si mesmo." });
+    const [exists] = await db.query(sql`SELECT 1 FROM users WHERE username = ${target} COLLATE NOCASE`);
+    if (!exists) return res.status(404).json({ error: "Usuário não encontrado" });
+    await db.query(sql`INSERT OR IGNORE INTO follows (follower, following, created_at) VALUES (${me}, ${target}, ${Date.now()})`);
+    const [count] = await db.query(sql`SELECT COUNT(*) as c FROM follows WHERE following = ${target} COLLATE NOCASE`);
+    res.json({ following: true, followers: Number(count.c) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/users/:username/follow", async (req, res) => {
+  try {
+    const me = currentUser(req);
+    const target = req.params.username;
+    if (!me) return res.status(401).json({ error: "Não autorizado" });
+    await db.query(sql`DELETE FROM follows WHERE follower = ${me} COLLATE NOCASE AND following = ${target} COLLATE NOCASE`);
+    const [count] = await db.query(sql`SELECT COUNT(*) as c FROM follows WHERE following = ${target} COLLATE NOCASE`);
+    res.json({ following: false, followers: Number(count.c) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── RESENHAS (nota + comentário público) ─────────────────────────────────────
+
+app.get("/books/:id/reviews", async (req, res) => {
+  try {
+    res.json(await loadReviews({ bookId: req.params.id, me: currentUser(req) }));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** Cria ou atualiza a resenha do usuário logado (uma por livro). */
+app.post("/books/:id/reviews", async (req, res) => {
+  try {
+    const me = currentUser(req) || req.body.username;
+    const { rating, comment, hasSpoiler } = req.body;
+    if (!me) return res.status(401).json({ error: "Entre na sua conta para avaliar." });
+    if (rating == null) return res.status(400).json({ error: "Escolha uma nota de 1 a 5." });
+
+    const text = (comment || "").trim();
+    const now = Date.now();
+    const bookId = req.params.id;
+
+    const [existing] = await db.query(sql`SELECT id FROM book_reviews WHERE book_id = ${bookId} AND username = ${me} COLLATE NOCASE`);
+    if (existing) {
+      await db.query(sql`
+        UPDATE book_reviews SET rating = ${Number(rating)}, comment = ${text}, has_spoiler = ${hasSpoiler ? 1 : 0}, updated_at = ${now}
+        WHERE id = ${existing.id}
+      `);
+    } else {
+      await db.query(sql`
+        INSERT INTO book_reviews (book_id, username, rating, comment, has_spoiler, created_at, updated_at)
+        VALUES (${bookId}, ${me}, ${Number(rating)}, ${text}, ${hasSpoiler ? 1 : 0}, ${now}, ${now})
+      `);
+    }
+
+    const stats = await refreshBookRating(bookId);
+    const reviews = await loadReviews({ bookId, me });
+    res.status(201).json({ ...stats, reviews });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/reviews/:reviewId", async (req, res) => {
+  try {
+    const me = currentUser(req);
+    const id = Number(req.params.reviewId);
+    const [review] = await db.query(sql`SELECT * FROM book_reviews WHERE id = ${id}`);
+    if (!review) return res.status(404).json({ error: "Resenha não encontrada" });
+
+    const admin = await isAdmin(me);
+    if (!admin && String(review.username).toLowerCase() !== String(me || "").toLowerCase()) {
+      return res.status(403).json({ error: "Você só pode apagar a sua própria resenha." });
+    }
+
+    await db.query(sql`DELETE FROM review_likes WHERE review_id = ${id}`);
+    await db.query(sql`DELETE FROM review_comments WHERE review_id = ${id}`);
+    await db.query(sql`DELETE FROM book_reviews WHERE id = ${id}`);
+    const stats = await refreshBookRating(review.book_id);
+    res.json({ ok: true, ...stats });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/reviews/:reviewId/like", async (req, res) => {
+  try {
+    const me = currentUser(req);
+    const id = Number(req.params.reviewId);
+    if (!me) return res.status(401).json({ error: "Entre na sua conta para curtir." });
+    const [liked] = await db.query(sql`SELECT 1 FROM review_likes WHERE review_id = ${id} AND username = ${me} COLLATE NOCASE`);
+    if (liked) {
+      await db.query(sql`DELETE FROM review_likes WHERE review_id = ${id} AND username = ${me} COLLATE NOCASE`);
+    } else {
+      await db.query(sql`INSERT OR IGNORE INTO review_likes (review_id, username, created_at) VALUES (${id}, ${me}, ${Date.now()})`);
+    }
+    const [count] = await db.query(sql`SELECT COUNT(*) as c FROM review_likes WHERE review_id = ${id}`);
+    res.json({ likes: Number(count.c), likedByMe: !liked });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/reviews/:reviewId/comments", async (req, res) => {
+  try {
+    const me = currentUser(req);
+    const id = Number(req.params.reviewId);
+    const content = (req.body.content || "").trim();
+    if (!me) return res.status(401).json({ error: "Entre na sua conta para responder." });
+    if (!content) return res.status(400).json({ error: "Escreva alguma coisa 🙂" });
+
+    const [review] = await db.query(sql`SELECT id FROM book_reviews WHERE id = ${id}`);
+    if (!review) return res.status(404).json({ error: "Resenha não encontrada" });
+
+    await db.query(sql`INSERT INTO review_comments (review_id, username, content, created_at) VALUES (${id}, ${me}, ${content}, ${Date.now()})`);
+    const rows = await db.query(sql`SELECT * FROM review_comments WHERE review_id = ${id} ORDER BY created_at ASC`);
+    const [user] = await db.query(sql`SELECT avatar FROM users WHERE username = ${me} COLLATE NOCASE`);
+    res.status(201).json(rows.map((c) => ({
+      id: Number(c.id),
+      reviewId: id,
+      username: c.username,
+      avatar: String(c.username).toLowerCase() === me.toLowerCase() && user ? user.avatar : null,
+      content: c.content,
+      createdAt: Number(c.created_at),
+    })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/reviews/:reviewId/comments/:commentId", async (req, res) => {
+  try {
+    const me = currentUser(req);
+    const commentId = Number(req.params.commentId);
+    const [comment] = await db.query(sql`SELECT * FROM review_comments WHERE id = ${commentId}`);
+    if (!comment) return res.status(404).json({ error: "Comentário não encontrado" });
+    const admin = await isAdmin(me);
+    if (!admin && String(comment.username).toLowerCase() !== String(me || "").toLowerCase()) {
+      return res.status(403).json({ error: "Você só pode apagar o seu comentário." });
+    }
+    await db.query(sql`DELETE FROM review_comments WHERE id = ${commentId}`);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ─── SOCIAL & CHAT ────────────────────────────────────────────────────────────
+// ─── BANNERS (Admin) ──────────────────────────────────────────────────────────
 
-app.get("/users", async (req, res) => {
+function rowToBanner(r) {
+  return {
+    id: Number(r.id),
+    title: r.title || "",
+    subtitle: r.subtitle || "",
+    imageUrl: r.image_url || null,
+    linkUrl: r.link_url || null,
+    bookId: r.book_id || null,
+    sortOrder: Number(r.sort_order) || 0,
+    isActive: !!Number(r.is_active),
+    createdAt: Number(r.created_at),
+  };
+}
+
+app.get("/banners", async (req, res) => {
   try {
-    const rows = await db.query(sql`SELECT username, bio, avatar, pandinhas FROM users`);
-    res.json(rows);
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const all = req.query.all === "true" && (await isAdmin(currentUser(req)));
+    const rows = all
+      ? await db.query(sql`SELECT * FROM banners ORDER BY sort_order ASC, id DESC`)
+      : await db.query(sql`SELECT * FROM banners WHERE is_active = 1 ORDER BY sort_order ASC, id DESC`);
+    res.json(rows.map(rowToBanner));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.get("/users/:username", async (req, res) => {
+app.post("/banners", requireAdmin, upload.single("image"), async (req, res) => {
   try {
-    const [row] = await db.query(sql`SELECT username, bio, avatar, shelf, pandinhas FROM users WHERE username = ${req.params.username} COLLATE NOCASE`);
-    if (!row) return res.status(404).json({ error: "Usuário não encontrado" });
-    res.json({ username: row.username, bio: row.bio, avatar: row.avatar, shelf: row.shelf ? JSON.parse(row.shelf) : [], pandinhas: row.pandinhas });
-  } catch (err) { res.status(500).json({ error: err.message }); }
+    const { title, subtitle, linkUrl, bookId, sortOrder } = req.body;
+    let imageUrl = req.body.imageUrl || null;
+    if (req.file) {
+      imageUrl = await uploadFileToCloud(req.file.buffer, `banners/banner-${Date.now()}.jpg`, req.file.mimetype);
+    }
+    if (!imageUrl && !title) return res.status(400).json({ error: "Envie uma imagem ou escreva um título." });
+
+    const now = Date.now();
+    await db.query(sql`
+      INSERT INTO banners (title, subtitle, image_url, link_url, book_id, sort_order, is_active, created_at, updated_at)
+      VALUES (${title || ""}, ${subtitle || ""}, ${imageUrl}, ${linkUrl || null}, ${bookId || null}, ${Number(sortOrder) || 0}, 1, ${now}, ${now})
+    `);
+    const [row] = await db.query(sql`SELECT * FROM banners ORDER BY id DESC LIMIT 1`);
+    res.status(201).json(rowToBanner(row));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
+
+app.put("/banners/:id", requireAdmin, upload.single("image"), async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [existing] = await db.query(sql`SELECT * FROM banners WHERE id = ${id}`);
+    if (!existing) return res.status(404).json({ error: "Banner não encontrado" });
+
+    let imageUrl = req.body.imageUrl !== undefined ? req.body.imageUrl : existing.image_url;
+    if (req.file) {
+      imageUrl = await uploadFileToCloud(req.file.buffer, `banners/banner-${id}-${Date.now()}.jpg`, req.file.mimetype);
+    }
+    const { title, subtitle, linkUrl, bookId, sortOrder, isActive } = req.body;
+
+    await db.query(sql`
+      UPDATE banners SET
+        title = ${title ?? existing.title},
+        subtitle = ${subtitle ?? existing.subtitle},
+        image_url = ${imageUrl},
+        link_url = ${linkUrl ?? existing.link_url},
+        book_id = ${bookId ?? existing.book_id},
+        sort_order = ${sortOrder != null ? Number(sortOrder) : existing.sort_order},
+        is_active = ${isActive != null ? (isActive === "false" || isActive === false ? 0 : 1) : existing.is_active},
+        updated_at = ${Date.now()}
+      WHERE id = ${id}
+    `);
+    const [row] = await db.query(sql`SELECT * FROM banners WHERE id = ${id}`);
+    res.json(rowToBanner(row));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/banners/:id", requireAdmin, async (req, res) => {
+  try {
+    await db.query(sql`DELETE FROM banners WHERE id = ${Number(req.params.id)}`);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── POSTAGENS DA HOME (Admin) ────────────────────────────────────────────────
+
+async function decoratePosts(rows, me) {
+  if (rows.length === 0) return [];
+  const ids = rows.map((r) => Number(r.id)).join(",");
+  const [likeRows, myLikes, users] = await Promise.all([
+    db.query({ text: `SELECT post_id, COUNT(*) as c FROM post_likes WHERE post_id IN (${ids}) GROUP BY post_id`, values: [] }),
+    me ? db.query({ text: `SELECT post_id FROM post_likes WHERE post_id IN (${ids}) AND username = ? COLLATE NOCASE`, values: [me] }) : Promise.resolve([]),
+    db.query(sql`SELECT username, avatar FROM users`),
+  ]);
+  const likes = new Map(likeRows.map((r) => [Number(r.post_id), Number(r.c)]));
+  const liked = new Set(myLikes.map((r) => Number(r.post_id)));
+  const avatars = new Map(users.map((u) => [String(u.username).toLowerCase(), u.avatar]));
+
+  return rows.map((r) => ({
+    id: Number(r.id),
+    author: r.author,
+    avatar: avatars.get(String(r.author).toLowerCase()) || "🐶",
+    title: r.title || "",
+    content: r.content || "",
+    imageUrl: r.image_url || null,
+    bookId: r.book_id || null,
+    isPinned: !!Number(r.is_pinned),
+    isActive: !!Number(r.is_active),
+    createdAt: Number(r.created_at),
+    likes: likes.get(Number(r.id)) || 0,
+    likedByMe: liked.has(Number(r.id)),
+  }));
+}
+
+app.get("/posts", async (req, res) => {
+  try {
+    const me = currentUser(req);
+    const all = req.query.all === "true" && (await isAdmin(me));
+    const rows = all
+      ? await db.query(sql`SELECT * FROM home_posts ORDER BY is_pinned DESC, created_at DESC`)
+      : await db.query(sql`SELECT * FROM home_posts WHERE is_active = 1 ORDER BY is_pinned DESC, created_at DESC LIMIT 30`);
+    res.json(await decoratePosts(rows, me));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/posts", requireAdmin, upload.single("image"), async (req, res) => {
+  try {
+    const { title, content, bookId, isPinned } = req.body;
+    let imageUrl = req.body.imageUrl || null;
+    if (req.file) {
+      imageUrl = await uploadFileToCloud(req.file.buffer, `posts/post-${Date.now()}.jpg`, req.file.mimetype);
+    }
+    if (!title && !content && !imageUrl) return res.status(400).json({ error: "A postagem está vazia." });
+
+    const now = Date.now();
+    await db.query(sql`
+      INSERT INTO home_posts (author, title, content, image_url, book_id, is_pinned, is_active, created_at, updated_at)
+      VALUES (${req.adminUser}, ${title || ""}, ${content || ""}, ${imageUrl}, ${bookId || null}, ${isPinned === "true" || isPinned === true ? 1 : 0}, 1, ${now}, ${now})
+    `);
+    const rows = await db.query(sql`SELECT * FROM home_posts ORDER BY id DESC LIMIT 1`);
+    const [post] = await decoratePosts(rows, req.adminUser);
+    res.status(201).json(post);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put("/posts/:id", requireAdmin, upload.single("image"), async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [existing] = await db.query(sql`SELECT * FROM home_posts WHERE id = ${id}`);
+    if (!existing) return res.status(404).json({ error: "Postagem não encontrada" });
+
+    let imageUrl = req.body.imageUrl !== undefined ? req.body.imageUrl : existing.image_url;
+    if (req.file) {
+      imageUrl = await uploadFileToCloud(req.file.buffer, `posts/post-${id}-${Date.now()}.jpg`, req.file.mimetype);
+    }
+    const { title, content, bookId, isPinned, isActive } = req.body;
+    const truthy = (v, fallback) => (v == null ? fallback : v === "true" || v === true ? 1 : 0);
+
+    await db.query(sql`
+      UPDATE home_posts SET
+        title = ${title ?? existing.title},
+        content = ${content ?? existing.content},
+        image_url = ${imageUrl},
+        book_id = ${bookId ?? existing.book_id},
+        is_pinned = ${truthy(isPinned, existing.is_pinned)},
+        is_active = ${truthy(isActive, existing.is_active)},
+        updated_at = ${Date.now()}
+      WHERE id = ${id}
+    `);
+    const rows = await db.query(sql`SELECT * FROM home_posts WHERE id = ${id}`);
+    const [post] = await decoratePosts(rows, req.adminUser);
+    res.json(post);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete("/posts/:id", requireAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    await db.query(sql`DELETE FROM post_likes WHERE post_id = ${id}`);
+    await db.query(sql`DELETE FROM home_posts WHERE id = ${id}`);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/posts/:id/like", async (req, res) => {
+  try {
+    const me = currentUser(req);
+    const id = Number(req.params.id);
+    if (!me) return res.status(401).json({ error: "Entre na sua conta para curtir." });
+    const [liked] = await db.query(sql`SELECT 1 FROM post_likes WHERE post_id = ${id} AND username = ${me} COLLATE NOCASE`);
+    if (liked) {
+      await db.query(sql`DELETE FROM post_likes WHERE post_id = ${id} AND username = ${me} COLLATE NOCASE`);
+    } else {
+      await db.query(sql`INSERT OR IGNORE INTO post_likes (post_id, username, created_at) VALUES (${id}, ${me}, ${Date.now()})`);
+    }
+    const [count] = await db.query(sql`SELECT COUNT(*) as c FROM post_likes WHERE post_id = ${id}`);
+    res.json({ likes: Number(count.c), likedByMe: !liked });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── HOME AGREGADA ────────────────────────────────────────────────────────────
+// Uma única chamada monta a home inteira: antes eram 4+ requisições em paralelo
+// e mais uma rodada de N+1 no /books.
+app.get("/home", async (req, res) => {
+  try {
+    const me = currentUser(req);
+    const [bookRows, stats, bannerRows, postRows, statusRow, myProgress, savedRows, openRows] = await Promise.all([
+      db.query(sql`SELECT * FROM books ORDER BY added_at DESC`),
+      loadBookStats(),
+      db.query(sql`SELECT * FROM banners WHERE is_active = 1 ORDER BY sort_order ASC, id DESC`),
+      db.query(sql`SELECT * FROM home_posts WHERE is_active = 1 ORDER BY is_pinned DESC, created_at DESC LIMIT 10`),
+      db.query(sql`SELECT * FROM global_status WHERE id = 1`),
+      me ? db.query(sql`SELECT * FROM reading_progress WHERE username = ${me} COLLATE NOCASE`) : Promise.resolve([]),
+      me ? db.query(sql`SELECT book_id FROM saved_books WHERE username = ${me} COLLATE NOCASE ORDER BY saved_at DESC`) : Promise.resolve([]),
+      db.query(sql`SELECT book_id, SUM(opens) as opens FROM book_opens GROUP BY book_id`),
+    ]);
+
+    const opens = new Map(openRows.map((r) => [r.book_id, Number(r.opens)]));
+    const books = bookRows.map((r) => {
+      const book = decorateBook(rowToBook(r), stats);
+      book.opens = opens.get(book.id) || 0;
+      book.popularity += book.opens;
+      return book;
+    });
+
+    const mostRead = [...books]
+      .filter((b) => b.popularity > 0)
+      .sort((a, b) => b.popularity - a.popularity)
+      .slice(0, 12);
+
+    const topRated = [...books]
+      .filter((b) => b.reviewCount > 0)
+      .sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount)
+      .slice(0, 12);
+
+    const recent = books.slice(0, 12);
+
+    const progress = myProgress.map((r) => ({
+      bookId: r.book_id,
+      currentPage: Number(r.current_page),
+      totalPages: Number(r.total_pages),
+      progress: Number(r.progress),
+      status: r.status,
+      startedAt: Number(r.started_at),
+      lastReadAt: Number(r.last_read_at),
+    }));
+
+    const recentReviews = await loadReviews({ limit: 8, me });
+
+    res.json({
+      books,
+      mostRead,
+      topRated,
+      recent,
+      banners: bannerRows.map(rowToBanner),
+      posts: await decoratePosts(postRows, me),
+      status: statusRow[0] || null,
+      progress,
+      savedIds: savedRows.map((r) => r.book_id),
+      recentReviews,
+      isAdmin: await isAdmin(me),
+    });
+  } catch (err) {
+    console.error("[Home]", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── FEED SOCIAL ──────────────────────────────────────────────────────────────
+// Atividade da rede: resenhas recentes + livros concluídos + livros novos.
+app.get("/feed", async (req, res) => {
+  try {
+    const me = currentUser(req);
+    const scope = req.query.scope === "following" ? "following" : "all";
+
+    let allowed = null;
+    if (scope === "following" && me) {
+      const rows = await db.query(sql`SELECT following FROM follows WHERE follower = ${me} COLLATE NOCASE`);
+      allowed = new Set(rows.map((r) => String(r.following).toLowerCase()));
+      allowed.add(me.toLowerCase());
+    }
+
+    const [reviews, finished, reading, newBooks, users, bookRows] = await Promise.all([
+      loadReviews({ limit: 40, me }),
+      db.query(sql`
+        SELECT username, book_id, last_read_at FROM reading_progress
+        WHERE status = 'finalizado' ORDER BY last_read_at DESC LIMIT 40
+      `),
+      // Quem está lendo agora — alimenta o trilho "Atividade recente".
+      db.query(sql`
+        SELECT username, book_id, progress, last_read_at FROM reading_progress
+        WHERE status = 'lendo' ORDER BY last_read_at DESC LIMIT 30
+      `),
+      db.query(sql`SELECT id, title, author, cover_image_path, cover_color, added_at FROM books ORDER BY added_at DESC LIMIT 10`),
+      db.query(sql`SELECT username, avatar FROM users`),
+      db.query(sql`SELECT id, title, author, cover_image_path, cover_color FROM books`),
+    ]);
+
+    const avatars = new Map(users.map((u) => [String(u.username).toLowerCase(), u.avatar]));
+    const bookMap = new Map(bookRows.map((b) => [b.id, {
+      id: b.id, title: b.title, author: b.author, coverImagePath: b.cover_image_path, coverColor: b.cover_color,
+    }]));
+
+    const items = [];
+
+    for (const r of reviews) {
+      if (allowed && !allowed.has(String(r.username).toLowerCase())) continue;
+      items.push({ type: "review", id: `review-${r.id}`, createdAt: r.createdAt, username: r.username, avatar: r.avatar, review: r, book: r.book });
+    }
+
+    for (const f of finished) {
+      if (allowed && !allowed.has(String(f.username).toLowerCase())) continue;
+      const book = bookMap.get(f.book_id);
+      if (!book) continue;
+      items.push({
+        type: "finished",
+        id: `finished-${f.username}-${f.book_id}`,
+        createdAt: Number(f.last_read_at),
+        username: f.username,
+        avatar: avatars.get(String(f.username).toLowerCase()) || "🐼",
+        book,
+      });
+    }
+
+    for (const r of reading) {
+      if (allowed && !allowed.has(String(r.username).toLowerCase())) continue;
+      const book = bookMap.get(r.book_id);
+      if (!book) continue;
+      items.push({
+        type: "reading",
+        id: `reading-${r.username}-${r.book_id}`,
+        createdAt: Number(r.last_read_at),
+        username: r.username,
+        avatar: avatars.get(String(r.username).toLowerCase()) || "🐼",
+        progress: Math.round(Number(r.progress) || 0),
+        book,
+      });
+    }
+
+    if (scope === "all") {
+      for (const b of newBooks) {
+        items.push({
+          type: "new-book",
+          id: `book-${b.id}`,
+          createdAt: Number(b.added_at),
+          book: { id: b.id, title: b.title, author: b.author, coverImagePath: b.cover_image_path, coverColor: b.cover_color },
+        });
+      }
+    }
+
+    items.sort((a, b) => b.createdAt - a.createdAt);
+    res.json(items.slice(0, 50));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── CHAT ─────────────────────────────────────────────────────────────────────
 
 app.get("/chat/:otherUser", async (req, res) => {
   try {
-    const me = req.headers['x-user-id'];
+    const me = currentUser(req);
     const other = req.params.otherUser;
     const messages = await db.query(sql`SELECT * FROM chat_messages WHERE (sender = ${me} COLLATE NOCASE AND receiver = ${other} COLLATE NOCASE) OR (sender = ${other} COLLATE NOCASE AND receiver = ${me} COLLATE NOCASE) ORDER BY created_at ASC`);
-    
-    // Marcar como lidas
     await db.query(sql`UPDATE chat_messages SET is_read = 1 WHERE receiver = ${me} COLLATE NOCASE AND sender = ${other} COLLATE NOCASE AND is_read = 0`);
-    
     const [nick] = await db.query(sql`SELECT nickname FROM nicknames WHERE from_user = ${me} COLLATE NOCASE AND to_user = ${other} COLLATE NOCASE`);
     res.json({ messages, nickname: nick ? nick.nickname : null });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -417,12 +1189,12 @@ app.get("/chat/:otherUser", async (req, res) => {
 
 app.post("/chat/:otherUser", async (req, res) => {
   try {
-    const me = req.headers['x-user-id'];
+    const me = currentUser(req);
     const other = req.params.otherUser;
     const { content, sharedBookId } = req.body;
-    
+
     await db.query(sql`INSERT INTO chat_messages (sender, receiver, content, shared_book_id, created_at) VALUES (${me}, ${other}, ${content}, ${sharedBookId || null}, ${Date.now()})`);
-    
+
     if (sharedBookId) {
       await db.query(sql`INSERT INTO book_recommendations (sender, receiver, book_id) VALUES (${me}, ${other}, ${sharedBookId})`);
     }
@@ -432,13 +1204,13 @@ app.post("/chat/:otherUser", async (req, res) => {
 
 app.post("/chat/nickname/:otherUser", async (req, res) => {
   try {
-    const me = req.headers['x-user-id'];
+    const me = currentUser(req);
     const other = req.params.otherUser;
     const { nickname } = req.body;
-    
-    const [existing] = await db.query(sql`SELECT 1 FROM nicknames WHERE from_user = ${me} AND to_user = ${other} COLLATE NOCASE`);
+
+    const [existing] = await db.query(sql`SELECT 1 FROM nicknames WHERE from_user = ${me} COLLATE NOCASE AND to_user = ${other} COLLATE NOCASE`);
     if (existing) {
-      await db.query(sql`UPDATE nicknames SET nickname = ${nickname} WHERE from_user = ${me} AND to_user = ${other} COLLATE NOCASE`);
+      await db.query(sql`UPDATE nicknames SET nickname = ${nickname} WHERE from_user = ${me} COLLATE NOCASE AND to_user = ${other} COLLATE NOCASE`);
     } else {
       await db.query(sql`INSERT INTO nicknames (from_user, to_user, nickname) VALUES (${me}, ${other}, ${nickname})`);
     }
@@ -446,48 +1218,44 @@ app.post("/chat/nickname/:otherUser", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get("/status", async (req, res) => {
+// ─── STATUS GLOBAL ────────────────────────────────────────────────────────────
+
+app.get("/status", async (_req, res) => {
   try {
     const [status] = await db.query(sql`SELECT * FROM global_status WHERE id = 1`);
-    res.json(status);
+    res.json(status || null);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 app.post("/status", async (req, res) => {
   try {
-    const username = req.headers['x-user-id'];
+    const username = currentUser(req);
     const { content, emote } = req.body;
     if (!username) return res.status(401).json({ error: "Não autorizado" });
-    
-    console.log(`[Status] Atualização solicitada por ${username}: "${content}" ${emote}`);
 
-    // Tenta atualizar. Se não existir (0 rows affected), insere.
     await db.query(sql`INSERT OR REPLACE INTO global_status (id, username, content, emote, updated_at) VALUES (1, ${username}, ${content}, ${emote}, ${Date.now()})`);
-    
     const [newStatus] = await db.query(sql`SELECT * FROM global_status WHERE id = 1`);
     res.json(newStatus);
-  } catch (err) { 
+  } catch (err) {
     console.error("[Status Error]:", err);
-    res.status(500).json({ error: err.message }); 
+    res.status(500).json({ error: err.message });
   }
 });
 
 app.get("/notifications", async (req, res) => {
   try {
-    const me = req.headers['x-user-id'];
-    if (!me) return res.json({ unreadCount: 0 });
-    const [count] = await db.query(sql`SELECT COUNT(*) as c FROM chat_messages WHERE receiver = ${me} COLLATE NOCASE AND is_read = 0`);
-    
-    // Retorna a contagem agrupada por sender para a tela de chat principal
+    const me = currentUser(req);
+    if (!me) return res.json({ unreadCount: 0, details: {} });
     const senders = await db.query(sql`SELECT sender, COUNT(*) as c FROM chat_messages WHERE receiver = ${me} COLLATE NOCASE AND is_read = 0 GROUP BY sender`);
     const details = {};
+    let total = 0;
     for (const row of senders) {
       if (row.sender) {
-        details[row.sender.toLowerCase()] = Number(row.c);
+        details[String(row.sender).toLowerCase()] = Number(row.c);
+        total += Number(row.c);
       }
     }
-    
-    res.json({ unreadCount: Number(count.c), details });
+    res.json({ unreadCount: total, details });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -495,11 +1263,11 @@ app.get("/notifications", async (req, res) => {
 
 app.get("/progress", async (req, res) => {
   try {
-    const username = req.headers['x-user-id'] || 'Caio';
+    const username = currentUser(req) || "Caio";
     const rows = await db.query(sql`SELECT * FROM reading_progress WHERE username = ${username} COLLATE NOCASE`);
     res.json(rows.map((r) => ({
-      bookId: r.book_id, currentPage: r.current_page, totalPages: r.total_pages,
-      progress: r.progress, status: r.status, startedAt: r.started_at, lastReadAt: r.last_read_at,
+      bookId: r.book_id, currentPage: Number(r.current_page), totalPages: Number(r.total_pages),
+      progress: Number(r.progress), status: r.status, startedAt: Number(r.started_at), lastReadAt: Number(r.last_read_at),
     })));
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -508,10 +1276,10 @@ app.get("/progress", async (req, res) => {
 
 app.get("/progress/:bookId", async (req, res) => {
   try {
-    const username = req.headers['x-user-id'] || 'Caio';
+    const username = currentUser(req) || "Caio";
     const [row] = await db.query(sql`SELECT * FROM reading_progress WHERE book_id = ${req.params.bookId} AND username = ${username} COLLATE NOCASE`);
     if (!row) return res.status(404).json({ error: "Sem progresso" });
-    res.json({ bookId: row.book_id, currentPage: row.current_page, totalPages: row.total_pages, progress: row.progress, status: row.status, startedAt: row.started_at, lastReadAt: row.last_read_at });
+    res.json({ bookId: row.book_id, currentPage: Number(row.current_page), totalPages: Number(row.total_pages), progress: Number(row.progress), status: row.status, startedAt: Number(row.started_at), lastReadAt: Number(row.last_read_at) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -521,7 +1289,7 @@ app.put("/progress/:bookId", async (req, res) => {
   try {
     const { bookId } = req.params;
     const { currentPage, totalPages, progress, status } = req.body;
-    const username = req.headers['x-user-id'] || 'Caio';
+    const username = currentUser(req) || "Caio";
     const [existing] = await db.query(sql`SELECT 1 FROM reading_progress WHERE book_id = ${bookId} AND username = ${username} COLLATE NOCASE`);
     if (existing) {
       await db.query(sql`UPDATE reading_progress SET current_page=${currentPage},total_pages=${totalPages},progress=${progress},status=${status},last_read_at=${Date.now()} WHERE book_id=${bookId} AND username=${username} COLLATE NOCASE`);
@@ -541,19 +1309,19 @@ app.put("/progress/:bookId", async (req, res) => {
     }
 
     const [updated] = await db.query(sql`SELECT * FROM reading_progress WHERE book_id = ${bookId} AND username = ${username} COLLATE NOCASE`);
-    res.json({ bookId: updated.book_id, currentPage: updated.current_page, totalPages: updated.total_pages, progress: updated.progress, status: updated.status, startedAt: updated.started_at, lastReadAt: updated.last_read_at });
+    res.json({ bookId: updated.book_id, currentPage: Number(updated.current_page), totalPages: Number(updated.total_pages), progress: Number(updated.progress), status: updated.status, startedAt: Number(updated.started_at), lastReadAt: Number(updated.last_read_at) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// ─── NOTES ────────────────────────────────────────────────────────────────────
+// ─── NOTES (diário pessoal) ───────────────────────────────────────────────────
 
 app.get("/notes", async (req, res) => {
   try {
-    const username = req.headers['x-user-id'] || 'Caio';
+    const username = currentUser(req) || "Caio";
     const rows = await db.query(sql`SELECT * FROM notes WHERE username = ${username} COLLATE NOCASE ORDER BY created_at DESC`);
-    res.json(rows.map((r) => ({ id: r.id, bookId: r.book_id, date: r.date_label, feedback: r.feedback, rating: r.rating, createdAt: r.created_at })));
+    res.json(rows.map((r) => ({ id: r.id, bookId: r.book_id, date: r.date_label, feedback: r.feedback, rating: Number(r.rating), createdAt: Number(r.created_at) })));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -562,7 +1330,7 @@ app.get("/notes", async (req, res) => {
 app.get("/notes/book/:bookId", async (req, res) => {
   try {
     const rows = await db.query(sql`SELECT * FROM notes WHERE book_id = ${req.params.bookId} ORDER BY created_at DESC`);
-    res.json(rows.map((r) => ({ id: r.id, bookId: r.book_id, username: r.username, date: r.date_label, feedback: r.feedback, rating: r.rating, createdAt: r.created_at })));
+    res.json(rows.map((r) => ({ id: r.id, bookId: r.book_id, username: r.username, date: r.date_label, feedback: r.feedback, rating: Number(r.rating), createdAt: Number(r.created_at) })));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -571,7 +1339,7 @@ app.get("/notes/book/:bookId", async (req, res) => {
 app.post("/notes", async (req, res) => {
   try {
     const { bookId, feedback, rating } = req.body;
-    const username = req.headers['x-user-id'] || 'Caio';
+    const username = currentUser(req) || "Caio";
     if (!bookId || !feedback || rating == null)
       return res.status(400).json({ error: "Campos obrigatórios faltando" });
     const now = new Date();
@@ -586,7 +1354,7 @@ app.post("/notes", async (req, res) => {
 
 app.delete("/notes/:id", async (req, res) => {
   try {
-    const username = req.headers['x-user-id'] || 'Caio';
+    const username = currentUser(req) || "Caio";
     await db.query(sql`DELETE FROM notes WHERE id = ${req.params.id} AND username = ${username} COLLATE NOCASE`);
     res.json({ ok: true });
   } catch (err) {
@@ -598,7 +1366,7 @@ app.delete("/notes/:id", async (req, res) => {
 
 app.get("/saved", async (req, res) => {
   try {
-    const username = req.headers['x-user-id'] || 'Caio';
+    const username = currentUser(req) || "Caio";
     const rows = await db.query(sql`SELECT book_id FROM saved_books WHERE username = ${username} COLLATE NOCASE ORDER BY saved_at DESC`);
     res.json(rows.map((r) => r.book_id));
   } catch (err) {
@@ -608,7 +1376,7 @@ app.get("/saved", async (req, res) => {
 
 app.post("/saved/:bookId", async (req, res) => {
   try {
-    const username = req.headers['x-user-id'] || 'Caio';
+    const username = currentUser(req) || "Caio";
     await db.query(sql`INSERT OR IGNORE INTO saved_books (username,book_id,saved_at) VALUES (${username},${req.params.bookId},${Date.now()})`);
     res.json({ saved: true });
   } catch (err) {
@@ -618,25 +1386,9 @@ app.post("/saved/:bookId", async (req, res) => {
 
 app.delete("/saved/:bookId", async (req, res) => {
   try {
-    const username = req.headers['x-user-id'] || 'Caio';
+    const username = currentUser(req) || "Caio";
     await db.query(sql`DELETE FROM saved_books WHERE book_id = ${req.params.bookId} AND username = ${username} COLLATE NOCASE`);
     res.json({ saved: false });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ─── REVIEWS ─────────────────────────────────────────────────────────────────
-
-app.post("/books/:id/reviews", async (req, res) => {
-  try {
-    const { username, rating, comment } = req.body;
-    if (!username || !comment || rating == null)
-      return res.status(400).json({ error: "Campos obrigatórios faltando" });
-    await db.query(sql`INSERT INTO book_reviews (book_id,username,rating,comment) VALUES (${req.params.id},${username},${rating},${comment})`);
-    const [stats] = await db.query(sql`SELECT AVG(rating) as avg, COUNT(*) as cnt FROM book_reviews WHERE book_id = ${req.params.id}`);
-    await db.query(sql`UPDATE books SET rating=${Math.round(stats.avg * 10) / 10},review_count=${Number(stats.cnt)} WHERE id=${req.params.id}`);
-    res.status(201).json({ username, rating, comment });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -647,10 +1399,8 @@ app.post("/books/:id/reviews", async (req, res) => {
 app.get("/books/:id/chapters", async (req, res) => {
   try {
     const chapters = await db.query(
-      sql`SELECT id, book_id as bookId, start_page as startPage, title, created_at as createdAt 
-          FROM book_chapters 
-          WHERE book_id = ${req.params.id} 
-          ORDER BY start_page ASC`
+      sql`SELECT id, book_id as bookId, start_page as startPage, title, created_at as createdAt
+          FROM book_chapters WHERE book_id = ${req.params.id} ORDER BY start_page ASC`
     );
     res.json(chapters);
   } catch (err) {
@@ -661,11 +1411,9 @@ app.get("/books/:id/chapters", async (req, res) => {
 app.post("/books/:id/chapters", async (req, res) => {
   try {
     const { startPage, title } = req.body;
-    if (startPage == null || !title) {
-      return res.status(400).json({ error: "Campos obrigatórios faltando" });
-    }
+    if (startPage == null || !title) return res.status(400).json({ error: "Campos obrigatórios faltando" });
     await db.query(
-      sql`INSERT OR REPLACE INTO book_chapters (book_id, start_page, title, created_at) 
+      sql`INSERT OR REPLACE INTO book_chapters (book_id, start_page, title, created_at)
           VALUES (${req.params.id}, ${Number(startPage)}, ${title}, ${Date.now()})`
     );
     res.status(201).json({ success: true, startPage, title });
@@ -676,10 +1424,7 @@ app.post("/books/:id/chapters", async (req, res) => {
 
 app.delete("/books/:id/chapters/:startPage", async (req, res) => {
   try {
-    const startPage = Number(req.params.startPage);
-    await db.query(
-      sql`DELETE FROM book_chapters WHERE book_id = ${req.params.id} AND start_page = ${startPage}`
-    );
+    await db.query(sql`DELETE FROM book_chapters WHERE book_id = ${req.params.id} AND start_page = ${Number(req.params.startPage)}`);
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -690,11 +1435,59 @@ app.delete("/books/:id/chapters/:startPage", async (req, res) => {
 
 app.get("/stats", async (req, res) => {
   try {
-    const username = req.headers['x-user-id'] || 'Caio';
-    const [finished] = await db.query(sql`SELECT COUNT(*) as c FROM reading_progress WHERE status='finalizado' AND username=${username} COLLATE NOCASE`);
-    const [reading] = await db.query(sql`SELECT COUNT(*) as c FROM reading_progress WHERE status='lendo' AND username=${username} COLLATE NOCASE`);
+    const username = currentUser(req) || "Caio";
+    const [rows] = await db.query(sql`
+      SELECT
+        SUM(CASE WHEN status='finalizado' THEN 1 ELSE 0 END) as finished,
+        SUM(CASE WHEN status='lendo' THEN 1 ELSE 0 END) as reading
+      FROM reading_progress WHERE username=${username} COLLATE NOCASE
+    `);
     const [notesCount] = await db.query(sql`SELECT COUNT(*) as c FROM notes WHERE username=${username} COLLATE NOCASE`);
-    res.json({ finished: Number(finished.c), reading: Number(reading.c), notesCount: Number(notesCount.c) });
+    const [reviewCount] = await db.query(sql`SELECT COUNT(*) as c FROM book_reviews WHERE username=${username} COLLATE NOCASE`);
+    const [followers] = await db.query(sql`SELECT COUNT(*) as c FROM follows WHERE following=${username} COLLATE NOCASE`);
+    const [following] = await db.query(sql`SELECT COUNT(*) as c FROM follows WHERE follower=${username} COLLATE NOCASE`);
+    res.json({
+      finished: Number(rows?.finished) || 0,
+      reading: Number(rows?.reading) || 0,
+      notesCount: Number(notesCount.c) || 0,
+      reviewCount: Number(reviewCount.c) || 0,
+      followers: Number(followers.c) || 0,
+      following: Number(following.c) || 0,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── ADMIN ────────────────────────────────────────────────────────────────────
+
+/** Upload avulso de imagem (usado pelo painel para banners e posts). */
+app.post("/admin/upload", requireAdmin, upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "Nenhum arquivo enviado" });
+    const folder = req.body.folder === "banners" ? "banners" : "posts";
+    const url = await uploadFileToCloud(req.file.buffer, `${folder}/${folder}-${Date.now()}.jpg`, req.file.mimetype);
+    res.json({ url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** Visão geral do painel: números da comunidade. */
+app.get("/admin/overview", requireAdmin, async (_req, res) => {
+  try {
+    const [[books], [users], [reviews], [banners], [posts], [progress]] = await Promise.all([
+      db.query(sql`SELECT COUNT(*) as c FROM books`),
+      db.query(sql`SELECT COUNT(*) as c FROM users`),
+      db.query(sql`SELECT COUNT(*) as c FROM book_reviews`),
+      db.query(sql`SELECT COUNT(*) as c FROM banners`),
+      db.query(sql`SELECT COUNT(*) as c FROM home_posts`),
+      db.query(sql`SELECT COUNT(*) as c FROM reading_progress`),
+    ]);
+    res.json({
+      books: Number(books.c), users: Number(users.c), reviews: Number(reviews.c),
+      banners: Number(banners.c), posts: Number(posts.c), readingSessions: Number(progress.c),
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -705,7 +1498,6 @@ app.get("/stats", async (req, res) => {
 async function start() {
   await initDB();
   if (!process.env.VERCEL) {
-    // Inicializa o watcher para monitorar e importar livros locais da pasta Livros/
     const { initWatcher } = require("./watcher");
     initWatcher(db, sql, PORT, uploadFileToCloud);
 

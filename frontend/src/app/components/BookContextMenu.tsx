@@ -1,10 +1,13 @@
-import { BookOpen, Pencil, Trash2, MessageSquare, X, PauseCircle, PlayCircle, Star, Clock, Download, Loader2 } from "lucide-react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
+import {
+  BookOpen, Pencil, Trash2, MessageSquare, PauseCircle, PlayCircle, Clock, Download, Loader2,
+} from "lucide-react";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import type { Book } from "../lib/types";
-import { useState } from "react";
 import { useDeviceTier } from "./ui/use-device-tier";
 import { downloadRemoteFile, safeFileName } from "../lib/download";
+import { Stars } from "./Ui";
 
 interface Props {
   book: Book;
@@ -19,11 +22,19 @@ interface Props {
   menuPos?: { x: number; y: number } | null;
 }
 
-export function BookContextMenu({ book, isPaused, onClose, onRead, onEdit, onDelete, onFeedback, onPause, onReadLater, menuPos }: Props) {
+const MENU_WIDTH = 264;
+const MENU_HEIGHT = 300;
+
+/**
+ * Menu de ações de um livro. No desktop abre junto ao cursor; no celular sobe
+ * como uma folha a partir da base da tela.
+ */
+export function BookContextMenu({
+  book, isPaused, onClose, onRead, onEdit, onDelete, onFeedback, onPause, onReadLater, menuPos,
+}: Props) {
   const coverUrl = getFullUrl(book.coverImagePath);
   const pdfUrl = getFullUrl(book.pdfPath);
-  const tier = useDeviceTier();
-  const isDesktop = tier === "desktop";
+  const isDesktop = useDeviceTier() === "desktop";
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownload = async () => {
@@ -38,296 +49,89 @@ export function BookContextMenu({ book, isPaused, onClose, onRead, onEdit, onDel
     }
   };
 
-  let posX = menuPos?.x ?? 100;
-  let posY = menuPos?.y ?? 100;
+  const actions = [
+    { label: "Abrir para ler", icon: BookOpen, onClick: onRead },
+    { label: "Avaliar e comentar", icon: MessageSquare, onClick: onFeedback },
+    onPause
+      ? { label: isPaused ? "Retomar leitura" : "Pausar leitura", icon: isPaused ? PlayCircle : PauseCircle, onClick: onPause }
+      : null,
+    onReadLater ? { label: "Ler depois", icon: Clock, onClick: onReadLater } : null,
+    pdfUrl
+      ? { label: isDownloading ? "Baixando…" : "Baixar PDF", icon: isDownloading ? Loader2 : Download, onClick: handleDownload, spinning: isDownloading }
+      : null,
+    { label: "Editar livro", icon: Pencil, onClick: onEdit },
+  ].filter(Boolean) as { label: string; icon: typeof BookOpen; onClick: () => void; spinning?: boolean }[];
 
-  const MENU_WIDTH = 320;
-  const MENU_HEIGHT = 360;
+  const header = (
+    <div className="flex items-center gap-3 px-3 py-3 border-b border-[var(--line)]">
+      <div className="w-10 aspect-[2/3] rounded overflow-hidden flex-shrink-0 bg-[var(--surface-2)]">
+        {coverUrl ? (
+          <img src={coverUrl} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient(book)}`} />
+        )}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[13px] font-semibold text-foreground truncate">{book.title}</p>
+        <p className="text-[11.5px] text-[var(--text-3)] truncate">{book.author || "Autor desconhecido"}</p>
+        {book.rating > 0 && <div className="mt-1"><Stars value={book.rating} size="sm" /></div>}
+      </div>
+    </div>
+  );
 
-  if (typeof window !== "undefined") {
-    if (posX + MENU_WIDTH > window.innerWidth) {
-      posX = Math.max(10, window.innerWidth - MENU_WIDTH - 20);
-    }
-    if (posY + MENU_HEIGHT > window.innerHeight) {
-      posY = Math.max(10, window.innerHeight - MENU_HEIGHT - 20);
-    }
-  }
-
-  // Desktop macOS Context Menu style
-  if (isDesktop && menuPos) {
-    return createPortal(
-      <div className="fixed inset-0 z-[9999]" onClick={onClose}>
-        {/* Invisible Backdrop to capture click-away */}
-        <div className="absolute inset-0 bg-transparent" />
-
-        {/* macOS Style Context Menu */}
-        <div
-          style={{ left: posX, top: posY }}
-          className="fixed bg-white/95 backdrop-blur-md rounded-2xl shadow-[0_15px_50px_rgba(0,0,0,0.15),0_1px_3px_rgba(0,0,0,0.05)] border border-slate-200/50 w-[320px] overflow-hidden animate-in fade-in zoom-in-95 duration-100 ease-out flex flex-col"
-          onClick={(e) => e.stopPropagation()}
+  const list = (
+    <div className="py-1.5">
+      {actions.map(({ label, icon: Icon, onClick, spinning }) => (
+        <button
+          key={label}
+          onClick={onClick}
+          className="w-full flex items-center gap-3 px-3.5 h-10 text-[13px] font-medium text-[var(--text-2)] hover:bg-[var(--surface-2)] hover:text-foreground transition-colors cursor-pointer"
         >
-          {/* Header Preview Section */}
-          <div className="p-4 bg-slate-50/50 flex gap-3.5 items-start border-b border-slate-100/80">
-            <div className="relative w-16 h-24 rounded-lg shadow-md overflow-hidden flex-shrink-0 border border-slate-200/30">
-              {coverUrl ? (
-                <img src={coverUrl} alt={book.title} className="w-full h-full object-cover" />
-              ) : (
-                <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient(book)} flex items-center justify-center`}>
-                  <BookOpen className="w-6 h-6 text-white/50" />
-                </div>
-              )}
-            </div>
-            <div className="flex-1 min-w-0 pt-1">
-              <h4 className="text-xs font-black text-slate-800 truncate leading-snug mb-0.5">{book.title}</h4>
-              <p className="text-[10px] font-bold text-slate-400 truncate mb-2">por {book.author}</p>
-              <div className="flex items-center gap-1 mb-2">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star 
-                    key={i} 
-                    className={`w-3 h-3 ${i < book.rating ? "fill-yellow-400 text-yellow-400" : "text-slate-200"}`} 
-                  />
-                ))}
-              </div>
-              <span className="inline-block px-2.5 py-0.5 bg-[var(--primary)]/10 text-[8px] font-extrabold rounded-full text-[var(--primary)] uppercase tracking-wider">
-                {book.genre}
-              </span>
-            </div>
-          </div>
+          <Icon className={`w-4 h-4 ${spinning ? "animate-spin" : ""}`} />
+          {label}
+        </button>
+      ))}
+      <div className="h-px bg-[var(--line)] my-1.5" />
+      <button
+        onClick={onDelete}
+        className="w-full flex items-center gap-3 px-3.5 h-10 text-[13px] font-medium text-[var(--destructive)] hover:bg-[var(--destructive)]/10 transition-colors cursor-pointer"
+      >
+        <Trash2 className="w-4 h-4" /> Excluir livro
+      </button>
+    </div>
+  );
 
-          {/* Actions Menu Items */}
-          <div className="p-1.5 flex flex-col gap-0.5">
-            <button
-              onClick={() => { onRead(); onClose(); }}
-              className="flex items-center gap-3 px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-slate-700 hover:bg-[var(--primary)] hover:text-white transition-all group cursor-pointer"
-            >
-              <BookOpen className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
-              <span>Mergulhar na Leitura</span>
-            </button>
+  if (isDesktop && menuPos) {
+    const x = Math.max(10, Math.min(menuPos.x, window.innerWidth - MENU_WIDTH - 16));
+    const y = Math.max(10, Math.min(menuPos.y, window.innerHeight - MENU_HEIGHT - 16));
 
-            {pdfUrl && (
-              <button
-                onClick={handleDownload}
-                disabled={isDownloading}
-                className="flex items-center gap-3 px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-slate-700 hover:bg-[var(--primary)] hover:text-white transition-all group cursor-pointer disabled:opacity-50"
-              >
-                {isDownloading ? (
-                  <Loader2 className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors animate-spin" />
-                ) : (
-                  <Download className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
-                )}
-                <span>{isDownloading ? "Baixando..." : "Baixar PDF"}</span>
-              </button>
-            )}
-
-            {onPause && (
-              <button
-                onClick={() => { onPause(); onClose(); }}
-                className="flex items-center gap-3 px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-slate-700 hover:bg-[var(--primary)] hover:text-white transition-all group cursor-pointer"
-              >
-                {isPaused ? (
-                  <>
-                    <PlayCircle className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
-                    <span>Retomar Leitura</span>
-                  </>
-                ) : (
-                  <>
-                    <PauseCircle className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
-                    <span>Pausar Leitura</span>
-                  </>
-                )}
-              </button>
-            )}
-
-            <button
-              onClick={() => { onFeedback(); onClose(); }}
-              className="flex items-center gap-3 px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-slate-700 hover:bg-[var(--primary)] hover:text-white transition-all group cursor-pointer"
-            >
-              <MessageSquare className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
-              <span>Anotações / Diário</span>
-            </button>
-
-            {onReadLater && (
-              <button
-                onClick={() => { onReadLater(); onClose(); }}
-                className="flex items-center gap-3 px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-slate-700 hover:bg-[var(--primary)] hover:text-white transition-all group cursor-pointer"
-              >
-                <Clock className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
-                <span>Ler Mais Tarde</span>
-              </button>
-            )}
-
-            <button
-              onClick={() => { onEdit(); onClose(); }}
-              className="flex items-center gap-3 px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-slate-700 hover:bg-[var(--primary)] hover:text-white transition-all group cursor-pointer"
-            >
-              <Pencil className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors" />
-              <span>Editar Detalhes</span>
-            </button>
-
-            <div className="h-px bg-slate-100/80 my-1 mx-2" />
-
-            <button
-              onClick={() => { onDelete(); onClose(); }}
-              className="flex items-center gap-3 px-2.5 py-2 rounded-lg text-left text-xs font-semibold text-red-500 hover:bg-red-500 hover:text-white transition-all group cursor-pointer"
-            >
-              <Trash2 className="w-4 h-4 text-red-400 group-hover:text-white transition-colors" />
-              <span>Excluir Livro</span>
-            </button>
-          </div>
+    return createPortal(
+      <div className="fixed inset-0 z-[9999]" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose(); }}>
+        <div
+          style={{ left: x, top: y, width: MENU_WIDTH }}
+          onClick={(e) => e.stopPropagation()}
+          className="absolute bg-[var(--surface)] border border-[var(--line)] rounded-xl shadow-[var(--shadow-3)] overflow-hidden animate-scale-in"
+        >
+          {header}
+          {list}
         </div>
       </div>,
       document.body
     );
   }
 
-  // Original sheet layout for Mobile/Tablet
   return createPortal(
-    <div
-      className="fixed inset-0 z-[9999] flex flex-col justify-end p-4 pb-10"
-      onClick={onClose}
-    >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300" />
-
-      {/* Sheet */}
+    <div className="fixed inset-0 z-[9999] flex items-end justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" />
       <div
-        className="relative bg-white/80 backdrop-blur-3xl rounded-[3rem] p-8 shadow-2xl animate-in slide-in-from-bottom duration-300 ease-out border border-white/60"
         onClick={(e) => e.stopPropagation()}
+        className="relative w-full sm:max-w-sm bg-[var(--surface)] border-t sm:border border-[var(--line)] rounded-t-2xl sm:rounded-2xl sm:mb-6 shadow-[var(--shadow-3)] overflow-hidden animate-slide-up pb-[env(safe-area-inset-bottom)]"
       >
-        {/* Handle */}
-        <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-14 h-1.5 bg-white/80 rounded-full shadow-sm" />
-
-        {/* Header/Info */}
-        <div className="flex items-start gap-6 mb-8">
-          <div className="relative group perspective-1000">
-            <div className="w-24 h-36 rounded-xl shadow-lg overflow-hidden transform group-hover:rotate-y-12 transition-transform duration-500 border border-white/40">
-              {coverUrl ? (
-                <img src={coverUrl} alt={book.title} className="w-full h-full object-cover" />
-              ) : (
-                <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient(book)} flex items-center justify-center`}>
-                  <BookOpen className="w-10 h-10 text-white/50" />
-                </div>
-              )}
-              {/* Glossy overlay */}
-              <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent pointer-events-none" />
-            </div>
-            <div className="absolute -bottom-3 -right-3 w-10 h-10 bg-gradient-to-br from-[var(--blush)] to-[var(--lavender)] rounded-full shadow-lg flex items-center justify-center text-sm border-2 border-white animate-bounce-in">
-              ✨
-            </div>
-          </div>
-          
-          <div className="flex-1 min-w-0 pt-3">
-            <h3 className="text-xl font-black text-[var(--text-main)] leading-tight mb-1 line-clamp-2">
-              {book.title}
-            </h3>
-            <p className="text-sm font-medium text-[var(--text-muted)] mb-3">
-              por <span className="text-[var(--lavender)] font-bold">{book.author}</span>
-            </p>
-            <div className="flex gap-1.5">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Star 
-                  key={i} 
-                  className={`w-3.5 h-3.5 ${i < book.rating ? "fill-yellow-400 text-yellow-400" : "text-gray-200"}`} 
-                />
-              ))}
-            </div>
-          </div>
-
-          <button 
-            onClick={onClose}
-            className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-gray-200 active:scale-90 transition-all"
-          >
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
-        </div>
-
-        {/* Main Action */}
-        <button
-          onClick={onRead}
-          className="w-full bg-gradient-to-r from-[var(--primary)] to-[var(--lavender)] text-white py-4 rounded-2xl font-black text-lg shadow-lg shadow-[var(--primary)]/30 active:scale-[0.98] hover:shadow-xl transition-all mb-8 flex items-center justify-center gap-3 relative overflow-hidden group"
-        >
-          <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
-          <BookOpen className="w-6 h-6" />
-          Mergulhar na Leitura ✨
+        {header}
+        {list}
+        <button onClick={onClose} className="w-full h-12 text-[13px] font-semibold text-[var(--text-3)] border-t border-[var(--line)] hover:bg-[var(--surface-2)] transition-colors cursor-pointer">
+          Cancelar
         </button>
-
-        {/* Secondary Actions Grid */}
-        <div className="grid grid-cols-4 gap-2">
-          {pdfUrl && (
-            <button
-              onClick={handleDownload}
-              disabled={isDownloading}
-              className="flex flex-col items-center gap-2 group disabled:opacity-50"
-            >
-              <div className="w-14 h-14 bg-gradient-to-br from-emerald-100 to-teal-100 text-emerald-600 rounded-[1.2rem] flex items-center justify-center group-hover:scale-110 shadow-sm border border-white transition-all duration-300">
-                {isDownloading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Download className="w-6 h-6" />}
-              </div>
-              <span className="text-[10px] font-black text-[var(--text-main)] uppercase tracking-wider">
-                {isDownloading ? "Baixando" : "Baixar"}
-              </span>
-            </button>
-          )}
-
-          {onPause && (
-            <button
-              onClick={onPause}
-              className="flex flex-col items-center gap-2 group"
-            >
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${
-                isPaused 
-                  ? "bg-green-100 text-green-600 group-hover:bg-green-200" 
-                  : "bg-orange-100 text-orange-600 group-hover:bg-orange-200"
-              }`}>
-                {isPaused ? <PlayCircle className="w-6 h-6" /> : <PauseCircle className="w-6 h-6" />}
-              </div>
-              <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">
-                {isPaused ? "Retomar" : "Pausar"}
-              </span>
-            </button>
-          )}
-
-          {onReadLater && (
-            <button
-              onClick={() => { onReadLater(); onClose(); }}
-              className="flex flex-col items-center gap-2 group"
-            >
-              <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-[1.2rem] flex items-center justify-center group-hover:scale-110 shadow-sm border border-white transition-all duration-300">
-                <Clock className="w-6 h-6" />
-              </div>
-              <span className="text-[10px] font-black text-[var(--text-main)] uppercase tracking-wider">Ler Depois</span>
-            </button>
-          )}
-
-          <button
-            onClick={onFeedback}
-            className="flex flex-col items-center gap-2 group"
-          >
-            <div className="w-14 h-14 bg-gradient-to-br from-[var(--peach)]/20 to-[var(--blush)]/20 text-[var(--peach)] rounded-[1.2rem] flex items-center justify-center group-hover:scale-110 shadow-sm border border-white transition-all duration-300">
-              <MessageSquare className="w-6 h-6" />
-            </div>
-            <span className="text-[10px] font-black text-[var(--text-main)] uppercase tracking-wider">Notas</span>
-          </button>
-
-          <button
-            onClick={onEdit}
-            className="flex flex-col items-center gap-2 group"
-          >
-            <div className="w-14 h-14 bg-gradient-to-br from-[var(--sky)]/20 to-blue-200/40 text-blue-500 rounded-[1.2rem] flex items-center justify-center group-hover:scale-110 shadow-sm border border-white transition-all duration-300">
-              <Pencil className="w-6 h-6" />
-            </div>
-            <span className="text-[10px] font-black text-[var(--text-main)] uppercase tracking-wider">Editar</span>
-          </button>
-
-          <button
-            onClick={onDelete}
-            className="flex flex-col items-center gap-2 group"
-          >
-            <div className="w-14 h-14 bg-gradient-to-br from-red-100 to-red-200/50 text-red-500 rounded-[1.2rem] flex items-center justify-center group-hover:scale-110 shadow-sm border border-white transition-all duration-300">
-              <Trash2 className="w-6 h-6" />
-            </div>
-            <span className="text-[10px] font-black text-red-500 uppercase tracking-wider">Excluir</span>
-          </button>
-        </div>
       </div>
     </div>,
     document.body

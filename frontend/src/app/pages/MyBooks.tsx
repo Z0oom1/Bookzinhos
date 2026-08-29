@@ -1,377 +1,188 @@
-import { useState, useEffect } from "react";
-import { BookOpen, Play, Heart, Bookmark, CheckCircle2, Layers, Sparkles } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
-import { fetchBooks, fetchAllProgress, fetchSavedIds } from "../lib/api";
+import { Play, ArrowRight, LayoutGrid, Heart, Library as ShelfIcon } from "lucide-react";
+import { fetchAllProgress, fetchBooks, fetchSavedIds } from "../lib/api";
+import { useLiveData } from "../lib/useLiveData";
 import { getCoverGradient, getFullUrl } from "../lib/types";
-import { BookCard } from "../components/BookCard";
 import type { Book, ReadingProgress } from "../lib/types";
+import { BookGrid } from "../components/BookGrid";
+import { EmptyState, PageHeader, Skeleton } from "../components/Ui";
 import { useOpenBook } from "../lib/readerChoice";
 
-type TabKey = "lendo" | "recomendados" | "finalizado" | "favoritos";
+type TabKey = "lendo" | "ler-depois" | "finalizado" | "favoritos" | "recomendados";
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "lendo", label: "Lendo" },
+  { key: "ler-depois", label: "Ler depois" },
+  { key: "finalizado", label: "Lidos" },
+  { key: "favoritos", label: "Favoritos" },
+  { key: "recomendados", label: "Para você" },
+];
 
 export function MyBooks() {
   const openBook = useOpenBook();
-  const [books, setBooks] = useState<Book[]>([]);
-  const [progress, setProgress] = useState<ReadingProgress[]>([]);
-  const [savedIds, setSavedIds] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<TabKey>("lendo");
-  const [isLoading, setIsLoading] = useState(true);
+  const [tab, setTab] = useState<TabKey>("lendo");
+  const [shelfMode, setShelfMode] = useState(false);
 
-  useEffect(() => {
-    const loadData = () => {
-      Promise.all([fetchBooks(), fetchAllProgress(), fetchSavedIds()])
-        .then(([b, p, s]) => {
-          setBooks(b || []);
-          setProgress(p || []);
-          setSavedIds(s || []);
-          setIsLoading(false);
-        })
-        .catch((err) => {
-          console.error("Erro ao carregar estante:", err);
-          setIsLoading(false);
-        });
-    };
+  const { data, isLoading } = useLiveData<{
+    books: Book[];
+    progress: ReadingProgress[];
+    savedIds: string[];
+  }>(
+    async (force) => {
+      const [books, progress, savedIds] = await Promise.all([
+        fetchBooks(force),
+        fetchAllProgress(force).catch(() => [] as ReadingProgress[]),
+        fetchSavedIds(force).catch(() => [] as string[]),
+      ]);
+      return { books: books || [], progress: progress || [], savedIds: savedIds || [] };
+    },
+    [],
+    { intervalMs: 45000 }
+  );
 
-    loadData();
+  const books = data?.books ?? [];
+  const progress = data?.progress ?? [];
+  const savedIds = data?.savedIds ?? [];
 
-    // Sincroniza dados a cada 10 segundos
-    const interval = setInterval(loadData, 10000);
+  const progressOf = useMemo(() => new Map(progress.map((p) => [p.bookId, p])), [progress]);
 
-    // Sincroniza dados quando a página ganha foco
-    window.addEventListener("focus", loadData);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("focus", loadData);
-    };
-  }, []);
-
-  const getBook = (id: string) => books.find((b) => b.id === id);
-
-  const recomendadosBooks = (() => {
-    const activeBookIds = progress.map(p => p.bookId);
-    const activeBooks = books.filter(b => activeBookIds.includes(b.id));
-    const genreCounts: Record<string, number> = {};
-    activeBooks.forEach(b => {
-      if (b.genre) {
-        const g = b.genre.trim().toLowerCase();
-        genreCounts[g] = (genreCounts[g] || 0) + 1;
+  /** Sugestões por afinidade de gênero com o que a pessoa já leu. */
+  const recommended = useMemo(() => {
+    const genreScore: Record<string, number> = {};
+    progress.forEach((p) => {
+      const book = books.find((b) => b.id === p.bookId);
+      if (book?.genre) {
+        const key = book.genre.trim().toLowerCase();
+        genreScore[key] = (genreScore[key] || 0) + 1;
       }
     });
 
-    const unread = books.filter(b => !progress.some(p => p.bookId === b.id && (p.status === "finalizado" || p.status === "lendo")));
+    const untouched = books.filter((b) => {
+      const p = progressOf.get(b.id);
+      return !p || (p.status !== "lendo" && p.status !== "finalizado");
+    });
 
-    if (activeBooks.length > 0) {
-      const scored = unread.map(b => {
-        const g = (b.genre || "").trim().toLowerCase();
-        const score = genreCounts[g] || 0;
-        return { book: b, score };
-      });
-      scored.sort((a, b) => b.score - a.score || b.book.addedAt - a.book.addedAt);
-      return scored.map(x => x.book);
-    }
-    return unread;
-  })();
+    return [...untouched].sort((a, b) => {
+      const scoreA = genreScore[(a.genre || "").trim().toLowerCase()] || 0;
+      const scoreB = genreScore[(b.genre || "").trim().toLowerCase()] || 0;
+      return scoreB - scoreA || (b.popularity ?? 0) - (a.popularity ?? 0) || b.addedAt - a.addedAt;
+    });
+  }, [books, progress, progressOf]);
 
-  const booksInTab = activeTab === "favoritos"
-    ? books.filter(b => savedIds.includes(b.id))
-    : activeTab === "recomendados"
-    ? recomendadosBooks
-    : books.filter(b => {
-        const prog = progress.find(p => p.bookId === b.id);
-        return prog && prog.status === activeTab;
-      });
-
-  const currentReading = [...progress]
-    .filter((p) => p.status === "lendo")
-    .sort((a, b) => b.lastReadAt - a.lastReadAt)[0];
-  const currentBook = currentReading ? getBook(currentReading.bookId) : null;
-
-  const tabs: { key: TabKey; label: string; count: number; icon: any }[] = [
-    { key: "lendo", label: "Lendo", count: progress.filter((p) => p.status === "lendo").length, icon: Layers },
-    { key: "recomendados", label: "Recomendados", count: recomendadosBooks.length, icon: Sparkles },
-    { key: "finalizado", label: "Lidos", count: progress.filter((p) => p.status === "finalizado").length, icon: CheckCircle2 },
-    { key: "favoritos", label: "Estante", count: savedIds.length, icon: Heart },
-  ];
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-5xl animate-bounce-in">🐼</div>
-      </div>
-    );
-  }
-
-  const coverContent = (book: Book) => {
-    const url = getFullUrl(book.coverImagePath);
-    if (url) return <img src={url} className="w-full h-full object-cover" alt={book.title} />;
-    return (
-      <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient(book)} flex items-center justify-center`}>
-        <BookOpen className="w-6 h-6 text-white" />
-      </div>
-    );
+  const listFor = (key: TabKey): Book[] => {
+    if (key === "favoritos") return books.filter((b) => savedIds.includes(b.id));
+    if (key === "recomendados") return recommended;
+    return books.filter((b) => progressOf.get(b.id)?.status === key);
   };
 
+  const counts = useMemo(
+    () => Object.fromEntries(TABS.map((t) => [t.key, listFor(t.key).length])) as Record<TabKey, number>,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [books, progress, savedIds, recommended]
+  );
+
+  const visible = listFor(tab);
+  const reading = listFor("lendo");
+  const heroBook = reading[0];
+  const heroProgress = heroBook ? progressOf.get(heroBook.id) : undefined;
+
   return (
-    <div className="min-h-screen md:min-h-0 md:h-full bg-transparent overflow-x-hidden no-scrollbar">
-      
-      {/* Mobile-only View */}
-      <div className="md:hidden pb-32">
-        {/* Cabeçalho */}
-        <div className="bg-white/70 backdrop-blur-xl sticky top-0 z-20 px-4 py-4.5 flex items-center justify-between border-b border-white/60 shadow-sm animate-fade-in">
-          <h1 className="text-xl font-extrabold text-[var(--text-main)] tracking-tight">
-            Minha Estante 📚
-          </h1>
-          <Link 
-            to="/upload" 
-            className="px-4 py-2 bg-[var(--primary)] text-white rounded-xl font-extrabold shadow-md hover:shadow-lg active:scale-95 transition-all text-[10px] uppercase tracking-widest"
-          >
-            + Adicionar
-          </Link>
-        </div>
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+      <PageHeader
+        title="Minha"
+        highlight="estante"
+        subtitle="Suas leituras, favoritos e o que vem a seguir."
+        icon={<Heart className="w-5 h-5" />}
+        gradient="linear-gradient(140deg,#FB7185,#BE123C)"
+      />
 
-        <div className="max-w-2xl mx-auto px-4 py-6 space-y-6 relative z-10">
-          {/* Livro Lendo no Momento */}
-          {currentBook && currentReading && activeTab === "lendo" ? (
-            <div className="bg-white/70 backdrop-blur-xl rounded-[2.25rem] p-5 shadow-[0_8px_30px_rgba(0,0,0,0.02)] border border-white/80 group relative overflow-hidden animate-fade-in">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--mint)]/10 rounded-bl-full pointer-events-none opacity-50 group-hover:scale-105 transition-transform" />
-              <p className="text-[9px] font-extrabold text-[var(--text-main)] mb-3 flex items-center gap-1.5 uppercase tracking-widest">
-                <span className="w-5 h-5 rounded-full bg-[var(--mint)]/20 flex items-center justify-center">
-                  <BookOpen className="w-3 h-3 text-[var(--mint)]" />
-                </span>
-                Lendo agora <span className="animate-pulse-soft">✨</span>
-              </p>
-              <div className="flex gap-5 mb-4 relative z-10">
-                <div className="flex-shrink-0 w-20 h-28 rounded-2xl overflow-hidden shadow-md group-hover:scale-[1.02] transition-transform border border-white/50">
-                  {coverContent(currentBook)}
-                </div>
-                <div className="flex-1 space-y-2 flex flex-col justify-center min-w-0">
-                  <div>
-                    <h2 className="text-base font-extrabold text-[var(--text-main)] leading-tight line-clamp-1">{currentBook.title}</h2>
-                    <p className="text-[9px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest mt-0.5">{currentBook.author}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-[9px] font-extrabold">
-                      <span className="text-[var(--mint)] bg-[var(--mint)]/10 px-2 py-0.5 rounded-md">
-                        {currentReading.progress}% concluído
-                      </span>
-                      <span className="text-[var(--text-muted)] font-medium">Pág. {currentReading.currentPage + 1} de {currentReading.totalPages}</span>
-                    </div>
-                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden shadow-inner">
-                      <div 
-                        className="bg-[var(--mint)] h-full transition-all duration-500 rounded-full" 
-                        style={{ width: `${currentReading.progress}%` }} 
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <button
-                onClick={() => openBook(currentBook)}
-                className="relative z-10 flex items-center justify-center gap-1.5 w-full py-3.5 bg-[var(--primary)] text-white rounded-xl font-extrabold text-[10px] uppercase tracking-widest transition-all active:scale-[0.98] shadow-md hover:shadow-lg cursor-pointer"
-              >
-                <Play className="w-3.5 h-3.5 fill-current" />
-                Continuar
-              </button>
-            </div>
-          ) : activeTab === "lendo" && (
-            <div className="bg-white/50 backdrop-blur-xl rounded-[2.25rem] p-8 text-center shadow-[0_8px_30px_rgba(0,0,0,0.02)] border border-white/80 animate-fade-in">
-              <div className="text-4xl mb-3 opacity-60">📖</div>
-              <p className="text-[10px] text-[var(--text-muted)] font-extrabold uppercase tracking-widest mb-4">Nenhum livro em leitura ativa</p>
-              <Link 
-                to="/library" 
-                className="inline-flex px-6 py-3 bg-[var(--primary)] text-white font-extrabold text-[10px] uppercase tracking-widest rounded-xl shadow-md transition-all active:scale-95 hover:scale-102"
-              >
-                Ver Biblioteca
-              </Link>
-            </div>
-          )}
-
-          {/* Seleção de Abas */}
-          <div className="flex gap-1.5 p-1 bg-white/70 backdrop-blur-md rounded-2xl border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.01)]">
-            {tabs.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex-1 py-2.5 rounded-xl font-extrabold transition-all text-[9px] uppercase tracking-widest active:scale-95 cursor-pointer flex items-center justify-center gap-1.5 ${
-                  activeTab === tab.key 
-                    ? "bg-white text-[var(--primary)] shadow-sm" 
-                    : "text-[var(--text-muted)] hover:text-[var(--text-main)]"
-                }`}
-              >
-                <span>{tab.label}</span>
-                <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-md ${
-                  activeTab === tab.key ? "bg-[var(--primary)]/10 text-[var(--primary)]" : "bg-slate-100 opacity-60"
-                }`}>
-                  {tab.count}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          {/* Grade de Livros */}
-          {booksInTab.length === 0 ? (
-            <div className="text-center py-16 text-[var(--text-muted)] bg-white/40 backdrop-blur-sm rounded-[2.25rem] border-2 border-dashed border-[var(--lavender)]/30 shadow-sm font-bold animate-fade-in">
-              <div className="text-4xl mb-3 opacity-50">
-                {activeTab === "lendo" ? "📖" : activeTab === "finalizado" ? "🎉" : activeTab === "recomendados" ? "✨" : "❤️"}
-              </div>
-              <p className="text-[10px] font-extrabold uppercase tracking-widest">Nenhum livro nesta categoria</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-4 animate-fade-in">
-              {booksInTab.map((book) => {
-                const prog = progress.find((p) => p.bookId === book.id);
-                return (
-                  <BookCard
-                    key={book.id}
-                    book={book}
-                    progress={prog}
-                    variant="grid"
-                    onDeleted={(id) => setBooks((b) => b.filter((x) => x.id !== id))}
-                    onEdited={(updated) => setBooks((b) => b.map((x) => x.id === updated.id ? updated : x))}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Desktop Widescreen Layout (>=lg) */}
-      <div className="hidden md:flex flex-row h-full min-h-[calc(85vh-3.5rem)] bg-slate-50/10 overflow-hidden no-scrollbar">
-        {/* Left Sidebar */}
-        <aside className="w-64 border-r border-slate-100 bg-white p-6 flex flex-col justify-between flex-shrink-0 no-scrollbar">
-          <div className="space-y-6">
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Estante</h2>
-            
-            <nav className="space-y-1">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => setActiveTab(tab.key)}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${
-                      activeTab === tab.key
-                        ? "bg-[var(--primary)]/10 text-[var(--primary)]"
-                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Icon className="w-4 h-4 opacity-80" />
-                      <span>{tab.label}</span>
-                    </div>
-                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md ${
-                      activeTab === tab.key ? "bg-[var(--primary)]/20" : "bg-slate-100"
-                    }`}>{tab.count}</span>
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
-        </aside>
-
-        {/* Right content page */}
-        <main className="flex-1 p-8 overflow-y-auto space-y-8 bg-slate-50/30 no-scrollbar">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <h1 className="text-2xl font-black text-slate-800 tracking-tight">
-                {activeTab === "lendo" ? "Livros Lendo" : activeTab === "finalizado" ? "Livros Concluídos" : activeTab === "recomendados" ? "Recomendações" : "Minha Estante"}
-              </h1>
-              <p className="text-xs text-slate-400 font-bold">{booksInTab.length} livros salvos</p>
-            </div>
-
-            <Link 
-              to="/upload" 
-              className="px-4 py-2 bg-[var(--primary)] text-white rounded-xl font-extrabold shadow-md hover:shadow-lg active:scale-95 transition-all text-[10px] uppercase tracking-widest"
-            >
-              + Adicionar Livro
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
-            {/* Main Books Grid */}
-            <div className="xl:col-span-2 space-y-6">
-              {booksInTab.length === 0 ? (
-                <div className="text-center py-20 text-slate-400 bg-white/50 border border-slate-100 rounded-3xl animate-fade-in">
-                  <div className="text-4xl mb-3 opacity-60">📚</div>
-                  <p className="font-bold text-xs">Nenhum livro nesta categoria da estante.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-6 animate-fade-in">
-                  {booksInTab.map((book) => {
-                    const prog = progress.find((p) => p.bookId === book.id);
-                    return (
-                      <BookCard
-                        key={book.id}
-                        book={book}
-                        progress={prog}
-                        variant="grid"
-                        onDeleted={(id) => setBooks((b) => b.filter((x) => x.id !== id))}
-                        onEdited={(updated) => setBooks((b) => b.map((x) => x.id === updated.id ? updated : x))}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Right Column (Focus Widget / Lendo no Momento) */}
-            {(activeTab === "lendo" || activeTab === "finalizado") && (
-              <div className="space-y-6">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Destaque de Leitura</h3>
-                {currentBook && currentReading ? (
-                  <div className="bg-white rounded-[2.25rem] p-6 shadow-sm border border-slate-100 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--mint)]/10 rounded-bl-full pointer-events-none opacity-40 group-hover:scale-105 transition-transform" />
-                    <p className="text-[9.5px] font-extrabold text-slate-700 mb-4 flex items-center gap-1.5 uppercase tracking-widest relative z-10">
-                      <span className="w-5 h-5 rounded-full bg-[var(--mint)]/20 flex items-center justify-center">
-                        <BookOpen className="w-3 h-3 text-[var(--mint)]" />
-                      </span>
-                      Lendo agora ✨
-                    </p>
-                    <div className="flex gap-5 mb-5 relative z-10">
-                      <div className="flex-shrink-0 w-20 h-28 rounded-2xl overflow-hidden shadow-sm border border-white/50">
-                        {coverContent(currentBook)}
-                      </div>
-                      <div className="flex-1 space-y-2 flex flex-col justify-center min-w-0">
-                        <div>
-                          <h2 className="text-sm font-extrabold text-slate-800 leading-snug line-clamp-1">{currentBook.title}</h2>
-                          <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider mt-0.5">{currentBook.author}</p>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex justify-between items-center text-[9px] font-extrabold text-slate-500">
-                            <span className="text-[var(--mint)] bg-[var(--mint)]/10 px-2 py-0.5 rounded-md">
-                              {currentReading.progress}%
-                            </span>
-                            <span>Pág. {currentReading.currentPage + 1} de {currentReading.totalPages}</span>
-                          </div>
-                          <div className="w-full bg-slate-50 rounded-full h-1.5 overflow-hidden shadow-inner">
-                            <div 
-                              className="bg-[var(--mint)] h-full transition-all duration-500 rounded-full" 
-                              style={{ width: `${currentReading.progress}%` }} 
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => openBook(currentBook)}
-                      className="relative z-10 flex items-center justify-center gap-1.5 w-full py-3 bg-[var(--primary)] text-white rounded-xl font-extrabold text-[10px] uppercase tracking-widest transition-all active:scale-[0.98] shadow-md hover:shadow-lg cursor-pointer"
-                    >
-                      <Play className="w-3.5 h-3.5 fill-current" />
-                      Continuar
-                    </button>
-                  </div>
-                ) : (
-                  <div className="bg-white/50 rounded-[2.25rem] p-8 text-center border-2 border-dashed border-slate-200">
-                    <p className="text-xs text-slate-400 font-bold">Nenhum livro em leitura ativa.</p>
-                  </div>
-                )}
-              </div>
+      {/* Destaque da leitura em andamento */}
+      {isLoading ? (
+        <Skeleton className="h-36 w-full rounded-2xl" />
+      ) : heroBook && heroProgress ? (
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => openBook(heroBook)}
+          onKeyDown={(e) => e.key === "Enter" && openBook(heroBook)}
+          className="mb-card mb-card-hover cursor-pointer p-5 flex gap-5"
+        >
+          <div className="w-20 aspect-[2/3] rounded-lg overflow-hidden shadow-[var(--shadow-book)] flex-shrink-0 bg-[var(--surface-2)]">
+            {heroBook.coverImagePath ? (
+              <img src={getFullUrl(heroBook.coverImagePath)!} alt="" loading="lazy" className="w-full h-full object-cover" />
+            ) : (
+              <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient(heroBook)}`} />
             )}
           </div>
-        </main>
+          <div className="flex-1 min-w-0 flex flex-col justify-between">
+            <div>
+              <p className="mb-eyebrow">Retomar leitura</p>
+              <h2 className="text-lg font-bold text-foreground mt-1 line-clamp-1">{heroBook.title}</h2>
+              <p className="text-[13px] text-[var(--text-3)]">{heroBook.author}</p>
+            </div>
+            <div className="mt-4">
+              <div className="w-full bg-[var(--surface-2)] h-1.5 rounded-full overflow-hidden">
+                <div className="bg-[var(--primary)] h-full rounded-full" style={{ width: `${heroProgress.progress}%` }} />
+              </div>
+              <div className="flex justify-between items-center mt-2 text-[12.5px]">
+                <span className="text-[var(--text-3)]">{Math.round(heroProgress.progress)}% concluído</span>
+                <span className="text-[var(--primary)] font-semibold inline-flex items-center gap-1">
+                  <Play className="w-3.5 h-3.5 fill-current" /> Continuar
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="flex items-center gap-2 border-b border-[var(--line)] pb-2">
+        <div className="flex gap-1.5 overflow-x-auto no-scrollbar flex-1">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`mb-btn mb-btn-sm ${tab === t.key ? "mb-btn-soft" : "mb-btn-ghost"}`}
+            >
+              {t.label} <span className="mb-chip">{counts[t.key] ?? 0}</span>
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setShelfMode((v) => !v)}
+          title={shelfMode ? "Mostrar as capas" : "Guardar na estante"}
+          aria-pressed={shelfMode}
+          className={`mb-btn mb-btn-sm mb-btn-icon flex-shrink-0 ${shelfMode ? "mb-btn-primary" : "mb-btn-outline"}`}
+        >
+          {shelfMode ? <LayoutGrid className="w-4 h-4" /> : <ShelfIcon className="w-4 h-4" />}
+        </button>
       </div>
+
+      {isLoading ? (
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-4 gap-y-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i}>
+              <Skeleton className="w-full aspect-[2/3] rounded-lg" />
+              <Skeleton className="h-3 w-4/5 mt-2.5" />
+            </div>
+          ))}
+        </div>
+      ) : visible.length === 0 ? (
+        <EmptyState
+          emoji={tab === "favoritos" ? "💗" : "📚"}
+          title={
+            tab === "lendo" ? "Nenhuma leitura em andamento"
+              : tab === "ler-depois" ? "Nada na fila ainda"
+              : tab === "finalizado" ? "Nenhum livro concluído"
+              : tab === "favoritos" ? "Sem favoritos por enquanto"
+              : "Sem sugestões no momento"
+          }
+          description="Segure um livro na biblioteca para salvar, pausar ou deixar para depois."
+          action={<Link to="/library" className="mb-btn mb-btn-primary">Ir para a biblioteca <ArrowRight className="w-4 h-4" /></Link>}
+        />
+      ) : (
+        <BookGrid books={visible} progressOf={progressOf} display={shelfMode ? "spine" : "cover"} />
+      )}
     </div>
   );
 }

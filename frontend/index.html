@@ -2,23 +2,31 @@
 <html lang="pt-br">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#B6A6EE" />
+    <!-- Sem `maximum-scale`: bloquear o zoom quebra a leitura de quem precisa aumentar o texto. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#f6f4ef" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#14150f" media="(prefers-color-scheme: dark)" />
+    <meta name="description" content="myBooks — a rede social de leitura: leia, avalie, comente e descubra o que a comunidade está lendo." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="myBooks" />
-    <link rel="apple-touch-icon" href="/icone.png?v=3" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
-    <link rel="icon" type="image/png" href="/icone.png?v=3" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="alternate icon" type="image/png" href="/favicon-64.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <title>myBooks</title>
     <style>
-      html, body { 
-        height: 100%; 
-        margin: 0; 
-        overflow: hidden; 
-        overscroll-behavior: none;
-      } 
-      #root { height: 100%; }
+      html, body {
+        margin: 0;
+        min-height: 100%;
+        overscroll-behavior-y: none;
+        background: #f6f4ef;
+      }
+      @media (prefers-color-scheme: dark) {
+        html, body { background: #14150f; }
+      }
     </style>
   </head>
 

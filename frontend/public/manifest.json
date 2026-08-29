@@ -1,16 +1,30 @@
 {
-  "name": "myBooks",
+  "name": "myBooks — rede social de leitura",
   "short_name": "myBooks",
+  "description": "Leia, avalie, comente e descubra o que a comunidade está lendo.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#B6A6EE",
+  "background_color": "#f6f4ef",
+  "theme_color": "#4b7a57",
+  "lang": "pt-BR",
   "icons": [
     {
-      "src": "/icone.png",
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

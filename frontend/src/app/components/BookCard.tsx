@@ -1,55 +1,60 @@
-import { useRef, useState, useCallback } from "react";
-import { createPortal } from "react-dom";
-import { BookOpen } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useRef, useState, useCallback, memo } from "react";
+import { BookOpen, Star } from "lucide-react";
+import { useNavigate } from "react-router";
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import { BookContextMenu } from "./BookContextMenu";
 import { EditBookModal } from "./EditBookModal";
 import { deleteBook, saveProgress } from "../lib/api";
 import { useOpenBook } from "../lib/readerChoice";
+import { ConfirmDialog, toast } from "./Ui";
+import { Book3D, EASE_OUT, type BookDisplay } from "./Book3D";
+import { useBookFlight } from "./BookTransition";
 import type { Book, ReadingProgress } from "../lib/types";
 
 interface Props {
   book: Book;
   progress?: ReadingProgress;
-  variant?: "grid" | "list" | "small" | "shelf";
+  variant?: "grid" | "list";
+  /** Largura da capa em pixels (modo grade) */
+  width?: number;
+  display?: BookDisplay;
+  /** Posição na estante — escalona a animação de virada */
+  index?: number;
+  rank?: number;
   onDeleted?: (id: string) => void;
   onEdited?: (updated: Book) => void;
 }
 
-export function BookCard({ book, progress: initialProgress, variant = "grid", onDeleted, onEdited }: Props) {
+function BookCardImpl({
+  book, progress: initialProgress, variant = "grid", width = 128,
+  display = "cover", index = 0, rank, onDeleted, onEdited,
+}: Props) {
   const navigate = useNavigate();
   const openBook = useOpenBook();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const flyToBook = useBookFlight();
+  const rootRef = useRef<HTMLDivElement>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [showEdit, setShowEdit] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [localProgress, setLocalProgress] = useState(initialProgress);
-  const timerRef = useRef<any>(undefined);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const longPressedRef = useRef(false);
   const touchStartPos = useRef({ x: 0, y: 0 });
 
   const startPress = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    if ("button" in e && e.button !== 0) {
-      return;
-    }
+    if ("button" in e && e.button !== 0) return;
     longPressedRef.current = false;
-    
-    if ('touches' in e) {
-      touchStartPos.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    } else {
-      touchStartPos.current = { x: e.clientX, y: e.clientY };
-    }
+
+    const point = "touches" in e
+      ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
+      : { x: e.clientX, y: e.clientY };
+    touchStartPos.current = point;
 
     timerRef.current = setTimeout(() => {
       longPressedRef.current = true;
       setShowMenu(true);
-      if ('touches' in e) {
-        setMenuPos({ x: e.touches[0].clientX, y: e.touches[0].clientY });
-      } else {
-        setMenuPos({ x: e.clientX, y: e.clientY });
-      }
+      setMenuPos(point);
     }, 500);
   }, []);
 
@@ -58,55 +63,56 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
     setMenuPos(null);
   };
 
-  const cancelPress = useCallback(() => {
-    clearTimeout(timerRef.current);
-  }, []);
+  const cancelPress = useCallback(() => clearTimeout(timerRef.current), []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 0) return;
     const touch = e.touches[0];
-    const dist = Math.sqrt(
-      Math.pow(touch.clientX - touchStartPos.current.x, 2) + 
-      Math.pow(touch.clientY - touchStartPos.current.y, 2)
-    );
-    if (dist > 10) {
-      clearTimeout(timerRef.current);
-    }
+    const dist = Math.hypot(touch.clientX - touchStartPos.current.x, touch.clientY - touchStartPos.current.y);
+    if (dist > 10) clearTimeout(timerRef.current);
   }, []);
+
+  /** Abre o livro — com o voo animado quando há um palco para ele. */
+  const openDetails = useCallback(() => {
+    const scene = rootRef.current?.querySelector(".mb-book-scene");
+    if (!flyToBook || !scene) {
+      navigate(`/book/${book.id}`);
+      return;
+    }
+    const rect = scene.getBoundingClientRect();
+    flyToBook({
+      book,
+      rect: { left: rect.left, top: rect.top, width: rect.width },
+      coverWidth: width,
+      startAngle: display === "spine" ? 90 : 0,
+    });
+  }, [book, display, flyToBook, navigate, width]);
 
   const endPress = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     clearTimeout(timerRef.current);
-    
+
     if (!longPressedRef.current) {
-      if ("button" in e && e.button !== 0) {
-        return;
-      }
-      let endX, endY;
-      if ('changedTouches' in e) {
-        endX = e.changedTouches[0].clientX;
-        endY = e.changedTouches[0].clientY;
-      } else {
-        endX = e.clientX;
-        endY = e.clientY;
-      }
+      if ("button" in e && e.button !== 0) return;
+      const point = "changedTouches" in e
+        ? { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY }
+        : { x: e.clientX, y: e.clientY };
 
-      const dist = Math.sqrt(
-        Math.pow(endX - touchStartPos.current.x, 2) + 
-        Math.pow(endY - touchStartPos.current.y, 2)
-      );
-
-      if (dist < 10) {
-        navigate(`/book/${book.id}`);
-      }
+      const dist = Math.hypot(point.x - touchStartPos.current.x, point.y - touchStartPos.current.y);
+      if (dist < 10) openDetails();
     }
     longPressedRef.current = false;
-  }, [book.id, navigate]);
+  }, [openDetails]);
 
   const handleDelete = async () => {
     setShowDeleteConfirm(false);
     handleCloseMenu();
-    await deleteBook(book.id);
-    onDeleted?.(book.id);
+    try {
+      await deleteBook(book.id);
+      onDeleted?.(book.id);
+      toast(`"${book.title}" foi removido.`);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Não foi possível excluir.", "error");
+    }
   };
 
   const handleEdited = (updated: Book) => {
@@ -117,11 +123,11 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
   const handlePause = async () => {
     handleCloseMenu();
     if (!localProgress) return;
-    const isPaused = localProgress.status === "pausado";
-    const nextStatus: "lendo" | "pausado" = isPaused ? "lendo" : "pausado";
+    const nextStatus: "lendo" | "pausado" = localProgress.status === "pausado" ? "lendo" : "pausado";
     const nextProgress: ReadingProgress = { ...localProgress, status: nextStatus };
     setLocalProgress(nextProgress);
     await saveProgress(nextProgress);
+    toast(nextStatus === "pausado" ? "Leitura pausada." : "Leitura retomada.");
   };
 
   const handleReadLater = async () => {
@@ -135,20 +141,12 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
           progress: 0,
           status: "ler-depois",
           startedAt: Date.now(),
-          lastReadAt: Date.now()
+          lastReadAt: Date.now(),
         };
     setLocalProgress(nextProgress);
     await saveProgress(nextProgress);
+    toast("Adicionado a “Ler depois”.");
   };
-
-  const coverUrl = getFullUrl(book.coverImagePath);
-  const coverContent = coverUrl ? (
-    <img src={coverUrl} className="w-full h-full object-cover animate-fade-in" alt={book.title} />
-  ) : (
-    <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient(book)} flex items-center justify-center`}>
-      <BookOpen className="w-1/3 text-white/50" />
-    </div>
-  );
 
   const pressHandlers = {
     onMouseDown: startPress,
@@ -166,155 +164,8 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
     },
   };
 
-  if (variant === "small") {
-    return (
-      <>
-        <div
-          {...pressHandlers}
-          className="flex-shrink-0 w-28 cursor-pointer select-none"
-        >
-          <div className="bg-white/70 backdrop-blur-xl border border-white/80 rounded-2xl p-2.5 shadow-[0_8px_30px_rgba(0,0,0,0.01)] hover:shadow-[0_12px_30px_rgba(0,0,0,0.03)] hover:-translate-y-0.5 transition-all active:scale-95">
-            <div className="w-full aspect-[2/3] rounded-xl overflow-hidden mb-2 shadow-sm border border-slate-100/50">{coverContent}</div>
-            <p className="text-xs font-bold text-[var(--text-main)] line-clamp-2 leading-relaxed">{book.title}</p>
-            <div className="flex mt-1">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <span key={i} className="text-[10px] select-none">{i < book.rating ? "🐼" : "🤍"}</span>
-              ))}
-            </div>
-          </div>
-        </div>
-        {showMenu && (
-          <BookContextMenu
-            book={book}
-            isPaused={localProgress?.status === "pausado"}
-            onClose={handleCloseMenu}
-            onRead={() => { handleCloseMenu(); openBook(book); }}
-            onEdit={() => { handleCloseMenu(); setShowEdit(true); }}
-            onDelete={() => { handleCloseMenu(); setShowDeleteConfirm(true); }}
-            onFeedback={() => { handleCloseMenu(); navigate(`/notes?bookId=${book.id}`); }}
-            onPause={localProgress ? handlePause : undefined}
-            onReadLater={handleReadLater}
-            menuPos={menuPos}
-          />
-        )}
-        {showEdit && <EditBookModal book={book} onClose={() => setShowEdit(false)} onSaved={handleEdited} />}
-        {showDeleteConfirm && <DeleteConfirmDialog book={book} onConfirm={handleDelete} onCancel={() => setShowDeleteConfirm(false)} />}
-      </>
-    );
-  }
-
-  if (variant === "list") {
-    return (
-      <>
-        <div
-          {...pressHandlers}
-          className="bg-white/70 backdrop-blur-xl border border-white/80 rounded-[2.25rem] p-4 shadow-[0_8px_30px_rgba(0,0,0,0.01)] hover:shadow-[0_12px_30px_rgba(0,0,0,0.03)] hover:-translate-y-0.5 transition-all cursor-pointer select-none"
-        >
-          <div className="flex gap-4.5">
-            <div className="flex-shrink-0 w-20 h-28 rounded-2xl overflow-hidden shadow-md border border-white/50">{coverContent}</div>
-            <div className="flex-1 space-y-1.5 py-1 min-w-0">
-              <h3 className="font-extrabold text-[var(--text-main)] text-sm truncate leading-snug">{book.title}</h3>
-              <p className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest">{book.author}</p>
-              <div className="flex">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <span key={i} className="text-xs select-none">{i < book.rating ? "🐼" : "🤍"}</span>
-                ))}
-              </div>
-              <div className="pt-1">
-                <span className="inline-block px-3 py-1 bg-[var(--primary)]/10 text-[9px] font-extrabold rounded-full text-[var(--primary)] uppercase tracking-widest">
-                  {book.genre}
-                </span>
-              </div>
-              {localProgress && (
-                <div className="space-y-1.5 pt-2">
-                  <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden shadow-inner">
-                    <div className="bg-gradient-to-r from-[var(--primary)] to-[var(--lavender)] h-1.5 rounded-full" style={{ width: `${localProgress.progress}%` }} />
-                  </div>
-                  <p className="text-[9px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest">{localProgress.progress}% concluído</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-        {showMenu && (
-          <BookContextMenu
-            book={book}
-            isPaused={localProgress?.status === "pausado"}
-            onClose={handleCloseMenu}
-            onRead={() => { handleCloseMenu(); openBook(book); }}
-            onEdit={() => { handleCloseMenu(); setShowEdit(true); }}
-            onDelete={() => { handleCloseMenu(); setShowDeleteConfirm(true); }}
-            onFeedback={() => { handleCloseMenu(); navigate(`/notes?bookId=${book.id}`); }}
-            onPause={localProgress ? handlePause : undefined}
-            onReadLater={handleReadLater}
-            menuPos={menuPos}
-          />
-        )}
-        {showEdit && <EditBookModal book={book} onClose={() => setShowEdit(false)} onSaved={handleEdited} />}
-        {showDeleteConfirm && <DeleteConfirmDialog book={book} onConfirm={handleDelete} onCancel={() => setShowDeleteConfirm(false)} />}
-      </>
-    );
-  }
-
-  if (variant === "shelf") {
-    return (
-      <>
-        <div
-          {...pressHandlers}
-          className="relative w-24 h-[135px] group cursor-pointer origin-bottom transition-all duration-300 hover:scale-110 hover:-translate-y-2 z-10"
-        >
-          {/* Main Book Cover */}
-          <div className="absolute inset-0 rounded-[2px] rounded-r-[6px] overflow-hidden shadow-[-2px_0_5px_rgba(0,0,0,0.15)] bg-slate-50 border-l-[3px] border-black/10 transition-all">
-            {coverContent}
-            {/* Book Spine Highlight */}
-            <div className="absolute top-0 bottom-0 left-0 w-2 bg-gradient-to-r from-white/20 to-transparent" />
-            {/* Overlay Gradient for realism */}
-            <div className="absolute inset-0 bg-gradient-to-br from-black/5 to-black/15 mix-blend-multiply pointer-events-none" />
-          </div>
-          
-          {/* Shadow behind the book on the shelf */}
-          <div className="absolute -bottom-1 -right-2 w-12 h-2 bg-black/20 blur-sm rounded-full -z-10 group-hover:scale-110 transition-transform" />
-        </div>
-        {showMenu && (
-          <BookContextMenu
-            book={book}
-            isPaused={localProgress?.status === "pausado"}
-            onClose={handleCloseMenu}
-            onRead={() => { handleCloseMenu(); openBook(book); }}
-            onEdit={() => { handleCloseMenu(); setShowEdit(true); }}
-            onDelete={() => { handleCloseMenu(); setShowDeleteConfirm(true); }}
-            onFeedback={() => { handleCloseMenu(); navigate(`/notes?bookId=${book.id}`); }}
-            onPause={localProgress ? handlePause : undefined}
-            onReadLater={handleReadLater}
-            menuPos={menuPos}
-          />
-        )}
-        {showEdit && <EditBookModal book={book} onClose={() => setShowEdit(false)} onSaved={handleEdited} />}
-        {showDeleteConfirm && <DeleteConfirmDialog book={book} onConfirm={handleDelete} onCancel={() => setShowDeleteConfirm(false)} />}
-      </>
-    );
-  }
-
-  // Grid variant
-  return (
+  const overlays = (
     <>
-      <div
-        {...pressHandlers}
-        className="cursor-pointer select-none group"
-      >
-        <div className="relative w-full aspect-[2/3] rounded-md overflow-hidden bg-slate-100 shadow-[0_1px_2px_rgba(0,0,0,0.12),0_6px_16px_-4px_rgba(0,0,0,0.18)] ring-1 ring-black/5 transition-all duration-200 group-hover:-translate-y-1 group-hover:shadow-[0_2px_4px_rgba(0,0,0,0.14),0_12px_24px_-4px_rgba(0,0,0,0.24)]">
-          {coverContent}
-          {!!localProgress && localProgress.progress > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 h-[3px] bg-black/15">
-              <div className="h-full bg-[var(--primary)]" style={{ width: `${localProgress.progress}%` }} />
-            </div>
-          )}
-        </div>
-        <div className="mt-2.5 px-0.5">
-          <h4 className="text-[13px] font-semibold text-slate-800 line-clamp-2 leading-snug">{book.title}</h4>
-          <p className="text-[12px] text-slate-500 mt-0.5 truncate">{book.author}</p>
-        </div>
-      </div>
       {showMenu && (
         <BookContextMenu
           book={book}
@@ -323,43 +174,113 @@ export function BookCard({ book, progress: initialProgress, variant = "grid", on
           onRead={() => { handleCloseMenu(); openBook(book); }}
           onEdit={() => { handleCloseMenu(); setShowEdit(true); }}
           onDelete={() => { handleCloseMenu(); setShowDeleteConfirm(true); }}
-          onFeedback={() => { handleCloseMenu(); navigate(`/notes?bookId=${book.id}`); }}
+          onFeedback={() => { handleCloseMenu(); navigate(`/book/${book.id}#avaliar`); }}
           onPause={localProgress ? handlePause : undefined}
           onReadLater={handleReadLater}
           menuPos={menuPos}
         />
       )}
       {showEdit && <EditBookModal book={book} onClose={() => setShowEdit(false)} onSaved={handleEdited} />}
-      {showDeleteConfirm && <DeleteConfirmDialog book={book} onConfirm={handleDelete} onCancel={() => setShowDeleteConfirm(false)} />}
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title="Excluir livro?"
+        description={`“${book.title}” será removido para todos, junto com as resenhas e o progresso de leitura.`}
+        confirmLabel="Excluir"
+        destructive
+        onConfirm={handleDelete}
+        onCancel={() => setShowDeleteConfirm(false)}
+      />
+    </>
+  );
+
+  if (variant === "list") {
+    const coverUrl = getFullUrl(book.coverImagePath);
+    return (
+      <>
+        <div {...pressHandlers} className="mb-card mb-card-hover p-3.5 flex gap-4 cursor-pointer select-none">
+          <div className="flex-shrink-0 w-[64px] aspect-[2/3] rounded-md overflow-hidden shadow-[var(--shadow-2)]">
+            {coverUrl ? (
+              <img src={coverUrl} alt="" loading="lazy" className="w-full h-full object-cover" />
+            ) : (
+              <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient(book)} flex items-center justify-center`}>
+                <BookOpen className="w-5 h-5 text-black/25" />
+              </div>
+            )}
+          </div>
+          <div className="flex-1 min-w-0 py-0.5">
+            <h3 className="font-semibold text-foreground text-sm truncate">{book.title}</h3>
+            <p className="text-[12px] text-[var(--text-3)] truncate mt-0.5">{book.author || "Autor desconhecido"}</p>
+            <div className="flex items-center gap-2 mt-2">
+              <span className="inline-flex items-center gap-1 text-[12px] font-semibold text-[var(--text-2)]">
+                <Star className="w-3.5 h-3.5 fill-[var(--gold)] text-[var(--gold)]" />
+                {book.rating > 0 ? book.rating.toFixed(1) : "—"}
+              </span>
+              <span className="mb-chip">{book.genre}</span>
+            </div>
+            {localProgress && localProgress.progress > 0 && (
+              <div className="mt-2.5">
+                <div className="w-full bg-[var(--surface-2)] rounded-full h-1 overflow-hidden">
+                  <div className="bg-[var(--primary)] h-full rounded-full" style={{ width: `${localProgress.progress}%` }} />
+                </div>
+                <p className="text-[11px] text-[var(--text-3)] mt-1.5">{Math.round(localProgress.progress)}% lido</p>
+              </div>
+            )}
+          </div>
+        </div>
+        {overlays}
+      </>
+    );
+  }
+
+  const isSpine = display === "spine";
+
+  return (
+    <>
+      <div ref={rootRef} {...pressHandlers} className="cursor-pointer select-none">
+        <Book3D
+          book={book}
+          width={width}
+          display={display}
+          index={index}
+          rank={rank}
+          progress={localProgress}
+        />
+
+        {/* A legenda some no modo estante: o nome já está na lombada. */}
+        <div
+          className="overflow-hidden"
+          style={{
+            // A legenda também encolhe: senão ela seguraria a largura do item
+            // e as lombadas não encostariam umas nas outras na estante.
+            width: isSpine ? 0 : width,
+            maxHeight: isSpine ? 0 : 64,
+            opacity: isSpine ? 0 : 1,
+            marginTop: isSpine ? 0 : 12,
+            transition: `width .8s ${EASE_OUT}, max-height .6s ${EASE_OUT}, opacity .35s ease, margin-top .6s ${EASE_OUT}`,
+            transitionDelay: `${index * 45}ms`,
+          }}
+        >
+          <h4 className="text-[13px] font-semibold text-foreground line-clamp-2 leading-snug">{book.title}</h4>
+          {/* Uma linha só, que trunca inteira: em cartões estreitos a nota e a
+              contagem de leitores brigavam por espaço e quebravam no meio. */}
+          <p className="flex items-center gap-1 mt-1 text-[11.5px] whitespace-nowrap overflow-hidden">
+            {book.rating > 0 ? (
+              <span className="inline-flex items-center gap-1 font-semibold text-[var(--text-2)] flex-shrink-0">
+                <Star className="w-3 h-3 fill-[var(--gold)] text-[var(--gold)]" />
+                {book.rating.toFixed(1)}
+              </span>
+            ) : (
+              <span className="text-[var(--text-3)] flex-shrink-0">Sem nota</span>
+            )}
+            {!!book.readers && book.readers > 0 && (
+              <span className="text-[var(--text-3)] truncate">· {book.readers} {book.readers === 1 ? "leitor" : "leitores"}</span>
+            )}
+          </p>
+        </div>
+      </div>
+      {overlays}
     </>
   );
 }
 
-function DeleteConfirmDialog({ book, onConfirm, onCancel }: { book: Book; onConfirm: () => void; onCancel: () => void }) {
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-6 animate-fade-in" onClick={onCancel}>
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
-      <div
-        className="relative bg-white rounded-[2rem] p-6 space-y-4 shadow-2xl w-full max-w-sm border border-slate-100 animate-bounce-in"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="text-center space-y-2">
-          <div className="text-4xl select-none">🗑️</div>
-          <h3 className="text-[var(--text-main)] font-extrabold text-sm uppercase tracking-widest">Excluir livro?</h3>
-          <p className="text-xs text-[var(--text-muted)] leading-relaxed font-semibold">
-            "<span className="text-[var(--text-main)]">{book.title}</span>" será removido permanentemente.
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <button onClick={onCancel} className="flex-1 py-3 bg-slate-50 border border-slate-200 text-slate-500 font-extrabold text-[10px] uppercase tracking-widest rounded-xl hover:bg-slate-100 active:scale-95 transition-all cursor-pointer">
-            Cancelar
-          </button>
-          <button onClick={onConfirm} className="flex-1 py-3 bg-red-500 text-white font-extrabold text-[10px] uppercase tracking-widest rounded-xl hover:shadow-lg hover:shadow-red-500/10 active:scale-95 transition-all cursor-pointer">
-            Excluir
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body
-  );
-}
+export const BookCard = memo(BookCardImpl);

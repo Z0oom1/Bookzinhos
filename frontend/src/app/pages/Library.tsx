@@ -1,467 +1,290 @@
-import { useState, useEffect } from "react";
-import {
-  Search, BookOpen, Bookmark, CheckCircle2, Heart, Folder,
-  Layers, FileText, Grid, List, Users, Sparkles, Clock
-} from "lucide-react";
-import { fetchBooks, fetchSavedIds, toggleSaved, fetchAllProgress } from "../lib/api";
-import { Link } from "react-router";
-import { BookCard } from "../components/BookCard";
-import type { Book, ReadingProgress } from "../lib/types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router";
+import { Search, LayoutGrid, List as ListIcon, Upload, SlidersHorizontal, Library as ShelfIcon } from "lucide-react";
+import { fetchAllProgress, fetchBooks, fetchSavedIds } from "../lib/api";
+import { useLiveData } from "../lib/useLiveData";
 import { triggerBackgroundCoverGeneration } from "../lib/coverExtractor";
+import type { Book, ReadingProgress } from "../lib/types";
+import { BookCard } from "../components/BookCard";
+import { BookGrid } from "../components/BookGrid";
+import { EmptyState, PageHeader, Skeleton } from "../components/Ui";
+
+type Filter = "todos" | "lendo" | "ler-depois" | "lidos" | "favoritos" | "pdfs";
+type Sort = "recentes" | "populares" | "nota" | "titulo";
+type View = "grid" | "shelf" | "list";
+
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: "todos", label: "Todos" },
+  { key: "lendo", label: "Lendo" },
+  { key: "ler-depois", label: "Ler depois" },
+  { key: "lidos", label: "Lidos" },
+  { key: "favoritos", label: "Favoritos" },
+  { key: "pdfs", label: "Com PDF" },
+];
+
+const SORTS: { key: Sort; label: string }[] = [
+  { key: "recentes", label: "Adicionados recentemente" },
+  { key: "populares", label: "Mais lidos" },
+  { key: "nota", label: "Melhor avaliados" },
+  { key: "titulo", label: "Título (A–Z)" },
+];
+
+const VIEWS: { key: View; label: string; icon: typeof LayoutGrid }[] = [
+  { key: "grid", label: "Capas", icon: LayoutGrid },
+  { key: "shelf", label: "Guardar na estante", icon: ShelfIcon },
+  { key: "list", label: "Lista", icon: ListIcon },
+];
 
 export function Library() {
-  const [books, setBooks] = useState<Book[]>([]);
-  const [savedIds, setSavedIds] = useState<string[]>([]);
-  const [progress, setProgress] = useState<ReadingProgress[]>([]);
-  const [selectedGenre, setSelectedGenre] = useState("Todos");
-  const [selectedCategory, setSelectedCategory] = useState("todos");
+  const [params, setParams] = useSearchParams();
+  const searchRef = useRef<HTMLInputElement>(null);
+
   const [search, setSearch] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    const loadData = () => {
-      Promise.all([fetchBooks(), fetchSavedIds(), fetchAllProgress()])
-        .then(([b, s, p]) => {
-          setBooks(b || []);
-          setSavedIds(s || []);
-          setProgress(p || []);
-          setIsLoading(false);
-
-          // Gera capa em segundo plano para livros que não possuem capa
-          triggerBackgroundCoverGeneration(b || [], (updatedBook) => {
-            setBooks((prev) => prev.map((x) => (x.id === updatedBook.id ? updatedBook : x)));
-          });
-        })
-        .catch((err) => {
-          console.error("Erro na biblioteca:", err);
-          setIsLoading(false);
-        });
-    };
-
-    loadData();
-
-    // Sincroniza dados a cada 10 segundos
-    const interval = setInterval(loadData, 10000);
-
-    // Sincroniza dados quando a página ganha foco
-    window.addEventListener("focus", loadData);
-
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("focus", loadData);
-    };
-  }, []);
-
-  const handleToggleSave = async (bookId: string) => {
-    const currently = savedIds.includes(bookId);
-    setSavedIds((prev) => currently ? prev.filter((id) => id !== bookId) : [...prev, bookId]);
-    await toggleSaved(bookId, currently);
-  };
-
-  // Agrupar livros por autor de forma insensível a maiúsculas/minúsculas para as prateleiras de autor
-  const authorGroups = (() => {
-    const groups: { [key: string]: { displayAuthor: string; books: Book[] } } = {};
-    books.forEach((book) => {
-      const authorName = (book.author || "Autor Desconhecido").trim();
-      const key = authorName.toLowerCase();
-      if (!groups[key]) {
-        groups[key] = { displayAuthor: authorName, books: [] };
-      }
-      groups[key].books.push(book);
-    });
-    
-    return Object.values(groups).sort((a, b) => 
-      a.displayAuthor.localeCompare(b.displayAuthor, "pt", { sensitivity: "base" })
-    );
-  })();
-
-  const filteredBooksMobile = books.filter((b) => {
-    const matchesGenre = selectedGenre === "Todos" || b.genre === selectedGenre;
-    const matchesSearch = !search.trim() || b.title.toLowerCase().includes(search.toLowerCase()) || b.author.toLowerCase().includes(search.toLowerCase());
-    return matchesGenre && matchesSearch;
-  });
-
-  const availableGenres = ["Todos", ...Array.from(new Set(books.map((b) => b.genre))).sort()];
-
-  const lendoBooks = books.filter(b => progress.some(p => p.bookId === b.id && p.status === "lendo"));
-  const lidosBooks = books.filter(b => progress.some(p => p.bookId === b.id && p.status === "finalizado"));
-  const lerDepoisBooks = books.filter(b => progress.some(p => p.bookId === b.id && p.status === "ler-depois"));
-  const favoritosBooks = books.filter(b => savedIds.includes(b.id));
-
-  const recomendadosBooks = (() => {
-    const activeBookIds = progress.map(p => p.bookId);
-    const activeBooks = books.filter(b => activeBookIds.includes(b.id));
-    const genreCounts: Record<string, number> = {};
-    activeBooks.forEach(b => {
-      if (b.genre) {
-        const g = b.genre.trim().toLowerCase();
-        genreCounts[g] = (genreCounts[g] || 0) + 1;
-      }
-    });
-
-    const unread = books.filter(b => !progress.some(p => p.bookId === b.id && (p.status === "finalizado" || p.status === "lendo")));
-
-    if (activeBooks.length > 0) {
-      const scored = unread.map(b => {
-        const g = (b.genre || "").trim().toLowerCase();
-        const score = genreCounts[g] || 0;
-        return { book: b, score };
-      });
-      scored.sort((a, b) => b.score - a.score || b.book.addedAt - a.book.addedAt);
-      return scored.map(x => x.book);
-    }
-    return unread;
-  })();
-
-  const romanceFavoritos = books.filter(b => b.genre.toLowerCase().includes("romance") && savedIds.includes(b.id));
-  const aliHazelwood = books.filter(b => b.author.toLowerCase().includes("ali hazelwood"));
-  const ficcaoCientifica = books.filter(b => b.genre.toLowerCase().includes("ficção") || b.genre.toLowerCase().includes("científica"));
-  const suspense = books.filter(b => b.genre.toLowerCase().includes("suspense") || b.genre.toLowerCase().includes("thriller"));
-  const aestheticReads = books.filter(b => ["sky-mint", "lavender-mint", "peach-lavender"].includes(b.coverColor || ""));
-
-  const getFilteredCategoryBooks = () => {
-    let list = books;
-    if (selectedCategory === "lendo") {
-      list = lendoBooks;
-    } else if (selectedCategory === "recomendados") {
-      list = recomendadosBooks;
-    } else if (selectedCategory === "ler-depois") {
-      list = lerDepoisBooks;
-    } else if (selectedCategory === "lidos") {
-      list = lidosBooks;
-    } else if (selectedCategory === "favoritos") {
-      list = favoritosBooks;
-    } else if (selectedCategory === "pdfs") {
-      list = books.filter(b => !!b.pdfPath);
-    } else if (selectedCategory === "romances-favoritos") {
-      list = romanceFavoritos;
-    } else if (selectedCategory === "ali-hazelwood") {
-      list = aliHazelwood;
-    } else if (selectedCategory === "ficcao-cientifica") {
-      list = ficcaoCientifica;
-    } else if (selectedCategory === "suspense-thriller") {
-      list = suspense;
-    } else if (selectedCategory === "aesthetic-reads") {
-      list = aestheticReads;
-    }
-
-    return list.filter((b) => {
-      const matchesGenre = selectedGenre === "Todos" || b.genre === selectedGenre;
-      const matchesSearch = !search.trim() || b.title.toLowerCase().includes(search.toLowerCase()) || b.author.toLowerCase().includes(search.toLowerCase());
-      return matchesGenre && matchesSearch;
-    });
-  };
-
-  const filteredBooksByCategory = getFilteredCategoryBooks();
-
-  const sidebarMenu = [
-    { key: "todos", label: "Todos os livros", count: books.length, icon: BookOpen },
-    { key: "minha-biblioteca", label: "Minha Biblioteca", count: lendoBooks.length + lerDepoisBooks.length + lidosBooks.length, icon: Folder },
-    { key: "autores", label: "Autores", count: authorGroups.length, icon: Users },
-    { key: "ler-depois", label: "Ler depois", count: lerDepoisBooks.length, icon: Clock },
-    { key: "recomendados", label: "Recomendados", count: recomendadosBooks.length, icon: Sparkles },
-    { key: "lendo", label: "Lendo", count: lendoBooks.length, icon: Layers },
-    { key: "lidos", label: "Lidos", count: lidosBooks.length, icon: CheckCircle2 },
-    { key: "favoritos", label: "Favoritos", count: favoritosBooks.length, icon: Heart },
-    { key: "pdfs", label: "PDFs", count: books.filter(b => !!b.pdfPath).length, icon: FileText },
-  ];
-
-  const collectionsMenu = [
-    { key: "romances-favoritos", label: "Romances favoritos", count: romanceFavoritos.length },
-    { key: "ali-hazelwood", label: "Ali Hazelwood", count: aliHazelwood.length },
-    { key: "ficcao-cientifica", label: "Ficção científica", count: ficcaoCientifica.length },
-    { key: "suspense-thriller", label: "Suspense", count: suspense.length },
-    { key: "aesthetic-reads", label: "Aesthetic reads", count: aestheticReads.length },
-  ];
-
-  if (isLoading) return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="text-5xl animate-bounce-in">🐼</div>
-    </div>
+  const [filter, setFilter] = useState<Filter>((params.get("filter") as Filter) || "todos");
+  const [genre, setGenre] = useState("Todos");
+  const [sort, setSort] = useState<Sort>("recentes");
+  const [view, setView] = useState<View>(
+    () => (localStorage.getItem("library-view") as View) || "grid"
   );
 
-  const renderDesktopShelf = (title: string, booksList: Book[], _dotColorClass: string, categoryKey: string) => {
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-[15px] font-semibold text-slate-800">{title}</h3>
-          {categoryKey && (
-            <button
-              onClick={() => setSelectedCategory(categoryKey)}
-              className="text-[12px] font-medium text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
-            >
-              Ver todos
-            </button>
-          )}
-        </div>
+  const { data, isLoading, setData } = useLiveData<{
+    books: Book[];
+    savedIds: string[];
+    progress: ReadingProgress[];
+  }>(
+    async (force) => {
+      const [books, savedIds, progress] = await Promise.all([
+        fetchBooks(force),
+        fetchSavedIds(force).catch(() => [] as string[]),
+        fetchAllProgress(force).catch(() => [] as ReadingProgress[]),
+      ]);
+      return { books: books || [], savedIds: savedIds || [], progress: progress || [] };
+    },
+    [],
+    { intervalMs: 45000 }
+  );
 
-        {booksList.length === 0 ? (
-          <div className="text-center py-10 text-slate-400 text-xs font-medium bg-slate-50/60 rounded-xl">
-            Nenhum livro nesta seção.
-          </div>
-        ) : (
-          <div className="grid gap-x-5 gap-y-8" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))" }}>
-            {booksList.map((book) => {
-              const prog = progress.find((p) => p.bookId === book.id);
-              return (
-                <div key={book.id} className="relative">
-                  <BookCard
-                    book={book}
-                    progress={prog}
-                    variant="grid"
-                    onDeleted={(id) => setBooks((b) => b.filter((x) => x.id !== id))}
-                    onEdited={(updated) => setBooks((b) => b.map((x) => x.id === updated.id ? updated : x))}
-                  />
-                  <button
-                    onClick={() => handleToggleSave(book.id)}
-                    className="absolute top-1.5 right-1.5 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-white/95 shadow-sm active:scale-90 hover:scale-105 transition-transform cursor-pointer text-xs"
-                  >
-                    {savedIds.includes(book.id) ? "❤️" : "🤍"}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    );
+  const books = data?.books ?? [];
+  const savedIds = data?.savedIds ?? [];
+  const progress = data?.progress ?? [];
+
+  // Gera capas em segundo plano para livros que chegaram sem imagem.
+  useEffect(() => {
+    if (books.length === 0) return;
+    triggerBackgroundCoverGeneration(books, (updated) => {
+      setData((prev) =>
+        prev ? { ...prev, books: prev.books.map((b) => (b.id === updated.id ? updated : b)) } : prev
+      );
+    });
+  }, [books.length, setData]);
+
+  useEffect(() => {
+    if (params.get("focus") === "search") {
+      searchRef.current?.focus();
+      params.delete("focus");
+      setParams(params, { replace: true });
+    }
+  }, [params, setParams]);
+
+  const changeFilter = (next: Filter) => {
+    setFilter(next);
+    if (next === "todos") params.delete("filter");
+    else params.set("filter", next);
+    setParams(params, { replace: true });
   };
 
-  return (
-    <div className="min-h-screen md:min-h-0 md:h-full bg-transparent overflow-x-hidden">
-      {/* Mobile view (<md) */}
-      <div className="md:hidden max-w-2xl mx-auto px-4 py-8 space-y-7 relative z-10">
-        <div className="flex items-start justify-between gap-4 animate-fade-in">
-          <div>
-            <h1 className="text-xl font-semibold text-slate-900 tracking-tight leading-tight">Biblioteca</h1>
-            <p className="text-slate-400 text-[12px] mt-0.5">{filteredBooksMobile.length} {filteredBooksMobile.length === 1 ? "livro" : "livros"}</p>
-          </div>
-          <Link
-            to="/upload"
-            className="flex-shrink-0 px-3.5 py-2 bg-[var(--primary)] text-white rounded-lg font-medium text-[12px] shadow-sm hover:opacity-90 active:scale-95 transition-all cursor-pointer"
-          >
-            + Adicionar
-          </Link>
-        </div>
+  const changeView = (next: View) => {
+    setView(next);
+    localStorage.setItem("library-view", next);
+  };
 
-        <div className="relative animate-fade-in">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+  const genres = useMemo(
+    () => ["Todos", ...Array.from(new Set(books.map((b) => b.genre).filter(Boolean))).sort()],
+    [books]
+  );
+
+  const statusOf = useMemo(() => {
+    const map = new Map<string, ReadingProgress>();
+    progress.forEach((p) => map.set(p.bookId, p));
+    return map;
+  }, [progress]);
+
+  const visible = useMemo(() => {
+    const term = search.trim().toLowerCase();
+
+    const filtered = books.filter((book) => {
+      const p = statusOf.get(book.id);
+
+      if (filter === "lendo" && p?.status !== "lendo") return false;
+      if (filter === "ler-depois" && p?.status !== "ler-depois") return false;
+      if (filter === "lidos" && p?.status !== "finalizado") return false;
+      if (filter === "favoritos" && !savedIds.includes(book.id)) return false;
+      if (filter === "pdfs" && !book.pdfPath) return false;
+
+      if (genre !== "Todos" && book.genre !== genre) return false;
+
+      if (term && !book.title.toLowerCase().includes(term) && !(book.author || "").toLowerCase().includes(term)) {
+        return false;
+      }
+      return true;
+    });
+
+    const sorted = [...filtered];
+    if (sort === "populares") sorted.sort((a, b) => (b.popularity ?? b.readers ?? 0) - (a.popularity ?? a.readers ?? 0));
+    else if (sort === "nota") sorted.sort((a, b) => b.rating - a.rating || b.reviewCount - a.reviewCount);
+    else if (sort === "titulo") sorted.sort((a, b) => a.title.localeCompare(b.title, "pt", { sensitivity: "base" }));
+    else sorted.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
+
+    return sorted;
+  }, [books, filter, genre, search, sort, savedIds, statusOf]);
+
+  const counts = useMemo(
+    () => ({
+      todos: books.length,
+      lendo: progress.filter((p) => p.status === "lendo").length,
+      "ler-depois": progress.filter((p) => p.status === "ler-depois").length,
+      lidos: progress.filter((p) => p.status === "finalizado").length,
+      favoritos: savedIds.length,
+      pdfs: books.filter((b) => !!b.pdfPath).length,
+    }),
+    [books, progress, savedIds]
+  );
+
+  const handleRemoved = (id: string) =>
+    setData((prev) => (prev ? { ...prev, books: prev.books.filter((b) => b.id !== id) } : prev));
+
+  const handleEdited = (updated: Book) =>
+    setData((prev) =>
+      prev ? { ...prev, books: prev.books.map((b) => (b.id === updated.id ? { ...b, ...updated } : b)) } : prev
+    );
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-5">
+      <PageHeader
+        title="Sua"
+        highlight="biblioteca"
+        subtitle={isLoading ? "Carregando o acervo…" : `${books.length} livros no acervo da comunidade`}
+        icon={<ShelfIcon className="w-5 h-5" />}
+        gradient="linear-gradient(140deg,#A78BFA,#6D28D9)"
+        action={
+          <Link to="/upload" className="mb-btn mb-btn-primary mb-btn-sm">
+            <Upload className="w-4 h-4" /> Enviar livro
+          </Link>
+        }
+      />
+
+      {/* ── Busca e visualização ───────────────────────────────────────────── */}
+      <div className="flex gap-2 mb-in" style={{ "--i": 1 } as React.CSSProperties}>
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-3)] pointer-events-none" />
           <input
-            type="text"
+            ref={searchRef}
+            type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por título ou autor..."
-            className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-xl outline-none border border-slate-100 focus:border-[var(--primary)]/30 focus:ring-2 focus:ring-[var(--primary)]/5 focus:bg-white transition-all text-sm text-slate-700 placeholder:text-slate-400"
+            placeholder="Buscar por título ou autor…"
+            aria-label="Buscar na biblioteca"
+            className="mb-input pl-9"
           />
         </div>
-
-        <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar -mx-4 px-4">
-          {availableGenres.map((genre) => (
+        <div className="mb-glass-soft flex gap-1 p-1 rounded-xl">
+          {VIEWS.map(({ key, label, icon: Icon }) => (
             <button
-              key={genre}
-              onClick={() => setSelectedGenre(genre)}
-              className={`px-3.5 py-1.5 rounded-full whitespace-nowrap transition-all active:scale-95 font-medium text-[12px] border cursor-pointer flex-shrink-0 ${selectedGenre === genre
-                  ? "bg-slate-900 text-white border-transparent"
-                  : "bg-white text-slate-500 border-slate-200 hover:border-slate-300"
-                }`}
+              key={key}
+              onClick={() => changeView(key)}
+              title={label}
+              aria-label={label}
+              aria-pressed={view === key}
+              className={`mb-btn mb-btn-sm mb-btn-icon ${view === key ? "mb-btn-primary" : "mb-btn-ghost"}`}
             >
-              {genre}
+              <Icon className="w-4 h-4" />
             </button>
           ))}
         </div>
-
-        {filteredBooksMobile.length === 0 ? (
-          <div className="text-center py-20 text-slate-400 bg-slate-50 rounded-xl border border-slate-100">
-            <div className="text-4xl mb-4 opacity-40">🕸️</div>
-            <p className="font-medium text-sm">Esta seção da biblioteca está vazia...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-7 animate-fade-in">
-            {filteredBooksMobile.map((book) => (
-              <div key={book.id} className="relative">
-                <BookCard
-                  book={book}
-                  progress={progress.find((p) => p.bookId === book.id)}
-                  variant="grid"
-                  onDeleted={(id) => setBooks((b) => b.filter((x) => x.id !== id))}
-                  onEdited={(updated) => setBooks((b) => b.map((x) => x.id === updated.id ? updated : x))}
-                />
-                <button
-                  onClick={() => handleToggleSave(book.id)}
-                  className="absolute top-1.5 right-1.5 z-20 w-7 h-7 flex items-center justify-center rounded-full bg-white/95 shadow-sm active:scale-90 hover:scale-105 transition-transform cursor-pointer text-xs"
-                >
-                  {savedIds.includes(book.id) ? "❤️" : "🤍"}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <p className="text-center text-[10px] text-[var(--text-muted)] pt-4 opacity-70 font-extrabold uppercase tracking-widest">
-          💡 Pressione e segure um livro para opções avançadas
-        </p>
       </div>
 
-      {/* Desktop view (>=lg) */}
-      <div className="hidden md:flex flex-row h-full min-h-[calc(85vh-3.5rem)] bg-slate-50/10">
-        <aside className="w-64 border-r border-slate-100 bg-white p-6 flex flex-col justify-between flex-shrink-0">
-          <div className="space-y-6">
-            <h2 className="text-2xl font-black text-slate-800 tracking-tight">Biblioteca</h2>
-
-            <nav className="space-y-1">
-              {sidebarMenu.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.key}
-                    onClick={() => {
-                      setSelectedCategory(item.key);
-                      setSelectedGenre("Todos");
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${selectedCategory === item.key
-                        ? "bg-[var(--primary)]/10 text-[var(--primary)]"
-                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-                      }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Icon className="w-4 h-4 opacity-80" />
-                      <span>{item.label}</span>
-                    </div>
-                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md ${selectedCategory === item.key ? "bg-[var(--primary)]/20" : "bg-slate-100"
-                      }`}>{item.count}</span>
-                  </button>
-                );
-              })}
-            </nav>
-
-            <hr className="border-slate-100" />
-
-            <div className="space-y-2">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-wider px-3">Coleções</p>
-              <nav className="space-y-1">
-                {collectionsMenu.map((item) => (
-                  <button
-                    key={item.key}
-                    onClick={() => {
-                      setSelectedCategory(item.key);
-                      setSelectedGenre("Todos");
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-[11px] font-bold transition-all cursor-pointer ${selectedCategory === item.key
-                        ? "bg-[var(--primary)]/10 text-[var(--primary)]"
-                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-                      }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Folder className="w-4 h-4 opacity-60 text-slate-400" />
-                      <span className="truncate max-w-[120px]">{item.label}</span>
-                    </div>
-                    <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-md ${selectedCategory === item.key ? "bg-[var(--primary)]/20" : "bg-slate-100"
-                      }`}>{item.count}</span>
-                  </button>
-                ))}
-              </nav>
-            </div>
-          </div>
-        </aside>
-
-        <main className="flex-1 p-8 overflow-y-auto space-y-8 bg-slate-50/30">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <div className="flex items-center gap-3.5">
-                <h1 className="text-2xl font-black text-slate-800 tracking-tight">Minha Biblioteca</h1>
-                <Link
-                  to="/upload"
-                  className="px-3.5 py-1.5 bg-[var(--primary)] text-white rounded-xl font-extrabold text-[9px] uppercase tracking-widest shadow-md hover:shadow-lg active:scale-95 transition-all cursor-pointer"
-                >
-                  + Add Livro
-                </Link>
-              </div>
-              <p className="text-xs text-slate-400 font-bold">{filteredBooksByCategory.length} livros</p>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <select
-                value={selectedGenre}
-                onChange={(e) => setSelectedGenre(e.target.value)}
-                className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-600 outline-none focus:border-[var(--primary)]/30 transition-all cursor-pointer"
-              >
-                {availableGenres.map((g) => (
-                  <option key={g} value={g}>{g}</option>
-                ))}
-              </select>
-
-              <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar na biblioteca..."
-                  className="w-full pl-9 pr-4 py-2 bg-white rounded-xl border border-slate-200 outline-none focus:border-[var(--primary)]/30 focus:ring-2 focus:ring-[var(--primary)]/5 transition-all text-xs font-semibold text-slate-700 placeholder:text-slate-400"
-                />
-              </div>
-
-              <div className="flex bg-white border border-slate-200 rounded-xl p-1 gap-0.5">
-                <button className="p-1.5 rounded-lg bg-slate-100 text-slate-700 cursor-pointer transition-colors"><Grid className="w-3.5 h-3.5" /></button>
-                <button className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer transition-colors"><List className="w-3.5 h-3.5" /></button>
-              </div>
-            </div>
-          </div>
-
-          {selectedCategory === "todos" && !search.trim() && selectedGenre === "Todos" ? (
-            <div className="space-y-8 animate-fade-in">
-              {renderDesktopShelf(
-                "Todos os Livros",
-                [...books].sort((a, b) => a.title.localeCompare(b.title, "pt")),
-                "bg-blue-500",
-                ""
-              )}
-            </div>
-          ) : selectedCategory === "minha-biblioteca" && !search.trim() && selectedGenre === "Todos" ? (
-            <div className="space-y-8 animate-fade-in">
-              {renderDesktopShelf("Lendo", lendoBooks, "bg-purple-500", "lendo")}
-              {renderDesktopShelf("Recomendados", recomendadosBooks, "bg-amber-500", "recomendados")}
-              {renderDesktopShelf("Ler depois", lerDepoisBooks, "bg-blue-500", "ler-depois")}
-              {renderDesktopShelf("Lidos", lidosBooks, "bg-emerald-500", "lidos")}
-            </div>
-          ) : selectedCategory === "autores" && !search.trim() && selectedGenre === "Todos" ? (
-            <div className="space-y-8 animate-fade-in">
-              {renderDesktopShelf("Lendo", lendoBooks, "bg-purple-500", "lendo")}
-              {renderDesktopShelf("Recomendados", recomendadosBooks, "bg-amber-500", "recomendados")}
-              {authorGroups.map((group) => (
-                renderDesktopShelf(
-                  `Livros de ${group.displayAuthor}`,
-                  group.books,
-                  "bg-emerald-500",
-                  ""
-                )
-              ))}
-            </div>
-          ) : (
-            filteredBooksByCategory.length === 0 ? (
-              <div className="text-center py-20 text-slate-400 bg-white/50 border border-slate-100 rounded-3xl">
-                <p className="font-bold text-xs">Nenhum livro encontrado nesta seção.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
-                {filteredBooksByCategory.map((book) => {
-                  const prog = progress.find((p) => p.bookId === book.id);
-                  return (
-                    <BookCard
-                      key={book.id}
-                      book={book}
-                      progress={prog}
-                      variant="grid"
-                      onDeleted={(id) => setBooks((b) => b.filter((x) => x.id !== id))}
-                      onEdited={(updated) => setBooks((b) => b.map((x) => x.id === updated.id ? updated : x))}
-                    />
-                  );
-                })}
-              </div>
-            )
-          )}
-        </main>
+      {/* ── Filtros ────────────────────────────────────────────────────────── */}
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar mb-in" style={{ "--i": 2 } as React.CSSProperties}>
+        {FILTERS.map((f) => (
+          <button
+            key={f.key}
+            onClick={() => changeFilter(f.key)}
+            className={`mb-btn mb-btn-sm ${filter === f.key ? "mb-btn-primary" : "mb-btn-outline"}`}
+          >
+            {f.label}
+            <span className={`text-[11px] ${filter === f.key ? "opacity-80" : "text-[var(--text-3)]"}`}>
+              {counts[f.key]}
+            </span>
+          </button>
+        ))}
       </div>
+
+      <div className="flex flex-wrap gap-2 items-center mb-in" style={{ "--i": 3 } as React.CSSProperties}>
+        <SlidersHorizontal className="w-4 h-4 text-[var(--text-3)]" />
+        <select
+          value={genre}
+          onChange={(e) => setGenre(e.target.value)}
+          aria-label="Filtrar por gênero"
+          className="mb-input w-auto py-1.5 text-[12.5px]"
+        >
+          {genres.map((g) => (
+            <option key={g} value={g}>{g === "Todos" ? "Todos os gêneros" : g}</option>
+          ))}
+        </select>
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as Sort)}
+          aria-label="Ordenar por"
+          className="mb-input w-auto py-1.5 text-[12.5px]"
+        >
+          {SORTS.map((s) => (
+            <option key={s.key} value={s.key}>{s.label}</option>
+          ))}
+        </select>
+        <span className="text-[12.5px] text-[var(--text-3)] ml-auto">
+          {view === "shelf" ? "Guardados na estante · " : ""}{visible.length} {visible.length === 1 ? "livro" : "livros"}
+        </span>
+      </div>
+
+      {/* ── Resultados ─────────────────────────────────────────────────────── */}
+      {isLoading ? (
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-5 gap-y-8">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i}>
+              <Skeleton className="w-full aspect-[2/3] rounded-lg" />
+              <Skeleton className="h-3 w-4/5 mt-3" />
+            </div>
+          ))}
+        </div>
+      ) : visible.length === 0 ? (
+        <EmptyState
+          emoji="🔍"
+          title="Nada por aqui"
+          description={search.trim() ? "Nenhum livro corresponde à sua busca." : "Ainda não há livros nesta seção."}
+          action={<Link to="/upload" className="mb-btn mb-btn-primary">Enviar um livro</Link>}
+        />
+      ) : view === "list" ? (
+        <div className="space-y-2.5">
+          {visible.map((book) => (
+            <BookCard
+              key={book.id}
+              book={book}
+              variant="list"
+              progress={statusOf.get(book.id)}
+              onDeleted={handleRemoved}
+              onEdited={handleEdited}
+            />
+          ))}
+        </div>
+      ) : (
+        <BookGrid
+          books={visible}
+          progressOf={statusOf}
+          display={view === "shelf" ? "spine" : "cover"}
+          onDeleted={handleRemoved}
+          onEdited={handleEdited}
+        />
+      )}
     </div>
   );
 }

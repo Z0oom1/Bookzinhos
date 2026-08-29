@@ -195,133 +195,113 @@ export function Upload() {
     }
   };
 
+
+  const canSubmit = !!pdfFile && !!formData.title.trim() && !isUploading;
+
   return (
-    <div className="min-h-screen bg-transparent pb-12">
-      <div className="max-w-2xl mx-auto px-4 py-6">
-        <button onClick={() => navigate(-1)} className="mb-6 p-2.5 bg-white rounded-full shadow-sm hover:bg-slate-50 border border-slate-100 active:scale-95 transition-all cursor-pointer">
-          <ArrowLeft className="w-5 h-5 text-[var(--text-main)]" />
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+      <header className="flex items-center gap-3">
+        <button onClick={() => navigate(-1)} aria-label="Voltar" className="mb-btn mb-btn-outline mb-btn-icon mb-btn-sm">
+          <ArrowLeft className="w-4 h-4" />
         </button>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground tracking-tight">Enviar livro</h1>
+          <p className="text-[13px] text-[var(--text-3)] mt-0.5">O livro entra no acervo compartilhado da comunidade.</p>
+        </div>
+      </header>
 
-        <h1 className="text-3xl font-extrabold text-[var(--text-main)] tracking-tight mb-8 animate-fade-in">Adicionar Livro 📚</h1>
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* ── PDF ──────────────────────────────────────────────────────────── */}
+        <section>
+          <span className="mb-label">Arquivo PDF</span>
+          <label
+            onDragOver={handlePdfDragOver}
+            onDragLeave={handlePdfDragLeave}
+            onDrop={handlePdfDrop}
+            className={`block w-full rounded-xl border-2 border-dashed px-5 py-8 text-center cursor-pointer transition-colors ${
+              isDragOverPdf ? "border-[var(--primary)] bg-[var(--primary-soft)]" : "border-[var(--line)] bg-[var(--surface-2)] hover:border-[var(--primary)]/40"
+            }`}
+          >
+            <input type="file" accept="application/pdf" className="hidden" onChange={handlePdfChange} />
+            <UploadIcon className="w-6 h-6 mx-auto text-[var(--text-3)]" />
+            {pdfFile ? (
+              <>
+                <p className="text-[13.5px] font-semibold text-foreground mt-2.5 break-all">{pdfFile.name}</p>
+                <p className="text-[12px] text-[var(--text-3)] mt-1">
+                  {(pdfFile.size / 1024 / 1024).toFixed(1)} MB{totalPages > 1 ? ` · ${totalPages} páginas` : ""} — toque para trocar
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-[13.5px] font-semibold text-foreground mt-2.5">Arraste o PDF ou toque para escolher</p>
+                <p className="text-[12px] text-[var(--text-3)] mt-1">A capa é extraída da primeira página automaticamente.</p>
+              </>
+            )}
+          </label>
+        </section>
 
-        {error && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-100 rounded-2xl text-red-600 text-xs font-semibold">{error}</div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* PDF + Cover Upload */}
+        {/* ── Capa ─────────────────────────────────────────────────────────── */}
+        <section>
+          <span className="mb-label">Capa</span>
           <div className="flex gap-4 items-start">
-            {/* PDF Upload */}
-            <div className="flex-1 space-y-1.5">
-              <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest pl-1">Arquivo PDF *</label>
-              <div 
-                className={`border border-dashed rounded-2xl p-5 text-center transition-all shadow-sm relative ${
-                  isDragOverPdf 
-                    ? "border-[var(--primary)] bg-[var(--primary)]/5 scale-[1.02]" 
-                    : "border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300"
-                }`}
-              >
-                <input 
-                  type="file" 
-                  accept=".pdf" 
-                  onChange={handlePdfChange} 
-                  onDragOver={handlePdfDragOver}
-                  onDragLeave={handlePdfDragLeave}
-                  onDrop={handlePdfDrop}
-                  className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full h-full" 
-                />
-                <div className="flex flex-col items-center gap-2 pointer-events-none">
-                  <div className="w-12 h-12 bg-[var(--primary)]/10 rounded-2xl flex items-center justify-center">
-                    <UploadIcon className="w-5 h-5 text-[var(--primary)]" />
-                  </div>
-                  {pdfFile ? (
-                    <p className="text-xs text-[var(--text-main)] font-semibold truncate max-w-[180px]">{pdfFile.name}</p>
-                  ) : (
-                    <p className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest">Selecionar ou Arrastar PDF</p>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Cover Preview */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest pl-1">Capa</label>
-              <div
-                className={`relative w-24 h-36 rounded-2xl overflow-hidden shadow-sm border transition-all group bg-white ${
-                  isDragOverCover 
-                    ? "border-[var(--primary)] ring-4 ring-[var(--primary)]/10 scale-105" 
-                    : "border-slate-200 hover:border-slate-300"
-                }`}
-              >
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={handleCoverChange} 
-                  onDragOver={handleCoverDragOver}
-                  onDragLeave={handleCoverDragLeave}
-                  onDrop={handleCoverDrop}
-                  className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full h-full"
-                />
-                <div className="w-full h-full flex flex-col items-center justify-center gap-1 pointer-events-none">
-                  {isExtractingCover ? (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <div className="w-5 h-5 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  ) : coverPreview ? (
-                    <img src={coverPreview} className="w-full h-full object-cover" alt="capa" />
-                  ) : (
-                    <div className="w-full h-full bg-[var(--lavender)]/15 flex flex-col items-center justify-center gap-1">
-                      <span className="text-xl select-none">🖼️</span>
-                      <span className="text-[9px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest text-center px-1">Trocar</span>
-                    </div>
-                  )}
-                </div>
-                <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                  <span className="text-white text-[10px] font-extrabold uppercase tracking-widest">Alterar</span>
-                </div>
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={() => coverInputRef.current?.click()}
+              onDragOver={handleCoverDragOver}
+              onDragLeave={handleCoverDragLeave}
+              onDrop={handleCoverDrop}
+              className={`w-24 aspect-[2/3] rounded-lg overflow-hidden border-2 border-dashed flex items-center justify-center flex-shrink-0 transition-colors cursor-pointer ${
+                isDragOverCover ? "border-[var(--primary)]" : "border-[var(--line)] bg-[var(--surface-2)] hover:border-[var(--primary)]/40"
+              }`}
+            >
+              {isExtractingCover ? (
+                <span className="text-[11px] font-semibold text-[var(--text-3)] px-2 text-center">Gerando…</span>
+              ) : coverPreview ? (
+                <img src={coverPreview} alt="Prévia da capa" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-[11px] font-semibold text-[var(--text-3)] px-2 text-center">Escolher imagem</span>
+              )}
+            </button>
+            <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
+            <p className="text-[12.5px] text-[var(--text-3)] leading-relaxed pt-1">
+              Se você não enviar nada, usamos a primeira página do PDF. Dá para trocar depois, na página do livro.
+            </p>
           </div>
+        </section>
 
-          {/* Título */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest pl-1">Título *</label>
+        {/* ── Dados ────────────────────────────────────────────────────────── */}
+        <section className="mb-card p-5 space-y-4">
+          <div>
+            <label htmlFor="up-title" className="mb-label">Título</label>
             <input
-              type="text"
+              id="up-title"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              placeholder="Título do livro *"
-              className="w-full px-4.5 py-3.5 bg-white border border-slate-200 rounded-2xl outline-none focus:border-[var(--primary)]/30 focus:ring-4 focus:ring-[var(--primary)]/5 transition-all text-xs font-semibold placeholder:text-[var(--text-muted)]"
-              required
+              placeholder="Nome do livro"
+              className="mb-input"
             />
           </div>
 
-          {/* Autor */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest pl-1">Autor</label>
+          <div>
+            <label htmlFor="up-author" className="mb-label">Autor</label>
             <input
-              type="text"
+              id="up-author"
               value={formData.author}
               onChange={(e) => setFormData({ ...formData, author: e.target.value })}
-              placeholder="Autor"
-              className="w-full px-4.5 py-3.5 bg-white border border-slate-200 rounded-2xl outline-none focus:border-[var(--primary)]/30 focus:ring-4 focus:ring-[var(--primary)]/5 transition-all text-xs font-semibold placeholder:text-[var(--text-muted)]"
+              placeholder="Quem escreveu"
+              className="mb-input"
             />
           </div>
 
-          {/* Gênero */}
-          <div className="space-y-2">
-            <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest pl-1">Gênero</label>
-            <div className="flex flex-wrap gap-2">
+          <div>
+            <span className="mb-label">Gênero</span>
+            <div className="flex flex-wrap gap-1.5">
               {GENRES.map((g) => (
                 <button
                   key={g}
                   type="button"
                   onClick={() => setFormData({ ...formData, genre: g })}
-                  className={`px-4 py-2 rounded-full text-[10px] font-extrabold transition-all active:scale-95 border cursor-pointer uppercase tracking-widest ${
-                    formData.genre === g 
-                      ? "bg-[var(--primary)] text-white border-transparent shadow-sm" 
-                      : "bg-white text-[var(--text-muted)] border-slate-200 hover:bg-slate-50"
-                  }`}
+                  className={`mb-btn mb-btn-sm ${formData.genre === g ? "mb-btn-primary" : "mb-btn-outline"}`}
                 >
                   {g}
                 </button>
@@ -329,53 +309,29 @@ export function Upload() {
             </div>
           </div>
 
-          {/* Descrição */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-extrabold text-[var(--text-muted)] uppercase tracking-widest pl-1">Descrição</label>
+          <div>
+            <label htmlFor="up-desc" className="mb-label">Sinopse</label>
             <textarea
+              id="up-desc"
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Descrição (opcional)"
-              className="w-full px-4.5 py-3.5 bg-white border border-slate-200 rounded-2xl outline-none focus:border-[var(--primary)]/30 focus:ring-4 focus:ring-[var(--primary)]/5 transition-all resize-none text-xs font-semibold placeholder:text-[var(--text-muted)]"
-              rows={3}
+              rows={4}
+              placeholder="Do que trata o livro?"
+              className="mb-input resize-y leading-relaxed"
             />
           </div>
+        </section>
 
-          {/* Público */}
-          <div className="flex items-center justify-between bg-white border border-slate-100 rounded-[2rem] p-4.5 shadow-[0_8px_30px_rgba(0,0,0,0.01)]">
-            <div>
-              <h4 className="text-[var(--text-main)] text-sm font-extrabold">Tornar público</h4>
-              <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-widest mt-0.5">Visível para todos os usuários</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setFormData({ ...formData, isPublic: !formData.isPublic })}
-              className={`relative w-12 h-7 rounded-full transition-all duration-300 shadow-inner flex-shrink-0 cursor-pointer ${formData.isPublic ? "bg-[var(--primary)]" : "bg-slate-200"}`}
-            >
-              <div className={`absolute top-0.5 w-6 h-6 bg-white rounded-full transition-all duration-300 shadow-md transform ${formData.isPublic ? "left-5" : "left-0.5"}`} />
-            </button>
-          </div>
+        {error && (
+          <p role="alert" className="text-[12.5px] font-semibold text-[var(--destructive)] bg-[var(--destructive)]/10 rounded-lg px-3 py-2.5">
+            {error}
+          </p>
+        )}
 
-          <button
-            type="submit"
-            disabled={!pdfFile || !formData.title || isUploading}
-            className={`w-full py-4 font-bold rounded-2xl transition-all shadow-md cursor-pointer ${
-              !pdfFile || !formData.title || isUploading
-                ? "bg-slate-100 text-slate-300 cursor-not-allowed shadow-none"
-                : "bg-[var(--primary)] text-white hover:shadow-lg hover:shadow-[var(--primary)]/15 active:scale-[0.98]"
-            }`}
-          >
-            {isUploading ? (
-              <div className="flex items-center justify-center gap-2.5">
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Enviando...</span>
-              </div>
-            ) : (
-              "✨ Publicar Livro 📚"
-            )}
-          </button>
-        </form>
-      </div>
+        <button type="submit" disabled={!canSubmit} className="mb-btn mb-btn-primary mb-btn-lg w-full">
+          {isUploading ? "Enviando…" : "Publicar no acervo"}
+        </button>
+      </form>
     </div>
   );
 }

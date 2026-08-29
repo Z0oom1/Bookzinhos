@@ -110,15 +110,9 @@ async function importPdfFile(filePath, db, sql, PORT, uploadFileToCloud) {
       VALUES (${id}, ${title}, ${author}, '', 'Outros', 0, 0, 1, ${coverColor}, ${Date.now()}, ${pdfUrl}, NULL, 1)
     `);
 
-    // Add to saved books list (Quero Ler) for all existing users in DB + 'anonymous' (default for not logged in)
-    const users = await db.query(sql`SELECT username FROM users`);
-    const usernames = users.map(u => u.username);
-    if (!usernames.some(u => u.toLowerCase() === "anonymous")) {
-      usernames.push("anonymous");
-    }
-    for (const username of usernames) {
-      await db.query(sql`INSERT OR IGNORE INTO saved_books (username, book_id, saved_at) VALUES (${username}, ${id}, ${Date.now()})`);
-    }
+    // O livro importado NÃO entra nos favoritos de ninguém: favorito é uma
+    // escolha de cada leitor. A descoberta acontece pelas "Novidades na
+    // estante" da home e pelo feed da comunidade.
 
     console.log(`[Watcher] Livro "${title}" importado com sucesso! (ID: ${id})`);
   } catch (err) {

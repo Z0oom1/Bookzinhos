@@ -1,14 +1,38 @@
+# Dependências
 node_modules
 .expo
 .expo-shared
+
+# Build
 dist
 build
+frontend/dist
+assets/www
+
+# Logs e temporários
 *.log
 *.tmp
+
+# Segredos
 .env
 .env.*
+!.env.example
 server/.env
-server/data/
 frontend/.env
+
+# Banco de dados e dados de execução
 *.db
 *.sqlite
+server/data/
+
+# Conteúdo dos leitores, não código.
+# Os PDFs são livros comerciais e o servidor os recria a partir da pasta
+# monitorada — publicá-los aqui distribuiria obra protegida por direito autoral.
+Livros/
+pdfs/
+server/uploads/
+
+# IDE
+.idea/
+.vscode/
+.DS_Store

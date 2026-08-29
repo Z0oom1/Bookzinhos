@@ -1,136 +1,243 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router";
-import { fetchUserProfile, fetchBooks } from "../lib/api";
-import { UserProfile as UserProfileType, Book, getFullUrl } from "../lib/types";
-import { ArrowLeft, MessageCircle, BookOpen, Heart } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useParams, useNavigate, Link } from "react-router";
+import { ArrowLeft, MessageCircle, UserPlus, UserCheck, Star } from "lucide-react";
+import { fetchBooks, fetchUserProfile, followUser, unfollowUser } from "../lib/api";
+import { useLiveData } from "../lib/useLiveData";
+import { getUsername } from "../lib/session";
+import { getCoverGradient, getFullUrl, timeAgo } from "../lib/types";
+import type { Book, UserProfile as UserProfileType } from "../lib/types";
+import { Avatar, EmptyState, Skeleton, Stars, toast } from "../components/Ui";
+
+type Tab = "resenhas" | "estante" | "lidos" | "favoritos";
 
 export function UserProfile() {
   const { username } = useParams<{ username: string }>();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState<UserProfileType | null>(null);
-  const [allBooks, setAllBooks] = useState<Book[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const me = getUsername();
+  const [tab, setTab] = useState<Tab>("resenhas");
 
-  useEffect(() => {
-    async function loadData() {
-      if (!username) return;
-      try {
-        const [prof, books] = await Promise.all([
-          fetchUserProfile(username),
-          fetchBooks()
-        ]);
-        setProfile(prof);
-        setAllBooks(books);
-      } catch (err) {
-        console.error("Erro ao carregar perfil:", err);
-      } finally {
-        setIsLoading(false);
-      }
+  const { data, isLoading, setData } = useLiveData<{ profile: UserProfileType | null; books: Book[] }>(
+    async (force) => {
+      const [profile, books] = await Promise.all([
+        fetchUserProfile(username!, force),
+        fetchBooks(force),
+      ]);
+      return { profile, books };
+    },
+    [username],
+    { intervalMs: 60000 }
+  );
+
+  const profile = data?.profile ?? null;
+  const books = data?.books ?? [];
+  const isMe = profile?.username.toLowerCase() === me?.toLowerCase();
+
+  const byId = useMemo(() => new Map(books.map((b) => [b.id, b])), [books]);
+  const pick = (ids?: string[]) => (ids || []).map((id) => byId.get(id)).filter(Boolean) as Book[];
+
+  const shelfBooks = pick(profile?.shelf);
+  const finishedBooks = pick(profile?.finishedIds);
+  const savedBooks = pick(profile?.savedIds);
+
+  const toggleFollow = async () => {
+    if (!profile) return;
+    if (!me) return toast("Entre na sua conta para seguir leitores.", "error");
+    const wasFollowing = !!profile.isFollowedByMe;
+
+    setData((prev) =>
+      prev && prev.profile
+        ? {
+            ...prev,
+            profile: {
+              ...prev.profile,
+              isFollowedByMe: !wasFollowing,
+              followers: (prev.profile.followers ?? 0) + (wasFollowing ? -1 : 1),
+            },
+          }
+        : prev
+    );
+
+    try {
+      if (wasFollowing) await unfollowUser(profile.username);
+      else await followUser(profile.username);
+    } catch (err) {
+      setData(data);
+      toast(err instanceof Error ? err.message : "Não foi possível atualizar.", "error");
     }
-    loadData();
-  }, [username]);
+  };
 
-  if (isLoading) return (
-    <div className="min-h-screen bg-[var(--bg-pastel)] flex items-center justify-center">
-      <div className="w-12 h-12 border-4 border-[var(--lavender)] border-t-transparent rounded-full animate-spin"></div>
-    </div>
-  );
+  if (isLoading) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-5">
+        <Skeleton className="h-9 w-24 rounded-xl" />
+        <Skeleton className="h-40 w-full rounded-2xl" />
+        <Skeleton className="h-24 w-full rounded-xl" />
+      </div>
+    );
+  }
 
-  if (!profile) return (
-    <div className="min-h-screen bg-[var(--bg-pastel)] p-4 text-center">
-      <p>Usuário não encontrado. 🐾</p>
-      <button onClick={() => navigate(-1)} className="mt-4 text-[var(--lavender)] font-bold underline">Voltar</button>
-    </div>
-  );
+  if (!profile) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center px-6">
+        <div className="text-center space-y-4">
+          <div className="text-4xl">🐾</div>
+          <h2 className="text-lg font-bold text-foreground">Leitor não encontrado</h2>
+          <button onClick={() => navigate(-1)} className="mb-btn mb-btn-primary">Voltar</button>
+        </div>
+      </div>
+    );
+  }
 
-  // Filtrar livros da estante dele que existem no sistema
-  const shelfBooks = allBooks.filter(b => profile.shelf.includes(b.id));
+  const stats = [
+    { label: "Seguidores", value: profile.followers ?? 0 },
+    { label: "Seguindo", value: profile.following ?? 0 },
+    { label: "Resenhas", value: profile.stats?.reviews ?? 0 },
+    { label: "Lidos", value: profile.stats?.finished ?? 0 },
+  ];
+
+  const tabs: { key: Tab; label: string; count: number }[] = [
+    { key: "resenhas", label: "Resenhas", count: profile.reviews?.length ?? 0 },
+    { key: "estante", label: "Estante", count: shelfBooks.length },
+    { key: "lidos", label: "Lidos", count: finishedBooks.length },
+    { key: "favoritos", label: "Favoritos", count: savedBooks.length },
+  ];
 
   return (
-    <div className="min-h-screen bg-[var(--bg-pastel)] pb-24 relative overflow-hidden">
-      {/* Decorative Background Elements */}
-      <div className="absolute top-0 left-0 w-full h-64 bg-[var(--lavender)]/10 pointer-events-none" />
-      <div className="absolute top-20 right-10 text-4xl opacity-30 animate-float" style={{ animationDelay: "0s" }}>✨</div>
-      <div className="absolute top-40 left-10 text-3xl opacity-30 animate-float" style={{ animationDelay: "1s" }}>💕</div>
-      <div className="absolute top-10 left-1/2 text-2xl opacity-20 animate-float" style={{ animationDelay: "2s" }}>🐼</div>
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+      <button onClick={() => navigate(-1)} className="mb-btn mb-btn-outline mb-btn-sm">
+        <ArrowLeft className="w-4 h-4" /> Voltar
+      </button>
 
-      <div className="h-56 bg-[var(--lavender)]/30 relative shadow-sm">
-        <button
-          onClick={() => navigate(-1)}
-          className="absolute top-6 left-6 p-3 bg-white/80 backdrop-blur-md rounded-full shadow-lg hover:shadow-xl hover:bg-white active:scale-95 transition-all z-10"
-        >
-          <ArrowLeft className="w-5 h-5 text-[var(--text-main)]" />
-        </button>
+      {/* ── Cabeçalho do perfil ────────────────────────────────────────────── */}
+      <header className="mb-card p-5 sm:p-6">
+        <div className="flex items-start gap-4">
+          <Avatar emoji={profile.avatar} size="xl" />
+          <div className="flex-1 min-w-0 pt-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-xl font-bold text-foreground truncate">{profile.username}</h1>
+              {profile.isAdmin && <span className="mb-chip mb-chip-primary">🐶 Admin</span>}
+              {!!profile.pandinhas && <span className="mb-chip">🐼 {profile.pandinhas}</span>}
+            </div>
+            <p className="text-[13.5px] text-[var(--text-2)] leading-relaxed mt-1.5">
+              {profile.bio || "Ainda escrevendo a própria história…"}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-4 gap-2 mt-5">
+          {stats.map((s) => (
+            <div key={s.label} className="text-center py-2 rounded-xl bg-[var(--surface-2)]">
+              <div className="text-[17px] font-bold text-foreground leading-none">{s.value}</div>
+              <div className="text-[11px] text-[var(--text-3)] mt-1">{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {!isMe ? (
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={toggleFollow}
+              className={`mb-btn flex-1 ${profile.isFollowedByMe ? "mb-btn-outline" : "mb-btn-primary"}`}
+            >
+              {profile.isFollowedByMe
+                ? <><UserCheck className="w-4 h-4" /> Seguindo</>
+                : <><UserPlus className="w-4 h-4" /> Seguir</>}
+            </button>
+            <Link to={`/chat/${encodeURIComponent(profile.username)}`} className="mb-btn mb-btn-outline flex-1">
+              <MessageCircle className="w-4 h-4" /> Conversar
+            </Link>
+          </div>
+        ) : (
+          <Link to="/profile" className="mb-btn mb-btn-outline w-full mt-4">Editar meu perfil</Link>
+        )}
+      </header>
+
+      {/* ── Abas ───────────────────────────────────────────────────────────── */}
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar border-b border-[var(--line)] pb-2">
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`mb-btn mb-btn-sm ${tab === t.key ? "mb-btn-soft" : "mb-btn-ghost"}`}
+          >
+            {t.label} <span className="mb-chip">{t.count}</span>
+          </button>
+        ))}
       </div>
 
-      <div className="px-4 -mt-24 relative z-10 max-w-2xl mx-auto">
-        <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] p-8 shadow-2xl border border-white/60 text-center animate-scale-in">
-          <div className="relative inline-block mb-6">
-            <div className="absolute inset-0 bg-[var(--lavender)]/40 rounded-[2.5rem] blur-lg opacity-40 animate-pulse-soft" />
-            <div className="w-36 h-36 relative rounded-[2.5rem] bg-[var(--lavender)] mx-auto flex items-center justify-center text-7xl shadow-xl border-4 border-white transform hover:rotate-3 hover:scale-105 transition-all duration-300">
-              {profile.avatar || "👤"}
-            </div>
-          </div>
-          
-          <h1 className="text-3xl font-black text-[var(--text-main)] mb-2">{profile.username}</h1>
-          <p className="text-[var(--text-muted)] text-[15px] italic mb-6 px-4">
-            "{profile.bio || "Vivendo milhares de vidas através dos livros..."}"
-          </p>
-
-          <div className="flex justify-center items-stretch gap-3 mb-8">
-            <div className="bg-[var(--peach)]/15 px-5 py-3 rounded-2xl border border-[var(--peach)]/30 flex items-center gap-2 shadow-sm">
-              <span className="text-2xl animate-bounce-in">🐼</span>
-              <div className="flex flex-col items-start">
-                <span className="font-black text-[var(--text-main)] text-sm leading-tight">{profile.pandinhas}</span>
-                <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-wider">Pandinhas</span>
-              </div>
-            </div>
-            <button
-              onClick={() => navigate(`/chat/${profile.username}`)}
-              className="flex-1 bg-[var(--primary)] text-white rounded-2xl font-bold flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg shadow-[var(--primary)]/30 hover:shadow-xl"
-            >
-              <MessageCircle className="w-5 h-5" /> Iniciar Chat
-            </button>
-          </div>
-
-          <div className="border-t border-[var(--lavender)]/20 pt-8 mt-2">
-            <h2 className="text-xl font-black text-[var(--text-main)] mb-6 flex items-center justify-center gap-2">
-              <BookOpen className="w-6 h-6 text-[var(--lavender)]" /> Estante Mágica
-            </h2>
-
-            {shelfBooks.length === 0 ? (
-              <div className="bg-[var(--bg-pastel)]/50 rounded-3xl p-8 border-2 border-dashed border-[var(--lavender)]/30">
-                <div className="text-4xl mb-3 opacity-50 grayscale">📚</div>
-                <p className="text-[var(--text-muted)] font-medium">A estante está vazia por enquanto... 💨</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-4">
-                {shelfBooks.map((book, index) => (
-                  <div
-                    key={book.id}
-                    onClick={() => navigate(`/book/${book.id}`)}
-                    className="group relative aspect-[2/3] rounded-2xl bg-white shadow-md overflow-hidden border border-white/50 cursor-pointer animate-fade-in"
-                    style={{ animationDelay: `${index * 0.1}s` }}
-                  >
-                    {book.coverImagePath ? (
-                      <img src={getFullUrl(book.coverImagePath)!} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" alt={book.title} />
+      {tab === "resenhas" && (
+        (profile.reviews || []).length === 0 ? (
+          <EmptyState emoji="✍️" title="Nenhuma resenha ainda" description={`${profile.username} ainda não avaliou nenhum livro.`} />
+        ) : (
+          <div className="space-y-3">
+            {profile.reviews!.map((review) => (
+              <Link
+                key={review.id}
+                to={`/book/${review.bookId}#avaliar`}
+                className="mb-card mb-card-hover p-4 flex gap-3"
+              >
+                {review.book && (
+                  <div className="w-12 aspect-[2/3] rounded-md overflow-hidden flex-shrink-0 shadow-[var(--shadow-1)] bg-[var(--surface-2)]">
+                    {review.book.coverImagePath ? (
+                      <img src={getFullUrl(review.book.coverImagePath)!} alt="" loading="lazy" className="w-full h-full object-cover" />
                     ) : (
-                      <div className="w-full h-full bg-[var(--lavender)]/15 flex items-center justify-center p-3 text-xs text-center font-bold text-[var(--text-main)] transition-transform duration-500 group-hover:scale-105">
-                        {book.title}
-                      </div>
+                      <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient({ id: review.book.id, coverColor: review.book.coverColor })}`} />
                     )}
-                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                      <div className="bg-white/90 p-2 rounded-full transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
-                        <BookOpen className="w-5 h-5 text-[var(--primary)]" />
-                      </div>
-                    </div>
                   </div>
-                ))}
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13.5px] font-semibold text-foreground truncate">{review.book?.title || "Livro"}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Stars value={review.rating} size="sm" />
+                    <span className="text-[11.5px] text-[var(--text-3)]">{timeAgo(review.createdAt)}</span>
+                  </div>
+                  {review.comment && (
+                    <p className="text-[13px] text-[var(--text-2)] leading-relaxed mt-1.5 line-clamp-3">
+                      {review.hasSpoiler ? "⚠️ Contém spoiler — abra para ler" : review.comment}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-3 mt-2 text-[11.5px] text-[var(--text-3)]">
+                    <span>❤️ {review.likes}</span>
+                    <span>💬 {review.comments.length}</span>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )
+      )}
+
+      {tab === "estante" && <BookGrid books={shelfBooks} emptyLabel="A estante está vazia." />}
+      {tab === "lidos" && <BookGrid books={finishedBooks} emptyLabel="Nenhum livro concluído ainda." />}
+      {tab === "favoritos" && <BookGrid books={savedBooks} emptyLabel="Nenhum favorito por aqui." />}
+    </div>
+  );
+}
+
+function BookGrid({ books, emptyLabel }: { books: Book[]; emptyLabel: string }) {
+  if (books.length === 0) return <EmptyState emoji="📚" title={emptyLabel} />;
+
+  return (
+    <div className="grid grid-cols-3 sm:grid-cols-5 gap-x-4 gap-y-5">
+      {books.map((book) => (
+        <Link key={book.id} to={`/book/${book.id}`} className="group">
+          <div className="w-full aspect-[2/3] rounded-lg overflow-hidden shadow-[var(--shadow-book)] bg-[var(--surface-2)] transition-transform duration-200 group-hover:-translate-y-1">
+            {book.coverImagePath ? (
+              <img src={getFullUrl(book.coverImagePath)!} alt="" loading="lazy" className="w-full h-full object-cover" />
+            ) : (
+              <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient(book)} flex items-center justify-center p-2`}>
+                <span className="text-[10px] font-bold text-black/45 text-center line-clamp-3">{book.title}</span>
               </div>
             )}
           </div>
-        </div>
-      </div>
+          <p className="text-[12px] font-semibold text-foreground line-clamp-2 mt-2 leading-snug">{book.title}</p>
+          {book.rating > 0 && (
+            <span className="inline-flex items-center gap-1 text-[11px] text-[var(--text-3)] mt-0.5">
+              <Star className="w-3 h-3 fill-[var(--gold)] text-[var(--gold)]" /> {book.rating.toFixed(1)}
+            </span>
+          )}
+        </Link>
+      ))}
     </div>
   );
 }

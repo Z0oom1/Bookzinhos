@@ -1,68 +1,155 @@
 @custom-variant dark (&:is(.dark *));
 
+/* ─────────────────────────────────────────────────────────────────────────────
+   myBooks — design tokens
+   Uma única fonte de verdade para cor, raio, sombra, vidro e movimento.
+   Componentes nunca inventam cores próprias: usam as variáveis daqui.
+   ───────────────────────────────────────────────────────────────────────────── */
+
 :root {
   --font-size: 16px;
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #f43f5e; /* Vibrant soft rose-pink */
+
+  /* Superfícies — creme quente de papel */
+  --background: #f6f4ef;
+  --background-tint: #efece4;
+  --surface: #ffffff;
+  --surface-2: #f2f0e9;
+  --surface-3: #e5e2d8;
+
+  --foreground: #1c1c1a;
+  --text-2: #55564f;
+  --text-3: #8b8b80;
+
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--foreground);
+
+  /* Marca — verde floresta */
+  --primary: #4b7a57;
+  --primary-hover: #3d6547;
+  --primary-soft: rgba(75, 122, 87, 0.12);
   --primary-foreground: #ffffff;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f8fafc;
-  --muted-foreground: #64748b;
-  --accent: #f43f5e;
+  --primary-deep: #2f4f39;
+
+  --accent: #4b7a57;
   --accent-foreground: #ffffff;
-  --destructive: #ef4444;
+  --gold: #e0a33c;
+  --like: #de5560;
+  --success: #4b7a57;
+
+  --secondary: var(--surface-2);
+  --secondary-foreground: var(--foreground);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--text-3);
+  --destructive: #c0483f;
   --destructive-foreground: #ffffff;
-  --border: rgba(15, 23, 42, 0.06);
+
+  --border: rgba(28, 28, 26, 0.08);
+  --line: rgba(28, 28, 26, 0.08);
   --input: transparent;
-  --input-background: #f1f5f9;
-  --switch-background: #cbd5e1;
+  --input-background: var(--surface-2);
+  --switch-background: #d3d0c5;
+  --ring: rgba(75, 122, 87, 0.2);
+
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: rgba(244, 63, 94, 0.25);
-  --radius: 1.25rem;
-  
-  /* Pastels para capas de livros */
-  --peach: #ffdcd0;
-  --lavender: #eddff3;
-  --mint: #dbf4ed;
-  --blush: #ffe9ec;
-  --sky: #e6f3ff;
-  --lemon: #fffcd6;
 
-  --bg-pastel: #f1f5f9;
-  --text-main: #0f172a;
-  --text-muted: #64748b;
+  /* Raios */
+  --radius: 1.125rem;
+  --radius-pill: 999px;
+
+  /* Sombras — discretas, de papel sobre papel */
+  --shadow-1: 0 1px 2px rgba(28, 28, 26, 0.04);
+  --shadow-2: 0 2px 6px rgba(28, 28, 26, 0.05), 0 10px 26px -14px rgba(28, 28, 26, 0.12);
+  --shadow-3: 0 8px 20px rgba(28, 28, 26, 0.07), 0 26px 50px -20px rgba(28, 28, 26, 0.16);
+  --shadow-float: 0 4px 12px rgba(28, 28, 26, 0.06), 0 18px 40px -16px rgba(28, 28, 26, 0.18);
+  --shadow-book: 0 1px 2px rgba(28, 28, 26, 0.14), 0 10px 24px -10px rgba(28, 28, 26, 0.28);
+
+  /* Vidro */
+  --glass-bg: rgba(255, 255, 255, 0.74);
+  --glass-bg-strong: rgba(255, 255, 255, 0.9);
+  --glass-border: rgba(28, 28, 26, 0.07);
+  --glass-sheen: rgba(255, 255, 255, 0.72);
+  --glass-sheen-low: rgba(255, 255, 255, 0.24);
+  --glass-blur: 20px;
+
+  /* Movimento */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --ease-flip: cubic-bezier(0.62, 0.03, 0.32, 1);
+
+  /* Areia do destaque da semana */
+  --sand-1: #f0e9dc;
+  --sand-2: #e6dcc9;
+
+  /* Pastéis das capas geradas */
+  --peach: #ffd9c9;
+  --lavender: #e6d8f2;
+  --mint: #d2f0e6;
+  --blush: #ffe1e7;
+  --sky: #dbecff;
+  --lemon: #fff5c9;
+
+  /* Aliases legados */
+  --bg-pastel: var(--surface-2);
+  --text-main: var(--foreground);
+  --text-muted: var(--text-3);
 }
 
 .dark {
-  --background: #090d16;
-  --foreground: #f8fafc;
-  --card: #0e1322;
-  --card-foreground: #f8fafc;
-  --popover: #0e1322;
-  --popover-foreground: #f8fafc;
-  --primary: #f43f5e;
-  --primary-foreground: #ffffff;
-  --secondary: #1e293b;
-  --secondary-foreground: #f8fafc;
-  --muted: #0e1322;
-  --muted-foreground: #94a3b8;
-  --accent: #f43f5e;
-  --accent-foreground: #ffffff;
-  --destructive: #ef4444;
-  --destructive-foreground: #ffffff;
-  --border: rgba(255, 255, 255, 0.06);
-  --input: transparent;
-  --input-background: #1e293b;
-  --switch-background: #334155;
-  --ring: rgba(244, 63, 94, 0.4);
-  
+  --background: #14150f;
+  --background-tint: #1b1d16;
+  --surface: #1e211a;
+  --surface-2: #272b21;
+  --surface-3: #343a2c;
+
+  --foreground: #f2f1e9;
+  --text-2: #c3c4b8;
+  --text-3: #94968a;
+
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface);
+  --popover-foreground: var(--foreground);
+
+  --primary: #7fb08c;
+  --primary-hover: #6c9d79;
+  --primary-soft: rgba(127, 176, 140, 0.16);
+  --primary-foreground: #10210f;
+  --primary-deep: #b6d6bd;
+
+  --accent: #7fb08c;
+  --gold: #e5b45f;
+  --like: #ef7b84;
+  --success: #7fb08c;
+
+  --secondary: var(--surface-2);
+  --muted: var(--surface-2);
+  --muted-foreground: var(--text-3);
+  --destructive: #e0736a;
+
+  --border: rgba(255, 255, 255, 0.08);
+  --line: rgba(255, 255, 255, 0.08);
+  --input-background: var(--surface-2);
+  --switch-background: #3d4334;
+  --ring: rgba(127, 176, 140, 0.28);
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
+  --shadow-3: 0 8px 20px rgba(0, 0, 0, 0.5), 0 24px 48px -16px rgba(0, 0, 0, 0.7);
+  --shadow-float: 0 4px 14px rgba(0, 0, 0, 0.5), 0 20px 44px -12px rgba(0, 0, 0, 0.7);
+  --shadow-book: 0 1px 2px rgba(0, 0, 0, 0.55), 0 10px 24px -8px rgba(0, 0, 0, 0.7);
+
+  --glass-bg: rgba(30, 33, 26, 0.72);
+  --glass-bg-strong: rgba(30, 33, 26, 0.92);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-sheen: rgba(255, 255, 255, 0.12);
+  --glass-sheen-low: rgba(255, 255, 255, 0.04);
+
+  --sand-1: #2a2c22;
+  --sand-2: #34372a;
+
   --peach: #4a342c;
   --lavender: #3c3245;
   --mint: #2a3c37;
@@ -70,14 +157,19 @@
   --sky: #26384d;
   --lemon: #4a4623;
 
-  --bg-pastel: #0e1322;
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
+  --bg-pastel: var(--surface-2);
+  --text-main: var(--foreground);
+  --text-muted: var(--text-3);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
@@ -90,6 +182,7 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-gold: var(--gold);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
@@ -109,145 +202,407 @@
     font-family: var(--font-sans);
   }
 
-  body {
-    @apply bg-background text-foreground;
-    background-image: radial-gradient(rgba(244, 63, 94, 0.015) 1.5px, transparent 1.5px);
-    background-size: 24px 24px;
-    background-attachment: fixed;
-  }
-
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-
-  @keyframes slide-up {
-    from {
-      transform: translateY(100%);
-    }
-    to {
-      transform: translateY(0);
-    }
-  }
-
-  .animate-slide-up {
-    animation: slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  @keyframes float {
-    0%, 100% {
-      transform: translateY(0px);
-    }
-    50% {
-      transform: translateY(-12px);
-    }
-  }
-
-  .animate-float {
-    animation: float 4s ease-in-out infinite;
-  }
-
-  @keyframes fade-in {
-    from {
-      opacity: 0;
-      transform: translateY(16px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .animate-fade-in {
-    animation: fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  @keyframes scale-in {
-    from {
-      opacity: 0;
-      transform: scale(0.96);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  .animate-scale-in {
-    animation: scale-in 0.45s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  @keyframes bounce-in {
-    0% {
-      opacity: 0;
-      transform: scale(0.6);
-    }
-    50% {
-      opacity: 1;
-      transform: scale(1.03);
-    }
-    100% {
-      transform: scale(1);
-    }
-  }
-
-  .animate-bounce-in {
-    animation: bounce-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.1);
-  }
-
-  @keyframes pulse-soft {
-    0%, 100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.85;
-      transform: scale(0.97);
-    }
-  }
-
-  .animate-pulse-soft {
-    animation: pulse-soft 2.5s ease-in-out infinite;
-  }
-
-  @keyframes spin-slow {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
-  }
-
-  .animate-spin-slow {
-    animation: spin-slow 8s linear infinite;
-  }
-
   html {
     font-size: var(--font-size);
   }
 
-  h1 {
-    font-weight: 800;
-    line-height: 1.3;
+  body {
+    @apply bg-background text-foreground;
+    /* Uma leve névoa verde nos cantos: dá profundidade sem tingir o creme. */
+    background-image:
+      radial-gradient(1100px 520px at 4% -6%, color-mix(in srgb, var(--primary) 9%, transparent), transparent 60%),
+      radial-gradient(820px 460px at 98% 4%, color-mix(in srgb, var(--gold) 8%, transparent), transparent 58%);
+    background-attachment: fixed;
   }
 
-  h2 {
-    font-weight: 700;
-    line-height: 1.35;
+  h1 { font-weight: 750; line-height: 1.18; letter-spacing: -0.025em; }
+  h2 { font-weight: 700; line-height: 1.24; letter-spacing: -0.018em; }
+  h3 { font-weight: 650; line-height: 1.3; letter-spacing: -0.012em; }
+  h4 { font-weight: 600; line-height: 1.35; }
+}
+
+/* ─── Componentes padronizados ─────────────────────────────────────────────── */
+@layer components {
+  /* Vidro líquido: desfoque + saturação + brilho interno na borda superior. */
+  .mb-glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(180%);
+    border: 1px solid var(--glass-border);
+    box-shadow:
+      inset 0 1px 0 var(--glass-sheen),
+      inset 0 -1px 0 var(--glass-sheen-low),
+      var(--shadow-float);
   }
 
-  h3 {
-    font-weight: 700;
-    line-height: 1.4;
+  .mb-glass-soft {
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px) saturate(170%);
+    -webkit-backdrop-filter: blur(16px) saturate(170%);
+    border: 1px solid var(--glass-border);
+    box-shadow: inset 0 1px 0 var(--glass-sheen-low), var(--shadow-2);
   }
 
-  h4 {
+  .mb-glass-strong {
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(30px) saturate(190%);
+    -webkit-backdrop-filter: blur(30px) saturate(190%);
+    border: 1px solid var(--glass-border);
+    box-shadow:
+      inset 0 1px 0 var(--glass-sheen),
+      var(--shadow-3);
+  }
+
+  /* Texto com o gradiente da marca — títulos de destaque e o wordmark. */
+  .mb-gradient-text {
+    background: linear-gradient(100deg, var(--primary), var(--primary-deep) 88%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Destaque da semana: cartão de areia, texto escuro. */
+  .mb-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 22px;
+    background: linear-gradient(112deg, var(--sand-1) 0%, var(--sand-2) 58%, color-mix(in srgb, var(--primary) 14%, var(--sand-2)) 100%);
+    color: var(--foreground);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-2);
+  }
+
+  /* Cabeçalho verde das páginas de livro. */
+  .mb-hero-green {
+    background: linear-gradient(150deg, var(--primary) 0%, var(--primary-deep) 100%);
+    color: #fff;
+  }
+
+  /* Bolha de ícone colorida ao lado dos títulos de seção. */
+  .mb-badge-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.7rem;
+    color: #fff;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px -4px rgba(0, 0, 0, .35);
+  }
+
+  .mb-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-1);
+  }
+
+  .mb-card-hover {
+    transition: transform 0.22s var(--ease-out), box-shadow 0.22s var(--ease-out), border-color 0.22s var(--ease-out);
+  }
+  .mb-card-hover:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-2);
+    border-color: color-mix(in srgb, var(--primary) 22%, var(--line));
+  }
+
+  .mb-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 2.5rem;
+    padding: 0 1rem;
+    border-radius: 0.75rem;
+    font-size: 0.8125rem;
     font-weight: 600;
-    line-height: 1.4;
+    line-height: 1;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.16s ease, color 0.16s ease, opacity 0.16s ease, transform 0.14s var(--ease-spring), box-shadow 0.16s ease;
+  }
+  .mb-btn:active { transform: scale(0.96); }
+  .mb-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .mb-btn-primary {
+    background: var(--primary);
+    color: var(--primary-foreground);
+    box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 6px 16px -8px color-mix(in srgb, var(--primary) 70%, transparent);
+  }
+  .mb-btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+
+  .mb-btn-soft {
+    background: var(--primary-soft);
+    color: var(--primary);
+  }
+  .mb-btn-soft:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 16%, transparent); }
+
+  .mb-btn-outline {
+    background: var(--surface);
+    color: var(--text-2);
+    border: 1px solid var(--line);
+  }
+  .mb-btn-outline:hover:not(:disabled) { background: var(--surface-2); color: var(--foreground); }
+
+  .mb-btn-ghost {
+    background: transparent;
+    color: var(--text-2);
+  }
+  .mb-btn-ghost:hover:not(:disabled) { background: var(--surface-2); color: var(--foreground); }
+
+  .mb-btn-glass {
+    background: var(--glass-bg-strong);
+    backdrop-filter: blur(18px) saturate(180%);
+    -webkit-backdrop-filter: blur(18px) saturate(180%);
+    border: 1px solid var(--glass-border);
+    color: var(--foreground);
+    box-shadow: inset 0 1px 0 var(--glass-sheen), var(--shadow-2);
+  }
+  .mb-btn-glass:hover:not(:disabled) { background: var(--surface); }
+
+  .mb-btn-sm { height: 2rem; padding: 0 0.75rem; font-size: 0.75rem; border-radius: 0.625rem; }
+  .mb-btn-lg { height: 3rem; padding: 0 1.5rem; font-size: 0.875rem; border-radius: 0.875rem; }
+  .mb-btn-icon { width: 2.5rem; padding: 0; }
+  .mb-btn-sm.mb-btn-icon { width: 2rem; }
+  .mb-btn-lg.mb-btn-icon { width: 3rem; }
+
+  .mb-input {
+    width: 100%;
+    background: var(--surface-2);
+    border: 1px solid transparent;
+    border-radius: 0.75rem;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+    color: var(--foreground);
+    outline: none;
+    transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease;
+  }
+  .mb-input::placeholder { color: var(--text-3); }
+  .mb-input:focus {
+    background: var(--surface);
+    border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+    box-shadow: 0 0 0 3px var(--ring);
+  }
+
+  .mb-label {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 0.375rem;
+  }
+
+  .mb-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.625rem;
+    border-radius: var(--radius-pill);
+    background: var(--surface-2);
+    color: var(--text-2);
+    font-size: 0.6875rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .mb-chip-primary { background: var(--primary-soft); color: var(--primary); }
+
+  .mb-eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-3);
+  }
+
+  /* Trilho horizontal de capas */
+  .mb-rail {
+    display: flex;
+    gap: 1.125rem;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    padding: 0.5rem 0.25rem 1.25rem;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .mb-rail::-webkit-scrollbar { display: none; }
+  .mb-rail > * { scroll-snap-align: start; flex: 0 0 auto; }
+
+  .mb-skeleton {
+    background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 37%, var(--surface-2) 63%);
+    background-size: 400% 100%;
+    animation: mb-shimmer 1.4s ease-in-out infinite;
+    border-radius: 0.5rem;
+  }
+
+  /* ─── Livros em 3D ──────────────────────────────────────────────────────
+     Um livro é uma caixa: capa na frente, lombada na lateral esquerda e um
+     bloco de páginas à direita. Girar o conjunto em Y troca capa por lombada.
+     ───────────────────────────────────────────────────────────────────────── */
+  .mb-book-scene {
+    perspective: 1400px;
+    perspective-origin: 50% 40%;
+  }
+
+  .mb-book-3d {
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.8s var(--ease-flip);
+    will-change: transform;
+  }
+
+  /* Brilho diagonal que atravessa a capa */
+  .mb-book-gloss {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(
+      105deg,
+      rgba(255, 255, 255, 0) 30%,
+      rgba(255, 255, 255, 0.34) 45%,
+      rgba(255, 255, 255, 0.06) 58%,
+      rgba(255, 255, 255, 0) 70%
+    );
+    opacity: 0.55;
+    mix-blend-mode: soft-light;
+  }
+
+  /* Sombra da encadernação junto à lombada + relevo do corte das páginas */
+  .mb-book-binding {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg,
+        rgba(0, 0, 0, 0.34) 0%,
+        rgba(0, 0, 0, 0.12) 2.5%,
+        rgba(255, 255, 255, 0.16) 5%,
+        rgba(0, 0, 0, 0) 11%),
+      linear-gradient(270deg, rgba(0, 0, 0, 0.16) 0%, rgba(0, 0, 0, 0) 6%);
+  }
+
+  /* Livro em voo: sai da estante, cruza a tela e cresce no centro. */
+  .mb-flying {
+    position: fixed;
+    z-index: 9999;
+    pointer-events: none;
+    transform-origin: center center;
+    animation: mb-book-fly 0.62s cubic-bezier(0.5, 0, 0.15, 1) forwards;
+  }
+  .mb-flying .mb-book-3d {
+    /* A volta completa mostra capa, lombada, contracapa e lombada de novo. */
+    animation: mb-book-spin 0.62s cubic-bezier(0.5, 0, 0.15, 1) both;
+    transition: none;
+  }
+
+  .mb-shelf-board {
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--foreground) 14%, transparent), color-mix(in srgb, var(--foreground) 6%, transparent));
+    box-shadow: 0 1px 0 var(--glass-sheen-low), 0 10px 22px -14px rgba(0, 0, 0, 0.7);
+  }
+}
+
+/* ─── Animações ─────────────────────────────────────────────────────────────── */
+@keyframes mb-shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
+@keyframes mb-fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes mb-pop-in {
+  0% { opacity: 0; transform: scale(0.92); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Lombadas pulando na tela de carregamento */
+@keyframes mb-shelf-bounce {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  35% { transform: translateY(-16px) scaleY(1.06); }
+  70% { transform: translateY(0) scaleY(0.94); }
+}
+
+@keyframes mb-book-fly {
+  0% { transform: translate(0, 0) scale(1); }
+  62% { transform: translate(calc(var(--dx) * 1.03), calc(var(--dy) * 1.03)) scale(calc(var(--s) * 1.05)); }
+  100% { transform: translate(var(--dx), var(--dy)) scale(var(--s)); }
+}
+
+/* Termina sempre em 360deg — ou seja, com a capa de frente. Somar 360 ao
+   ângulo inicial faria o livro guardado de lombada parar de lombada de novo. */
+@keyframes mb-book-spin {
+  from { transform: rotateY(var(--a0, 0deg)); }
+  to { transform: rotateY(360deg); }
+}
+
+@layer base {
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Entrada em cascata: o filho recebe --i e escalona sozinho. */
+  .mb-in {
+    animation: mb-fade-up 0.55s var(--ease-out) both;
+    animation-delay: calc(var(--i, 0) * 45ms);
+  }
+  .mb-pop {
+    animation: mb-pop-in 0.4s var(--ease-spring) both;
+    animation-delay: calc(var(--i, 0) * 40ms);
+  }
+
+  @keyframes slide-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  .animate-slide-up { animation: slide-up 0.34s var(--ease-out); }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-12px); }
+  }
+  .animate-float { animation: float 4s ease-in-out infinite; }
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in { animation: fade-in 0.4s var(--ease-out); }
+
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.97); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .animate-scale-in { animation: scale-in 0.3s var(--ease-out); }
+
+  @keyframes bounce-in {
+    0% { opacity: 0; transform: scale(0.7); }
+    60% { opacity: 1; transform: scale(1.03); }
+    100% { transform: scale(1); }
+  }
+  .animate-bounce-in { animation: bounce-in 0.42s var(--ease-spring); }
+
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.65; }
+  }
+  .animate-pulse-soft { animation: pulse-soft 2.4s ease-in-out infinite; }
+
+  @keyframes spin-slow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  .animate-spin-slow { animation: spin-slow 8s linear infinite; }
+
+  /* Respeita quem prefere menos movimento */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }

@@ -1,11 +1,11 @@
-import { useState, useRef } from "react";
-import { createPortal } from "react-dom";
-import { X, Image } from "lucide-react";
-import { editBook } from "../lib/api";
+import { useEffect, useRef, useState } from "react";
+import { ImagePlus, Loader2 } from "lucide-react";
+import { editBook, editBookWithCover } from "../lib/api";
 import { getFullUrl, getCoverGradient } from "../lib/types";
 import type { Book } from "../lib/types";
+import { Modal, toast } from "./Ui";
 
-const GENRES = ["Romance", "Suspense", "Ficção", "Distopia", "Autoconhecimento", "Desenvolvimento", "História", "Outros"];
+const GENRES = ["Romance", "Suspense", "Ficção", "Fantasia", "Distopia", "Autoconhecimento", "Desenvolvimento", "História", "Poesia", "Outros"];
 const COLORS = ["lavender-mint", "peach-lavender", "mint-sky", "blush-lavender", "peach-mint", "lemon-peach", "sky-mint", "lavender-peach"];
 
 interface Props {
@@ -26,88 +26,104 @@ export function EditBookModal({ book, onClose, onSaved }: Props) {
   const [coverPreview, setCoverPreview] = useState<string | null>(getFullUrl(book.coverImagePath));
   const [isSaving, setIsSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const objectUrlRef = useRef<string | null>(null);
+
+  useEffect(() => () => {
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+  }, []);
 
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     setCoverFile(file);
-    const url = URL.createObjectURL(file);
-    setCoverPreview(url);
+    objectUrlRef.current = URL.createObjectURL(file);
+    setCoverPreview(objectUrlRef.current);
   };
 
   const handleSave = async () => {
     if (!form.title.trim()) return;
     setIsSaving(true);
     try {
-      const updated = await editBook(book.id, { ...form, coverFile: coverFile ?? undefined });
+      // Com arquivo novo, o envio precisa ser multipart — JSON não carrega o
+      // binário da capa (era por isso que trocar a capa não fazia efeito).
+      const updated = coverFile
+        ? await editBookWithCover(book.id, form, coverFile)
+        : await editBook(book.id, form);
       onSaved(updated);
+      toast("Livro atualizado para todos.");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Não foi possível salvar.", "error");
     } finally {
       setIsSaving(false);
     }
   };
 
-  return createPortal(
-    <div className="fixed inset-0 z-[9999] flex flex-col justify-end" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div
-        className="relative bg-gradient-to-b from-card to-[var(--peach)]/10 rounded-t-[28px] p-6 space-y-5 shadow-2xl animate-slide-up max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="text-foreground">Editar Livro</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-muted transition-colors">
-            <X className="w-5 h-5 text-muted-foreground" />
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Editar livro"
+      description="As alterações aparecem para todos os leitores."
+      size="lg"
+      footer={
+        <>
+          <button onClick={onClose} disabled={isSaving} className="mb-btn mb-btn-outline">Cancelar</button>
+          <button onClick={handleSave} disabled={!form.title.trim() || isSaving} className="mb-btn mb-btn-primary">
+            {isSaving && <Loader2 className="w-4 h-4 animate-spin" />} Salvar alterações
           </button>
-        </div>
-
-        {/* Cover picker */}
+        </>
+      }
+    >
+      <div className="space-y-5">
         <div className="flex gap-4 items-start">
           <button
             onClick={() => fileRef.current?.click()}
-            className="flex-shrink-0 w-24 h-32 rounded-[14px] overflow-hidden shadow-md relative group"
+            className="flex-shrink-0 w-24 aspect-[2/3] rounded-lg overflow-hidden shadow-[var(--shadow-book)] relative group cursor-pointer"
           >
             {coverPreview ? (
-              <img src={coverPreview} className="w-full h-full object-cover" alt="capa" />
+              <img src={coverPreview} className="w-full h-full object-cover" alt="Capa do livro" />
             ) : (
               <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient(book)} flex items-center justify-center`}>
-                <Image className="w-8 h-8 text-white" />
+                <ImagePlus className="w-7 h-7 text-black/30" />
               </div>
             )}
-            <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <Image className="w-6 h-6 text-white" />
-            </div>
+            <span className="absolute inset-0 bg-black/45 text-white text-[11px] font-semibold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              Trocar capa
+            </span>
           </button>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
 
-          <div className="flex-1 space-y-3">
-            <input
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              placeholder="Título"
-              className="w-full px-4 py-2.5 bg-white/80 rounded-[12px] outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
-            />
-            <input
-              value={form.author}
-              onChange={(e) => setForm({ ...form, author: e.target.value })}
-              placeholder="Autor"
-              className="w-full px-4 py-2.5 bg-white/80 rounded-[12px] outline-none focus:ring-2 focus:ring-primary/50 transition-all text-sm"
-            />
+          <div className="flex-1 space-y-3 min-w-0">
+            <div>
+              <label htmlFor="edit-title" className="mb-label">Título</label>
+              <input
+                id="edit-title"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                className="mb-input"
+              />
+            </div>
+            <div>
+              <label htmlFor="edit-author" className="mb-label">Autor</label>
+              <input
+                id="edit-author"
+                value={form.author}
+                onChange={(e) => setForm({ ...form, author: e.target.value })}
+                className="mb-input"
+              />
+            </div>
           </div>
         </div>
 
-        {/* Genre */}
-        <div className="space-y-2">
-          <label className="text-xs text-muted-foreground">Gênero</label>
-          <div className="flex flex-wrap gap-2">
+        <div>
+          <span className="mb-label">Gênero</span>
+          <div className="flex flex-wrap gap-1.5">
             {GENRES.map((g) => (
               <button
                 key={g}
                 onClick={() => setForm({ ...form, genre: g })}
-                className={`px-3 py-1.5 rounded-[10px] text-xs transition-all active:scale-95 ${
-                  form.genre === g
-                    ? "bg-gradient-to-r from-primary to-[var(--mint)] text-white shadow-md"
-                    : "bg-white/80 text-secondary-foreground"
-                }`}
+                className={`mb-btn mb-btn-sm ${form.genre === g ? "mb-btn-primary" : "mb-btn-outline"}`}
               >
                 {g}
               </button>
@@ -115,17 +131,17 @@ export function EditBookModal({ book, onClose, onSaved }: Props) {
           </div>
         </div>
 
-        {/* Cover color (when no image) */}
         {!coverPreview && (
-          <div className="space-y-2">
-            <label className="text-xs text-muted-foreground">Cor da capa (sem imagem)</label>
+          <div>
+            <span className="mb-label">Cor da capa (quando não há imagem)</span>
             <div className="flex flex-wrap gap-2">
               {COLORS.map((c) => (
                 <button
                   key={c}
+                  aria-label={`Cor ${c}`}
                   onClick={() => setForm({ ...form, coverColor: c })}
-                  className={`w-8 h-8 rounded-full bg-gradient-to-br ${getCoverGradient({ id: c, coverColor: c })} border-2 transition-all ${
-                    form.coverColor === c ? "border-primary scale-110" : "border-transparent"
+                  className={`w-8 h-8 rounded-full bg-gradient-to-br ${getCoverGradient({ id: c, coverColor: c })} border-2 transition-transform cursor-pointer ${
+                    form.coverColor === c ? "border-[var(--primary)] scale-110" : "border-transparent"
                   }`}
                 />
               ))}
@@ -133,28 +149,18 @@ export function EditBookModal({ book, onClose, onSaved }: Props) {
           </div>
         )}
 
-        {/* Description */}
-        <textarea
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-          placeholder="Descrição"
-          className="w-full px-4 py-3 bg-white/80 rounded-[12px] outline-none focus:ring-2 focus:ring-primary/50 transition-all resize-none text-sm"
-          rows={3}
-        />
-
-        <button
-          onClick={handleSave}
-          disabled={!form.title.trim() || isSaving}
-          className={`w-full py-3 rounded-[16px] transition-all font-bold shadow-lg ${
-            !form.title.trim() || isSaving
-              ? "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
-              : "bg-gradient-to-r from-primary to-[var(--mint)] text-white active:scale-[0.98]"
-          }`}
-        >
-          {isSaving ? "Salvando..." : "Salvar alterações ✨"}
-        </button>
+        <div>
+          <label htmlFor="edit-desc" className="mb-label">Sinopse</label>
+          <textarea
+            id="edit-desc"
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            rows={4}
+            placeholder="Do que trata o livro?"
+            className="mb-input resize-y leading-relaxed"
+          />
+        </div>
       </div>
-    </div>,
-    document.body
+    </Modal>
   );
 }

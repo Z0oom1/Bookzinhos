@@ -1,12 +1,11 @@
-# 📚 Books da Helo — Como usar
+# 📚 myBooks — Como usar
 
 ## Estrutura do projeto
 
 ```
-Books-da-Helo/
+Bookzinhos-main/
 ├── server/          ← Servidor Node.js (banco de dados)
-├── repositorio/
-│   └── Bookdahelo/  ← Web app (interface do app)
+├── frontend/        ← Web app (interface do app)
 ├── AppWebView.tsx   ← Expo app (shell Android)
 ├── eas.json         ← Configuração de build do APK
 └── scripts/
@@ -22,7 +21,7 @@ Você não precisa instalar o Railway no Windows globalmente, basta usar o `npx`
 1. Acesse [railway.app](https://railway.app) e faça login com seu GitHub.
 2. Abra o terminal na pasta `server`:
    ```powershell
-   cd c:\Users\caio\Desktop\Books-da-Helo\server
+   cd server
    ```
 3. Faça login no Railway via terminal:
    ```powershell
@@ -45,7 +44,7 @@ Você não precisa instalar o Railway no Windows globalmente, basta usar o `npx`
 
 ## PASSO 2 — Configurar a URL no App
 
-Abra o arquivo `repositorio/Bookdahelo/src/app/lib/config.ts` e troque a URL:
+Abra o arquivo `frontend/src/app/lib/config.ts` e troque a URL:
 
 ```ts
 // Se estiver usando o Railway, coloque a URL gerada:
@@ -58,7 +57,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL || "https://SEU-APP.up.
 
 ```powershell
 # Abra o terminal na raiz do projeto:
-cd c:\Users\caio\Desktop\Books-da-Helo
+# a partir da raiz do projeto
 $env:Path += ";C:\Program Files\nodejs"
 
 # 1. Login no Expo
@@ -85,14 +84,14 @@ Se quiser testar no PC antes de gerar o APK, abra 2 terminais:
 
 **Terminal 1 (Servidor)**:
 ```powershell
-cd c:\Users\caio\Desktop\Books-da-Helo\server
+cd server
 $env:Path += ";C:\Program Files\nodejs"
 npm start
 ```
 
 **Terminal 2 (Web App)**:
 ```powershell
-cd c:\Users\caio\Desktop\Books-da-Helo\repositorio\Bookdahelo
+cd frontend
 $env:Path += ";C:\Program Files\nodejs"
 npm run dev
 ```

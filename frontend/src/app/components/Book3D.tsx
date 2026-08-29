@@ -1,0 +1,279 @@
+import { useEffect, useState, memo } from "react";
+import { getCoverGradient, getFullUrl } from "../lib/types";
+import { fallbackSpineColor, getSpineColor, type SpineColor } from "../lib/coverColor";
+import type { Book, ReadingProgress } from "../lib/types";
+
+/** A mesma curva de `--ease-flip`, escrita à mão: o atalho `transition` inline
+ *  é descartado pelo navegador quando traz um `var()` dentro. */
+export const EASE_OUT = "cubic-bezier(0.62, 0.03, 0.32, 1)";
+
+export type BookDisplay = "cover" | "spine";
+
+/**
+ * Espessura do livro, em pixels.
+ *
+ * Livros mais longos ficam mais grossos — é o que faz uma estante de lombadas
+ * parecer uma estante de verdade, em vez de uma fileira de tiras iguais.
+ */
+export function spineWidth(book: Book): number {
+  const pages = book.pageCount || 0;
+  if (pages > 0) return Math.round(Math.min(Math.max(20 + pages / 22, 24), 52));
+  // Sem contagem de páginas, uma variação estável derivada do id.
+  let hash = 0;
+  for (let i = 0; i < book.id.length; i++) hash = (hash * 31 + book.id.charCodeAt(i)) % 1000;
+  return 26 + (hash % 20);
+}
+
+/** Busca a cor dominante da capa, com reserva imediata enquanto carrega. */
+export function useSpineColor(book: Book | null | undefined): SpineColor {
+  const coverUrl = getFullUrl(book?.coverImagePath);
+  const coverColor = book?.coverColor ?? null;
+  const id = book?.id ?? "";
+  const [color, setColor] = useState<SpineColor>(() => fallbackSpineColor(coverColor, id));
+
+  useEffect(() => {
+    let alive = true;
+    setColor(fallbackSpineColor(coverColor, id));
+    getSpineColor(coverUrl, coverColor, id).then((c) => {
+      if (alive) setColor(c);
+    });
+    return () => { alive = false; };
+  }, [coverUrl, coverColor, id]);
+
+  return color;
+}
+
+interface Props {
+  book: Book;
+  /** Largura da capa em pixels. A altura sai daí, na proporção 2:3. */
+  width: number;
+  display?: BookDisplay;
+  /** Posição na lista — escalona a animação da esquerda para a direita. */
+  index?: number;
+  progress?: ReadingProgress;
+  /** Fita de destaque no canto (usada pelo ranking "Mais lidos") */
+  rank?: number;
+  /** Desliga o hover — usado pela cópia que voa na abertura do livro. */
+  still?: boolean;
+}
+
+/**
+ * Um livro desenhado como objeto: capa, lombada e bloco de páginas em três
+ * dimensões. Girar 90° em Y troca a capa pela lombada — é o "modo estante".
+ *
+ * Com o ponteiro em cima de uma lombada, o livro se desvira e sai um pouco da
+ * estante, como quem puxa o volume para conferir a capa.
+ */
+function Book3DImpl({ book, width, display = "cover", index = 0, progress, rank, still }: Props) {
+  const color = useSpineColor(book);
+  const coverUrl = getFullUrl(book.coverImagePath);
+  const [hovered, setHovered] = useState(false);
+
+  const height = Math.round(width * 1.5);
+  const depth = spineWidth(book);
+  const isSpine = display === "spine";
+
+  const active = hovered && !still;
+  // Só a lombada "desvira": na grade de capas o hover é apenas uma inclinação.
+  const pulledOut = isSpine && active;
+  const angle = isSpine && !pulledOut ? 90 : active ? -14 : 0;
+  const slotWidth = pulledOut ? width : isSpine ? depth : width;
+
+  // A cascata só vale para a virada em massa; o hover responde na hora.
+  const delay = active ? "0ms" : `${index * 45}ms`;
+  const lift = active ? (isSpine ? -18 : -8) : 0;
+
+  const onPointerEnter = (e: React.PointerEvent) => {
+    if (e.pointerType === "mouse") setHovered(true);
+  };
+
+  return (
+    <div
+      className="mb-book-scene relative select-none"
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={() => setHovered(false)}
+      style={{
+        width: slotWidth,
+        height,
+        zIndex: active ? 30 : undefined,
+        transition: `width 0.8s ${EASE_OUT}`,
+        transitionDelay: delay,
+      }}
+    >
+      <div
+        className="mb-book-3d"
+        style={{
+          position: "absolute",
+          top: 0,
+          left: "50%",
+          width,
+          height,
+          marginLeft: -width / 2,
+          transform: `translateY(${lift}px) rotateY(${angle}deg)`,
+          transitionDelay: delay,
+        }}
+      >
+        {/* ── Capa ───────────────────────────────────────────────────────── */}
+        <div
+          className="absolute inset-0 overflow-hidden rounded-[3px] rounded-r-[5px]"
+          style={{
+            transform: `translateZ(${depth / 2}px)`,
+            backfaceVisibility: "hidden",
+            boxShadow: "0 0 0 1px rgba(0,0,0,0.08)",
+          }}
+        >
+          {coverUrl ? (
+            <img
+              src={coverUrl}
+              alt={`Capa de ${book.title}`}
+              loading="lazy"
+              decoding="async"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            /* Sem imagem, desenhamos uma capa: duotom da paleta, filete no
+               topo e o título tipografado — melhor do que um bloco vazio. */
+            <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient(book)} relative flex flex-col justify-between`}>
+              <div className="absolute inset-0 opacity-25 mix-blend-overlay"
+                   style={{ backgroundImage: "radial-gradient(120% 90% at 20% 0%, #fff, transparent 60%)" }} />
+              <div className="relative px-2.5 pt-3">
+                <span className="block w-7 h-[3px] rounded-full bg-white/70" />
+              </div>
+              <div className="relative px-2.5 pb-3">
+                <p
+                  className="text-white font-bold leading-[1.15] line-clamp-4 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
+                  style={{ fontSize: Math.max(width * 0.093, 9) }}
+                >
+                  {book.title}
+                </p>
+                {book.author && (
+                  <p
+                    className="text-white/75 font-medium truncate mt-1"
+                    style={{ fontSize: Math.max(width * 0.068, 8) }}
+                  >
+                    {book.author}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="mb-book-binding" />
+          <div className="mb-book-gloss" />
+
+          {rank != null && (
+            <span className="absolute top-1.5 left-1.5 min-w-[22px] h-[22px] px-1.5 rounded-md bg-black/65 text-white text-[11px] font-bold flex items-center justify-center backdrop-blur-sm">
+              {rank}
+            </span>
+          )}
+
+          {!!progress && progress.progress > 0 && (
+            <div className="absolute bottom-0 inset-x-0 h-[3px] bg-black/30">
+              <div className="h-full bg-[var(--primary)]" style={{ width: `${progress.progress}%` }} />
+            </div>
+          )}
+        </div>
+
+        {/* ── Contracapa ─────────────────────────────────────────────────── */}
+        {/* Sem `backface-visibility: hidden` esta face pinta por cima da capa:
+            as duas ocupam o mesmo retângulo e só o lado voltado para a câmera
+            deve aparecer. */}
+        <div
+          className="absolute inset-0 rounded-[3px]"
+          style={{
+            transform: `rotateY(180deg) translateZ(${depth / 2}px)`,
+            backfaceVisibility: "hidden",
+            background: `linear-gradient(160deg, ${color.base}, ${color.shade})`,
+            boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.18)",
+          }}
+        />
+
+        {/* ── Lombada (face esquerda) ────────────────────────────────────── */}
+        <div
+          className="absolute top-0 left-1/2 overflow-hidden rounded-l-[3px]"
+          style={{
+            width: depth,
+            height,
+            marginLeft: -depth / 2,
+            transform: `rotateY(-90deg) translateZ(${width / 2}px)`,
+            background: `linear-gradient(100deg, ${color.shade} 0%, ${color.base} 26%, ${color.tint} 50%, ${color.base} 74%, ${color.shade} 100%)`,
+            color: color.ink,
+            boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.18)",
+          }}
+        >
+          {/* Filetes decorativos no topo e na base, como numa edição impressa */}
+          <div className="absolute inset-x-[3px] top-2 h-[2px] rounded-full opacity-45" style={{ background: color.ink }} />
+          <div className="absolute inset-x-[3px] bottom-2 h-[2px] rounded-full opacity-45" style={{ background: color.ink }} />
+
+          <div className="absolute inset-0 flex items-center justify-center px-1 py-6">
+            <span
+              className="font-bold leading-none tracking-tight overflow-hidden text-ellipsis whitespace-nowrap"
+              style={{
+                writingMode: "vertical-rl",
+                textOrientation: "mixed",
+                maxHeight: height - 52,
+                fontSize: Math.min(Math.max(depth * 0.34, 9), 13),
+                textShadow: "0 1px 1px rgba(0,0,0,0.22)",
+              }}
+              title={book.title}
+            >
+              {book.title}
+              {book.author && <span className="opacity-70 font-medium"> · {book.author}</span>}
+            </span>
+          </div>
+
+          {/* Brilho vertical da lombada */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                "linear-gradient(90deg, rgba(0,0,0,0.28) 0%, rgba(255,255,255,0.18) 34%, rgba(255,255,255,0.05) 55%, rgba(0,0,0,0.3) 100%)",
+            }}
+          />
+        </div>
+
+        {/* ── Bloco de páginas (face direita) ────────────────────────────── */}
+        <div
+          className="absolute top-0 left-1/2 rounded-r-[3px]"
+          style={{
+            width: depth,
+            height,
+            marginLeft: -depth / 2,
+            transform: `rotateY(90deg) translateZ(${width / 2}px)`,
+            background: "repeating-linear-gradient(90deg, #f6f1e8 0px, #f6f1e8 1px, #ddd4c4 1px, #ddd4c4 2px)",
+            boxShadow: "inset 0 0 8px rgba(0,0,0,0.18)",
+          }}
+        />
+
+        {/* ── Topo do bloco de páginas ───────────────────────────────────── */}
+        <div
+          className="absolute left-0 top-1/2"
+          style={{
+            width,
+            height: depth,
+            marginTop: -depth / 2,
+            transform: `rotateX(90deg) translateZ(${height / 2}px)`,
+            background: "repeating-linear-gradient(0deg, #f6f1e8 0px, #f6f1e8 1px, #e2d9ca 1px, #e2d9ca 2px)",
+          }}
+        />
+      </div>
+
+      {/* Sombra projetada no chão da estante */}
+      <div
+        aria-hidden
+        className="absolute left-1/2 -translate-x-1/2 rounded-[50%] pointer-events-none"
+        style={{
+          bottom: -8,
+          width: slotWidth * 0.92,
+          height: 10,
+          background: `rgba(0,0,0,${active ? 0.16 : 0.28})`,
+          filter: `blur(${active ? 9 : 6}px)`,
+          transition: `width 0.8s ${EASE_OUT}, filter .3s ease, background-color .3s ease`,
+          transitionDelay: delay,
+        }}
+      />
+    </div>
+  );
+}
+
+export const Book3D = memo(Book3DImpl);

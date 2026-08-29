@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import { BookOpen, Smartphone, Check } from "lucide-react";
 import { getFullUrl } from "./types";
+import { registerBookOpen } from "./api";
 import type { Book } from "./types";
 
 export type ReaderMode = "native" | "app";
@@ -44,6 +45,8 @@ export function ReaderChoiceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const openBook = useCallback((book: Book) => {
+    // Conta a abertura para o ranking "Mais lidos" da home.
+    registerBookOpen(book.id);
     if (!book.pdfPath) {
       openInApp(book);
       return;

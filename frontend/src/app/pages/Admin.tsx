@@ -1,0 +1,744 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link, Navigate } from "react-router";
+import {
+  Image as ImageIcon, Megaphone, BookOpen, Users, LayoutDashboard, Plus, Trash2,
+  Pencil, Eye, EyeOff, Pin, Loader2, Search,
+} from "lucide-react";
+import {
+  createBanner, createPost, deleteBanner, deleteBook, deletePost, fetchAdminOverview,
+  fetchAllUsers, fetchBanners, fetchBooks, fetchPosts, updateBanner, updatePost,
+} from "../lib/api";
+import { isAdmin as isAdminUser } from "../lib/session";
+import { getFullUrl, timeAgo } from "../lib/types";
+import type { AdminOverview, Banner, Book, HomePost, UserProfile } from "../lib/types";
+import { Avatar, ConfirmDialog, EmptyState, Modal, PageHeader, SectionHeader, Skeleton, toast } from "../components/Ui";
+import { EditBookModal } from "../components/EditBookModal";
+
+type Tab = "overview" | "banners" | "posts" | "books" | "users";
+
+const TABS: { key: Tab; label: string; icon: typeof LayoutDashboard }[] = [
+  { key: "overview", label: "Visão geral", icon: LayoutDashboard },
+  { key: "banners", label: "Banners", icon: ImageIcon },
+  { key: "posts", label: "Postagens", icon: Megaphone },
+  { key: "books", label: "Livros", icon: BookOpen },
+  { key: "users", label: "Leitores", icon: Users },
+];
+
+/**
+ * Painel da conta Admin (emote 🐶).
+ *
+ * Tudo que é editado aqui vai direto para o servidor, então aparece para todos
+ * os leitores na próxima vez que a home ou a biblioteca carregar.
+ */
+export function Admin() {
+  const [tab, setTab] = useState<Tab>("overview");
+
+  if (!isAdminUser()) return <Navigate to="/" replace />;
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <div className="mb-6">
+        <span className="mb-chip mb-chip-primary mb-3">🐶 Conta administradora</span>
+        <PageHeader
+          title="Painel do"
+          highlight="myBooks"
+          subtitle="Banners, mural e acervo — o que você mudar aqui vale para toda a comunidade."
+          icon={<LayoutDashboard className="w-5 h-5" />}
+          gradient="linear-gradient(140deg,#FBBF24,#F97316)"
+        />
+      </div>
+
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar mb-6 border-b border-[var(--line)] pb-2">
+        {TABS.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`mb-btn mb-btn-sm ${tab === key ? "mb-btn-soft" : "mb-btn-ghost"}`}
+          >
+            <Icon className="w-4 h-4" /> {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "overview" && <OverviewTab onNavigate={setTab} />}
+      {tab === "banners" && <BannersTab />}
+      {tab === "posts" && <PostsTab />}
+      {tab === "books" && <BooksTab />}
+      {tab === "users" && <UsersTab />}
+    </div>
+  );
+}
+
+// ─── Visão geral ──────────────────────────────────────────────────────────────
+
+function OverviewTab({ onNavigate }: { onNavigate: (tab: Tab) => void }) {
+  const [overview, setOverview] = useState<AdminOverview | null>(null);
+
+  useEffect(() => {
+    fetchAdminOverview().then(setOverview).catch(() => setOverview(null));
+  }, []);
+
+  const cards = [
+    { label: "Livros no acervo", value: overview?.books, tab: "books" as Tab },
+    { label: "Leitores cadastrados", value: overview?.users, tab: "users" as Tab },
+    { label: "Avaliações publicadas", value: overview?.reviews, tab: null },
+    { label: "Banners", value: overview?.banners, tab: "banners" as Tab },
+    { label: "Postagens no mural", value: overview?.posts, tab: "posts" as Tab },
+    { label: "Leituras registradas", value: overview?.readingSessions, tab: null },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        {cards.map((c) => (
+          <button
+            key={c.label}
+            onClick={() => c.tab && onNavigate(c.tab)}
+            disabled={!c.tab}
+            className={`mb-card p-4 text-left ${c.tab ? "mb-card-hover cursor-pointer" : "cursor-default"}`}
+          >
+            {c.value == null ? (
+              <Skeleton className="h-8 w-12" />
+            ) : (
+              <div className="text-2xl font-bold text-foreground">{c.value}</div>
+            )}
+            <div className="text-[12px] text-[var(--text-3)] mt-1">{c.label}</div>
+          </button>
+        ))}
+      </div>
+
+      <div className="mb-card p-5">
+        <h3 className="text-[15px] font-bold text-foreground">Como funciona</h3>
+        <ul className="mt-3 space-y-2 text-[13px] text-[var(--text-2)] leading-relaxed list-disc pl-5">
+          <li><strong>Banners</strong> aparecem no topo da home. Envie a imagem que você montou; título e subtítulo são opcionais.</li>
+          <li><strong>Postagens</strong> formam o mural da home — bom para avisos, indicações e desafios de leitura.</li>
+          <li><strong>Livros</strong> podem ser editados ou removidos daqui; a remoção apaga também resenhas e progresso.</li>
+          <li>Os rankings <strong>Mais lidos</strong> e <strong>Melhores avaliados</strong> se atualizam sozinhos conforme a comunidade lê e avalia.</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+// ─── Seletor de imagem reaproveitável ─────────────────────────────────────────
+
+function ImagePicker({
+  preview,
+  onPick,
+  aspect = "aspect-[3/1]",
+  label = "Escolher imagem",
+}: {
+  preview: string | null;
+  onPick: (file: File) => void;
+  aspect?: string;
+  label?: string;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className={`w-full ${aspect} rounded-xl overflow-hidden border-2 border-dashed border-[var(--line)] bg-[var(--surface-2)] hover:border-[var(--primary)]/40 transition-colors relative cursor-pointer`}
+      >
+        {preview ? (
+          <img src={preview} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        ) : (
+          <span className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-[var(--text-3)]">
+            <ImageIcon className="w-6 h-6" />
+            <span className="text-[12.5px] font-semibold">{label}</span>
+          </span>
+        )}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onPick(file);
+          e.target.value = "";
+        }}
+      />
+    </>
+  );
+}
+
+// ─── Banners ──────────────────────────────────────────────────────────────────
+
+function BannersTab() {
+  const [banners, setBanners] = useState<Banner[] | null>(null);
+  const [books, setBooks] = useState<Book[]>([]);
+  const [editing, setEditing] = useState<Banner | "new" | null>(null);
+  const [confirmId, setConfirmId] = useState<number | null>(null);
+
+  const load = () => fetchBanners(true, true).then(setBanners).catch(() => setBanners([]));
+  useEffect(() => {
+    load();
+    fetchBooks().then(setBooks).catch(() => setBooks([]));
+  }, []);
+
+  const handleDelete = async (id: number) => {
+    setConfirmId(null);
+    try {
+      await deleteBanner(id);
+      setBanners((prev) => (prev ? prev.filter((b) => b.id !== id) : prev));
+      toast("Banner removido.");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Erro ao remover.", "error");
+    }
+  };
+
+  const toggleActive = async (banner: Banner) => {
+    try {
+      const updated = await updateBanner(banner.id, { isActive: !banner.isActive });
+      setBanners((prev) => (prev ? prev.map((b) => (b.id === banner.id ? updated : b)) : prev));
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Erro ao atualizar.", "error");
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <SectionHeader
+        title="Banners da home"
+        subtitle="Aparecem no topo, em carrossel, para todos os leitores"
+        action={
+          <button onClick={() => setEditing("new")} className="mb-btn mb-btn-primary mb-btn-sm">
+            <Plus className="w-4 h-4" /> Novo banner
+          </button>
+        }
+      />
+
+      {banners === null ? (
+        <Skeleton className="w-full h-32 rounded-xl" />
+      ) : banners.length === 0 ? (
+        <EmptyState
+          emoji="🖼️"
+          title="Nenhum banner ainda"
+          description="Monte a arte do jeito que quiser e envie aqui — ela vira o destaque da home."
+          action={<button onClick={() => setEditing("new")} className="mb-btn mb-btn-primary">Criar o primeiro</button>}
+        />
+      ) : (
+        <div className="space-y-3">
+          {banners.map((banner) => (
+            <div key={banner.id} className="mb-card p-3 flex gap-3 items-center">
+              <div className="w-32 aspect-[3/1] rounded-lg overflow-hidden bg-[var(--surface-2)] flex-shrink-0">
+                {banner.imageUrl ? (
+                  <img src={getFullUrl(banner.imageUrl)!} alt="" loading="lazy" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-[var(--lavender)] to-[var(--peach)]" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13.5px] font-semibold text-foreground truncate">{banner.title || "(sem título)"}</p>
+                <p className="text-[12px] text-[var(--text-3)] truncate">{banner.subtitle || "—"}</p>
+                <div className="flex gap-1.5 mt-1.5">
+                  <span className={`mb-chip ${banner.isActive ? "mb-chip-primary" : ""}`}>
+                    {banner.isActive ? "Ativo" : "Oculto"}
+                  </span>
+                  <span className="mb-chip">Ordem {banner.sortOrder}</span>
+                </div>
+              </div>
+              <div className="flex gap-1 flex-shrink-0">
+                <button onClick={() => toggleActive(banner)} aria-label="Ativar/ocultar" className="mb-btn mb-btn-ghost mb-btn-icon mb-btn-sm">
+                  {banner.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                </button>
+                <button onClick={() => setEditing(banner)} aria-label="Editar" className="mb-btn mb-btn-ghost mb-btn-icon mb-btn-sm">
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button onClick={() => setConfirmId(banner.id)} aria-label="Excluir" className="mb-btn mb-btn-ghost mb-btn-icon mb-btn-sm">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {editing && (
+        <BannerForm
+          banner={editing === "new" ? null : editing}
+          books={books}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); load(); }}
+        />
+      )}
+
+      <ConfirmDialog
+        open={confirmId !== null}
+        title="Excluir banner?"
+        description="Ele some da home imediatamente."
+        confirmLabel="Excluir"
+        destructive
+        onConfirm={() => confirmId !== null && handleDelete(confirmId)}
+        onCancel={() => setConfirmId(null)}
+      />
+    </div>
+  );
+}
+
+function BannerForm({
+  banner, books, onClose, onSaved,
+}: {
+  banner: Banner | null;
+  books: Book[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [title, setTitle] = useState(banner?.title || "");
+  const [subtitle, setSubtitle] = useState(banner?.subtitle || "");
+  const [linkUrl, setLinkUrl] = useState(banner?.linkUrl || "");
+  const [bookId, setBookId] = useState(banner?.bookId || "");
+  const [sortOrder, setSortOrder] = useState(banner?.sortOrder ?? 0);
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(getFullUrl(banner?.imageUrl));
+  const [isSaving, setIsSaving] = useState(false);
+
+  const pick = (f: File) => {
+    setFile(f);
+    setPreview(URL.createObjectURL(f));
+  };
+
+  const save = async () => {
+    if (!file && !preview && !title.trim()) {
+      return toast("Envie uma imagem ou escreva um título.", "error");
+    }
+    setIsSaving(true);
+    try {
+      if (banner) {
+        await updateBanner(banner.id, { title, subtitle, linkUrl, bookId, sortOrder }, file);
+      } else {
+        await createBanner({ title, subtitle, linkUrl, bookId, sortOrder, imageFile: file });
+      }
+      toast(banner ? "Banner atualizado." : "Banner publicado na home!");
+      onSaved();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Erro ao salvar.", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={banner ? "Editar banner" : "Novo banner"}
+      description="Proporção recomendada: 3:1 (ex.: 1500 × 500 px)."
+      size="lg"
+      footer={
+        <>
+          <button onClick={onClose} disabled={isSaving} className="mb-btn mb-btn-outline">Cancelar</button>
+          <button onClick={save} disabled={isSaving} className="mb-btn mb-btn-primary">
+            {isSaving && <Loader2 className="w-4 h-4 animate-spin" />} {banner ? "Salvar" : "Publicar"}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <ImagePicker preview={preview} onPick={pick} label="Enviar a arte do banner" />
+
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="banner-title" className="mb-label">Título (opcional)</label>
+            <input id="banner-title" value={title} onChange={(e) => setTitle(e.target.value)} className="mb-input" placeholder="Ex.: Clube de leitura de março" />
+          </div>
+          <div>
+            <label htmlFor="banner-sub" className="mb-label">Subtítulo (opcional)</label>
+            <input id="banner-sub" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} className="mb-input" placeholder="Uma linha de apoio" />
+          </div>
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="banner-book" className="mb-label">Levar para um livro</label>
+            <select id="banner-book" value={bookId} onChange={(e) => setBookId(e.target.value)} className="mb-input">
+              <option value="">Nenhum</option>
+              {books.map((b) => (
+                <option key={b.id} value={b.id}>{b.title}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="banner-link" className="mb-label">Ou um link / rota</label>
+            <input id="banner-link" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} className="mb-input" placeholder="/library ou https://…" />
+          </div>
+        </div>
+
+        <div className="w-32">
+          <label htmlFor="banner-order" className="mb-label">Ordem</label>
+          <input
+            id="banner-order"
+            type="number"
+            value={sortOrder}
+            onChange={(e) => setSortOrder(Number(e.target.value))}
+            className="mb-input"
+          />
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Postagens ────────────────────────────────────────────────────────────────
+
+function PostsTab() {
+  const [posts, setPosts] = useState<HomePost[] | null>(null);
+  const [books, setBooks] = useState<Book[]>([]);
+  const [editing, setEditing] = useState<HomePost | "new" | null>(null);
+  const [confirmId, setConfirmId] = useState<number | null>(null);
+
+  const load = () => fetchPosts(true, true).then(setPosts).catch(() => setPosts([]));
+  useEffect(() => {
+    load();
+    fetchBooks().then(setBooks).catch(() => setBooks([]));
+  }, []);
+
+  const handleDelete = async (id: number) => {
+    setConfirmId(null);
+    try {
+      await deletePost(id);
+      setPosts((prev) => (prev ? prev.filter((p) => p.id !== id) : prev));
+      toast("Postagem removida.");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Erro ao remover.", "error");
+    }
+  };
+
+  const patch = async (post: HomePost, data: Record<string, boolean>) => {
+    try {
+      const updated = await updatePost(post.id, data);
+      setPosts((prev) => (prev ? prev.map((p) => (p.id === post.id ? updated : p)) : prev));
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Erro ao atualizar.", "error");
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <SectionHeader
+        title="Mural da home"
+        subtitle="Avisos, indicações e desafios para a comunidade"
+        action={
+          <button onClick={() => setEditing("new")} className="mb-btn mb-btn-primary mb-btn-sm">
+            <Plus className="w-4 h-4" /> Nova postagem
+          </button>
+        }
+      />
+
+      {posts === null ? (
+        <Skeleton className="w-full h-24 rounded-xl" />
+      ) : posts.length === 0 ? (
+        <EmptyState
+          emoji="📣"
+          title="Mural vazio"
+          description="Escreva o primeiro recado para os leitores."
+          action={<button onClick={() => setEditing("new")} className="mb-btn mb-btn-primary">Escrever postagem</button>}
+        />
+      ) : (
+        <div className="space-y-3">
+          {posts.map((post) => (
+            <div key={post.id} className="mb-card p-4">
+              <div className="flex items-start gap-3">
+                {post.imageUrl && (
+                  <img src={getFullUrl(post.imageUrl)!} alt="" loading="lazy" className="w-20 h-20 rounded-lg object-cover flex-shrink-0" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-semibold text-foreground">{post.title || "(sem título)"}</p>
+                  <p className="text-[13px] text-[var(--text-2)] line-clamp-2 mt-1 leading-relaxed">{post.content}</p>
+                  <div className="flex gap-1.5 mt-2 flex-wrap">
+                    <span className={`mb-chip ${post.isActive ? "mb-chip-primary" : ""}`}>{post.isActive ? "Publicado" : "Oculto"}</span>
+                    {post.isPinned && <span className="mb-chip"><Pin className="w-3 h-3" /> Fixado</span>}
+                    <span className="mb-chip">❤️ {post.likes}</span>
+                    <span className="mb-chip">{timeAgo(post.createdAt)}</span>
+                  </div>
+                </div>
+                <div className="flex gap-1 flex-shrink-0">
+                  <button onClick={() => patch(post, { isPinned: !post.isPinned })} aria-label="Fixar" className={`mb-btn mb-btn-ghost mb-btn-icon mb-btn-sm ${post.isPinned ? "text-[var(--primary)]" : ""}`}>
+                    <Pin className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => patch(post, { isActive: !post.isActive })} aria-label="Publicar/ocultar" className="mb-btn mb-btn-ghost mb-btn-icon mb-btn-sm">
+                    {post.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                  </button>
+                  <button onClick={() => setEditing(post)} aria-label="Editar" className="mb-btn mb-btn-ghost mb-btn-icon mb-btn-sm">
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => setConfirmId(post.id)} aria-label="Excluir" className="mb-btn mb-btn-ghost mb-btn-icon mb-btn-sm">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {editing && (
+        <PostForm
+          post={editing === "new" ? null : editing}
+          books={books}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); load(); }}
+        />
+      )}
+
+      <ConfirmDialog
+        open={confirmId !== null}
+        title="Excluir postagem?"
+        description="Ela some do mural para todos."
+        confirmLabel="Excluir"
+        destructive
+        onConfirm={() => confirmId !== null && handleDelete(confirmId)}
+        onCancel={() => setConfirmId(null)}
+      />
+    </div>
+  );
+}
+
+function PostForm({
+  post, books, onClose, onSaved,
+}: {
+  post: HomePost | null;
+  books: Book[];
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [title, setTitle] = useState(post?.title || "");
+  const [content, setContent] = useState(post?.content || "");
+  const [bookId, setBookId] = useState(post?.bookId || "");
+  const [isPinned, setIsPinned] = useState(!!post?.isPinned);
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(getFullUrl(post?.imageUrl));
+  const [isSaving, setIsSaving] = useState(false);
+
+  const save = async () => {
+    if (!title.trim() && !content.trim() && !file && !preview) {
+      return toast("Escreva algo ou envie uma imagem.", "error");
+    }
+    setIsSaving(true);
+    try {
+      if (post) await updatePost(post.id, { title, content, bookId, isPinned }, file);
+      else await createPost({ title, content, bookId, isPinned, imageFile: file });
+      toast(post ? "Postagem atualizada." : "Postagem publicada no mural!");
+      onSaved();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Erro ao salvar.", "error");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title={post ? "Editar postagem" : "Nova postagem"}
+      description="Aparece no mural da home para todos os leitores."
+      size="lg"
+      footer={
+        <>
+          <button onClick={onClose} disabled={isSaving} className="mb-btn mb-btn-outline">Cancelar</button>
+          <button onClick={save} disabled={isSaving} className="mb-btn mb-btn-primary">
+            {isSaving && <Loader2 className="w-4 h-4 animate-spin" />} {post ? "Salvar" : "Publicar"}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <label htmlFor="post-title" className="mb-label">Título</label>
+          <input id="post-title" value={title} onChange={(e) => setTitle(e.target.value)} className="mb-input" placeholder="Ex.: Leitura coletiva de abril" />
+        </div>
+
+        <div>
+          <label htmlFor="post-content" className="mb-label">Texto</label>
+          <textarea
+            id="post-content"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            rows={5}
+            className="mb-input resize-y leading-relaxed"
+            placeholder="Escreva o recado para a comunidade…"
+          />
+        </div>
+
+        <div>
+          <span className="mb-label">Imagem (opcional)</span>
+          <ImagePicker preview={preview} onPick={(f) => { setFile(f); setPreview(URL.createObjectURL(f)); }} aspect="aspect-[16/7]" label="Enviar imagem da postagem" />
+        </div>
+
+        <div className="grid sm:grid-cols-2 gap-3 items-end">
+          <div>
+            <label htmlFor="post-book" className="mb-label">Livro relacionado</label>
+            <select id="post-book" value={bookId} onChange={(e) => setBookId(e.target.value)} className="mb-input">
+              <option value="">Nenhum</option>
+              {books.map((b) => (
+                <option key={b.id} value={b.id}>{b.title}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsPinned((v) => !v)}
+            className={`mb-btn ${isPinned ? "mb-btn-soft" : "mb-btn-outline"}`}
+          >
+            <Pin className="w-4 h-4" /> {isPinned ? "Fixado no topo" : "Fixar no topo"}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ─── Livros ───────────────────────────────────────────────────────────────────
+
+function BooksTab() {
+  const [books, setBooks] = useState<Book[] | null>(null);
+  const [search, setSearch] = useState("");
+  const [editing, setEditing] = useState<Book | null>(null);
+  const [confirmBook, setConfirmBook] = useState<Book | null>(null);
+
+  useEffect(() => {
+    fetchBooks(true).then(setBooks).catch(() => setBooks([]));
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!books) return [];
+    const term = search.trim().toLowerCase();
+    if (!term) return books;
+    return books.filter((b) => b.title.toLowerCase().includes(term) || (b.author || "").toLowerCase().includes(term));
+  }, [books, search]);
+
+  const handleDelete = async (book: Book) => {
+    setConfirmBook(null);
+    try {
+      await deleteBook(book.id);
+      setBooks((prev) => (prev ? prev.filter((b) => b.id !== book.id) : prev));
+      toast(`"${book.title}" foi removido.`);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Erro ao remover.", "error");
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <SectionHeader
+        title="Acervo"
+        subtitle={books ? `${books.length} livros cadastrados` : undefined}
+        action={<Link to="/upload" className="mb-btn mb-btn-primary mb-btn-sm"><Plus className="w-4 h-4" /> Enviar livro</Link>}
+      />
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-3)] pointer-events-none" />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar no acervo…"
+          className="mb-input pl-9"
+        />
+      </div>
+
+      {books === null ? (
+        <Skeleton className="w-full h-24 rounded-xl" />
+      ) : filtered.length === 0 ? (
+        <EmptyState emoji="📚" title="Nenhum livro encontrado" />
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((book) => (
+            <div key={book.id} className="mb-card p-3 flex items-center gap-3">
+              <div className="w-10 aspect-[2/3] rounded overflow-hidden bg-[var(--surface-2)] flex-shrink-0">
+                {book.coverImagePath && (
+                  <img src={getFullUrl(book.coverImagePath)!} alt="" loading="lazy" className="w-full h-full object-cover" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[13.5px] font-semibold text-foreground truncate">{book.title}</p>
+                <p className="text-[12px] text-[var(--text-3)] truncate">
+                  {book.author || "Autor desconhecido"} · {book.genre}
+                </p>
+                <div className="flex gap-1.5 mt-1.5">
+                  <span className="mb-chip">⭐ {book.rating > 0 ? book.rating.toFixed(1) : "—"}</span>
+                  <span className="mb-chip">{book.reviewCount} avaliações</span>
+                  {!!book.readers && <span className="mb-chip">{book.readers} leitores</span>}
+                </div>
+              </div>
+              <div className="flex gap-1 flex-shrink-0">
+                <Link to={`/book/${book.id}`} aria-label="Abrir" className="mb-btn mb-btn-ghost mb-btn-icon mb-btn-sm">
+                  <Eye className="w-4 h-4" />
+                </Link>
+                <button onClick={() => setEditing(book)} aria-label="Editar" className="mb-btn mb-btn-ghost mb-btn-icon mb-btn-sm">
+                  <Pencil className="w-4 h-4" />
+                </button>
+                <button onClick={() => setConfirmBook(book)} aria-label="Excluir" className="mb-btn mb-btn-ghost mb-btn-icon mb-btn-sm">
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {editing && (
+        <EditBookModal
+          book={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(updated) => {
+            setBooks((prev) => (prev ? prev.map((b) => (b.id === updated.id ? { ...b, ...updated } : b)) : prev));
+            setEditing(null);
+          }}
+        />
+      )}
+
+      <ConfirmDialog
+        open={confirmBook !== null}
+        title="Excluir livro?"
+        description={confirmBook ? `“${confirmBook.title}” some para todos, junto com resenhas e progresso.` : undefined}
+        confirmLabel="Excluir"
+        destructive
+        onConfirm={() => confirmBook && handleDelete(confirmBook)}
+        onCancel={() => setConfirmBook(null)}
+      />
+    </div>
+  );
+}
+
+// ─── Leitores ─────────────────────────────────────────────────────────────────
+
+function UsersTab() {
+  const [users, setUsers] = useState<UserProfile[] | null>(null);
+
+  useEffect(() => {
+    fetchAllUsers(true).then(setUsers).catch(() => setUsers([]));
+  }, []);
+
+  return (
+    <div className="space-y-4">
+      <SectionHeader title="Leitores" subtitle={users ? `${users.length} contas na comunidade` : undefined} />
+
+      {users === null ? (
+        <Skeleton className="w-full h-24 rounded-xl" />
+      ) : (
+        <div className="grid sm:grid-cols-2 gap-3">
+          {users.map((user) => (
+            <Link key={user.username} to={`/user/${encodeURIComponent(user.username)}`} className="mb-card mb-card-hover p-4 flex items-center gap-3">
+              <Avatar emoji={user.avatar} size="md" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="text-[13.5px] font-semibold text-foreground truncate">{user.username}</p>
+                  {user.isAdmin && <span className="mb-chip mb-chip-primary">Admin</span>}
+                </div>
+                <p className="text-[12px] text-[var(--text-3)] truncate">{user.bio || "Sem bio"}</p>
+                <div className="flex gap-1.5 mt-1.5">
+                  <span className="mb-chip">{user.followers ?? 0} seguidores</span>
+                  <span className="mb-chip">{user.reviewCount ?? 0} resenhas</span>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

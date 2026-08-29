@@ -11,15 +11,39 @@
   }
 }
 
-/* Remove all scrollbars globally */
+/* Barras de rolagem discretas — visíveis o bastante para orientar,
+   finas o bastante para não competir com o conteúdo. */
 ::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
+  width: 10px;
+  height: 10px;
 }
-html, body, *, .custom-scrollbar {
-  -ms-overflow-style: none !important;
-  scrollbar-width: none !important;
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--foreground) 16%, transparent);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--foreground) 28%, transparent);
+  background-clip: content-box;
+}
+html {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--foreground) 20%, transparent) transparent;
+}
+
+/* Esconde a barra apenas onde ela atrapalha (trilhos horizontais, carrosséis) */
+.no-scrollbar::-webkit-scrollbar,
+.styled-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar,
+.styled-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 .page-flip-next {
@@ -30,64 +54,13 @@ html, body, *, .custom-scrollbar {
 }
 
 @keyframes pageFlipNext {
-  0% {
-    transform: rotateY(0deg) scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: rotateY(-90deg) scale(0.98);
-    opacity: 0.5;
-  }
-  100% {
-    transform: rotateY(-180deg) scale(0.95);
-    opacity: 0;
-  }
+  0% { transform: rotateY(0deg) scale(1); opacity: 1; }
+  50% { transform: rotateY(-90deg) scale(0.98); opacity: 0.5; }
+  100% { transform: rotateY(-180deg) scale(0.95); opacity: 0; }
 }
 
 @keyframes pageFlipPrev {
-  0% {
-    transform: rotateY(0deg) scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: rotateY(90deg) scale(0.98);
-    opacity: 0.5;
-  }
-  100% {
-    transform: rotateY(180deg) scale(0.95);
-    opacity: 0;
-  }
+  0% { transform: rotateY(0deg) scale(1); opacity: 1; }
+  50% { transform: rotateY(90deg) scale(0.98); opacity: 0.5; }
+  100% { transform: rotateY(180deg) scale(0.95); opacity: 0; }
 }
-
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-/* Styled scrollbar for horizontal shelves */
-.styled-scrollbar::-webkit-scrollbar {
-  display: block !important;
-  height: 6px !important;
-}
-.styled-scrollbar::-webkit-scrollbar-track {
-  background: #f5ebe6 !important;
-  border-radius: 10px !important;
-}
-.styled-scrollbar::-webkit-scrollbar-thumb {
-  background: #d4c3b3 !important;
-  border-radius: 10px !important;
-}
-.styled-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: #bfa995 !important;
-}
-.styled-scrollbar {
-  -ms-overflow-style: auto !important;
-  scrollbar-width: thin !important;
-  scrollbar-color: #d4c3b3 #f5ebe6 !important;
-  padding-bottom: 8px;
-}
-
-
