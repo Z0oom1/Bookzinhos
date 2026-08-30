@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import { Book3D } from "./Book3D";
@@ -15,23 +15,35 @@ interface Flight {
 
 type Launcher = (flight: Flight) => void;
 
-const BookFlightContext = createContext<Launcher | null>(null);
+interface FlightContext {
+  launch: Launcher | null;
+  /** Id do livro em voo — quem estiver na estante se esconde enquanto isso. */
+  flyingId: string | null;
+}
+
+const BookFlightContext = createContext<FlightContext>({ launch: null, flyingId: null });
 
 /** Abre um livro com a animação de voo; sem provedor, o chamador navega direto. */
 export function useBookFlight(): Launcher | null {
-  return useContext(BookFlightContext);
+  return useContext(BookFlightContext).launch;
 }
 
-const FLY_MS = 620;
+/** O livro que está voando agora, para a estante não mostrar dois iguais. */
+export function useFlyingBookId(): string | null {
+  return useContext(BookFlightContext).flyingId;
+}
+
+const FLY_MS = 700;
 const FADE_MS = 300;
 
 /**
  * Animação de abertura de um livro.
  *
- * O livro clicado se solta da estante, atravessa a tela girando 360° e cresce
- * no centro enquanto a página de detalhes carrega por baixo. O provedor fica
- * acima do roteador de propósito: assim a animação sobrevive à navegação e não
- * é cortada no meio.
+ * O livro clicado se solta da estante, atravessa a tela girando e cresce no
+ * centro enquanto a página de detalhes carrega por baixo. Quem voa é uma cópia
+ * em camada própria — a original se esconde no mesmo instante, então em tela
+ * existe sempre um livro só. O provedor fica acima do roteador de propósito:
+ * assim a animação sobrevive à navegação e não é cortada no meio.
  */
 export function BookTransitionProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
@@ -62,7 +74,10 @@ export function BookTransitionProvider({ children }: { children: ReactNode }) {
   const reducedMotion =
     typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const value = reducedMotion ? null : launch;
+  const value = useMemo<FlightContext>(
+    () => ({ launch: reducedMotion ? null : launch, flyingId: flight?.book.id ?? null }),
+    [reducedMotion, launch, flight]
+  );
 
   return (
     <BookFlightContext.Provider value={value}>
@@ -111,7 +126,7 @@ function FlyingBook({ flight, fading }: { flight: Flight; fading: boolean }) {
           } as React.CSSProperties
         }
       >
-        <Book3D book={book} width={coverWidth} display="cover" />
+        <Book3D book={book} width={coverWidth} display="cover" still />
       </div>
     </div>,
     document.body

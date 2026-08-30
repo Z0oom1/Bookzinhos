@@ -8,6 +8,8 @@ export interface Book {
   author: string;
   description: string;
   genre: string;
+  publisher?: string;
+  publishedYear?: string;
   rating: number;
   reviewCount: number;
   isPublic: boolean;
@@ -113,9 +115,22 @@ export interface ChatMessage {
   created_at: number;
 }
 
+export interface AppNotification {
+  id: number;
+  type: "mensagem" | "curtida" | "resposta" | "seguidor" | "mural";
+  title: string;
+  body: string;
+  link: string;
+  actor: string;
+  avatar?: string | null;
+  isRead: boolean;
+  createdAt: number;
+}
+
 export interface Notifications {
   unreadCount: number;
   details: Record<string, number>;
+  items?: AppNotification[];
 }
 
 export interface GlobalStatus {

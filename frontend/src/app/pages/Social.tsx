@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
-  MessageCircle, Users, Sparkles, Search, UserPlus, UserCheck, BookOpen, Star, Rss,
+  MessageCircle, Users, Sparkles, Search, UserPlus, UserCheck, BookOpen, Heart, Rss,
 } from "lucide-react";
 import { fetchAllUsers, fetchFeed, fetchNotifications, followUser, unfollowUser } from "../lib/api";
 import { useLiveData } from "../lib/useLiveData";
@@ -126,7 +126,7 @@ export function Social() {
               }
             />
           ) : (
-            <div className="space-y-3">
+            <div className="mb-stagger space-y-3">
               {feed.map((item) => <FeedCard key={item.id} item={item} />)}
             </div>
           )}
@@ -151,7 +151,7 @@ export function Social() {
           ) : filteredUsers.length === 0 ? (
             <EmptyState emoji="🔍" title="Nenhum leitor encontrado" />
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="mb-stagger grid gap-3 sm:grid-cols-2">
               {filteredUsers.map((user) => {
                 const unread = notifications?.details?.[user.username.toLowerCase()] || 0;
                 return (
@@ -280,53 +280,101 @@ function FeedCard({ item }: { item: FeedItem }) {
     );
   }
 
-  const review = item.review!;
-  return (
-    <article className="mb-card mb-card-hover p-4">
-      <div className="flex items-start gap-3">
-        <Avatar emoji={review.avatar} size="sm" username={review.username} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Link to={`/user/${encodeURIComponent(review.username)}`} className="text-[13.5px] font-semibold text-foreground hover:text-[var(--primary)] transition-colors">
-              {review.username}
-            </Link>
-            <span className="text-[12.5px] text-[var(--text-3)]">avaliou</span>
-            <span className="text-[11.5px] text-[var(--text-3)]">· {timeAgo(review.createdAt)}</span>
-          </div>
-
-          <div className="flex items-center gap-2 mt-1.5">
-            <Stars value={review.rating} size="sm" />
-            <span className="inline-flex items-center gap-1 text-[11.5px] text-[var(--text-3)]">
-              <Star className="w-3 h-3" /> {review.rating}/5
+  if (item.type === "reading") {
+    return (
+      <article className="mb-card mb-card-hover p-4 flex items-center gap-3">
+        {thumb}
+        <div className="min-w-0 flex-1">
+          <p className="text-[13.5px] text-[var(--text-2)]">
+            <Link to={`/user/${encodeURIComponent(item.username!)}`} className="font-semibold text-foreground hover:text-[var(--primary)] transition-colors">
+              {item.username}
+            </Link>{" "}
+            está lendo
+          </p>
+          <Link to={`/book/${item.book!.id}`} className="block text-[14px] font-semibold text-foreground hover:text-[var(--primary)] transition-colors truncate mt-0.5">
+            {item.book!.title}
+          </Link>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="h-1.5 flex-1 rounded-full bg-[var(--surface-3)] overflow-hidden">
+              <span className="block h-full rounded-full bg-[var(--primary)]" style={{ width: `${item.progress ?? 0}%` }} />
             </span>
-          </div>
-
-          {review.comment && (
-            <p className="text-[13px] text-[var(--text-2)] leading-relaxed mt-2 line-clamp-3">
-              {review.hasSpoiler ? "⚠️ Contém spoiler — abra o livro para ler" : review.comment}
-            </p>
-          )}
-
-          {item.book && (
-            <Link
-              to={`/book/${item.book.id}#avaliar`}
-              className="flex items-center gap-2.5 mt-3 p-2 rounded-lg bg-[var(--surface-2)] hover:bg-[var(--surface-3)] transition-colors"
-            >
-              <div className="w-8 aspect-[2/3] rounded overflow-hidden flex-shrink-0 bg-[var(--surface-3)]">
-                {cover && <img src={cover} alt="" loading="lazy" className="w-full h-full object-cover" />}
-              </div>
-              <div className="min-w-0">
-                <p className="text-[12.5px] font-semibold text-foreground truncate">{item.book.title}</p>
-                <p className="text-[11.5px] text-[var(--text-3)] truncate">{item.book.author}</p>
-              </div>
-            </Link>
-          )}
-
-          <div className="flex items-center gap-3 mt-2.5 text-[11.5px] text-[var(--text-3)]">
-            <span>❤️ {review.likes}</span>
-            <span>💬 {review.comments.length}</span>
+            <span className="text-[11.5px] font-semibold text-[var(--text-3)] flex-shrink-0">{item.progress ?? 0}%</span>
           </div>
         </div>
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          <Avatar emoji={item.avatar} size="xs" username={item.username} />
+          <span className="text-[11.5px] text-[var(--text-3)]">{timeAgo(item.createdAt)}</span>
+        </div>
+      </article>
+    );
+  }
+
+  // Só sobra a avaliação. Sem ela não há cartão — um item malformado do
+  // servidor não deve derrubar o feed inteiro.
+  const review = item.review;
+  if (!review) return null;
+
+  return (
+    <article className="mb-card p-4">
+      {/* Cabeçalho: avatar, nome, @handle e tempo — como no feed do modelo */}
+      <header className="flex items-center gap-3">
+        <Avatar emoji={review.avatar} size="sm" username={review.username} />
+        <div className="min-w-0 flex-1">
+          <Link
+            to={`/user/${encodeURIComponent(review.username)}`}
+            className="block text-[14px] font-semibold text-foreground hover:text-[var(--primary)] transition-colors truncate"
+          >
+            {review.username}
+          </Link>
+          <span className="block text-[12px] text-[var(--text-3)] truncate">@{review.username.toLowerCase()}</span>
+        </div>
+        <span className="text-[12px] text-[var(--text-3)] flex-shrink-0">{timeAgo(review.createdAt)}</span>
+      </header>
+
+      {review.comment && (
+        <p className="text-[14px] text-[var(--text-2)] leading-relaxed mt-3">
+          {review.hasSpoiler ? "⚠️ Contém spoiler — abra o livro para ler" : review.comment}
+        </p>
+      )}
+
+      {/* A capa do livro entra grande, como a foto de um post */}
+      {item.book && (
+        <Link to={`/book/${item.book.id}`} className="block mt-3.5 rounded-[14px] overflow-hidden bg-[var(--surface-2)]">
+          <div className="aspect-[16/10] flex items-center justify-center overflow-hidden">
+            {cover ? (
+              <img src={cover} alt="" loading="lazy" className="w-full h-full object-cover" />
+            ) : (
+              <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient({ id: item.book.id, coverColor: item.book.coverColor })}`} />
+            )}
+          </div>
+        </Link>
+      )}
+
+      {item.book && (
+        <p className="text-[12.5px] text-[var(--text-3)] mt-2.5">
+          <span className="font-semibold text-[var(--text-2)]">{item.book.title}</span>
+          {item.book.author && <> · {item.book.author}</>}
+        </p>
+      )}
+
+      <div className="flex items-center gap-1 mt-2.5 -ml-2">
+        <span className="inline-flex items-center gap-1.5 h-9 px-2.5 rounded-lg text-[13px] font-medium text-[var(--text-3)]">
+          <Heart className={`w-[18px] h-[18px] ${review.likedByMe ? "fill-[var(--like)] text-[var(--like)]" : ""}`} />
+          {review.likes}
+        </span>
+        <span className="inline-flex items-center gap-1.5 h-9 px-2.5 rounded-lg text-[13px] font-medium text-[var(--text-3)]">
+          <MessageCircle className="w-[18px] h-[18px]" />
+          {review.comments.length}
+        </span>
+        <span className="inline-flex items-center gap-1.5 h-9 px-2.5 rounded-lg text-[13px] text-[var(--text-3)]">
+          <Stars value={review.rating} size="sm" />
+        </span>
+        <Link
+          to={`/book/${review.bookId}#avaliar`}
+          className="ml-auto inline-flex items-center h-9 px-3 rounded-lg text-[13px] font-medium text-[var(--primary)] hover:bg-[var(--primary-soft)] transition-colors"
+        >
+          Ver discussão
+        </Link>
       </div>
     </article>
   );

@@ -371,6 +371,21 @@ async function initDB() {
     )
   `);
 
+  // Caixa de avisos de cada leitor
+  await db.query(sql`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      username   TEXT NOT NULL COLLATE NOCASE,
+      type       TEXT NOT NULL,
+      title      TEXT NOT NULL,
+      body       TEXT NOT NULL DEFAULT '',
+      link       TEXT NOT NULL DEFAULT '/',
+      actor      TEXT NOT NULL DEFAULT '',
+      is_read    INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL
+    )
+  `);
+
   // Aberturas de livro — alimenta o ranking "Mais lidos"
   await db.query(sql`
     CREATE TABLE IF NOT EXISTS book_opens (
@@ -386,6 +401,8 @@ async function initDB() {
   await ensureColumn("users", "pandinhas", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "created_at", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("books", "publisher", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn("books", "published_year", "TEXT NOT NULL DEFAULT ''");
   await ensureColumn("book_reviews", "has_spoiler", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("book_reviews", "created_at", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("book_reviews", "updated_at", "INTEGER NOT NULL DEFAULT 0");
@@ -413,6 +430,7 @@ async function initDB() {
     "CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following)",
     "CREATE INDEX IF NOT EXISTS idx_books_added ON books(added_at)",
     "CREATE INDEX IF NOT EXISTS idx_opens_book ON book_opens(book_id)",
+    "CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(username, is_read, created_at)",
   ];
   for (const stmt of indexes) {
     await trySql({ text: stmt, values: [] });

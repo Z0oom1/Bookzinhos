@@ -18,20 +18,87 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <title>myBooks</title>
     <style>
+      /* Cor de fundo do arranque, antes do CSS do app chegar.
+         Depois que os tokens carregam, `var(--background)` assume — por isso
+         usamos apenas `background-color`: o gradiente do tema fica preservado. */
       html, body {
         margin: 0;
         min-height: 100%;
         overscroll-behavior-y: none;
-        background: #f6f4ef;
+        background-color: var(--background, #f6f4ef);
       }
       @media (prefers-color-scheme: dark) {
-        html, body { background: #14150f; }
+        html, body { background-color: var(--background, #14150f); }
       }
+
+      /* ── Esqueleto de arranque ────────────────────────────────────────────
+         Vale só até o React montar: o `createRoot` limpa o #root no primeiro
+         commit. Fica aqui, em CSS puro, porque precisa pintar antes de
+         qualquer JavaScript chegar. */
+      .boot {
+        display: flex;
+        gap: 20px;
+        padding: 20px;
+        min-height: 100vh;
+        box-sizing: border-box;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      .boot-side {
+        width: 236px;
+        border-radius: 22px;
+        background: var(--surface, #fff);
+        border: 1px solid var(--line, rgba(0, 0, 0, 0.08));
+        padding: 18px 14px;
+        flex-shrink: 0;
+      }
+      .boot-main { flex: 1; min-width: 0; padding-top: 14px; }
+      .boot-row { display: flex; gap: 16px; }
+      .boot-b {
+        border-radius: 12px;
+        background: linear-gradient(90deg, #e9e6dd 25%, #dfdbd0 37%, #e9e6dd 63%);
+        background-size: 400% 100%;
+        animation: boot-shimmer 1.4s ease-in-out infinite;
+      }
+      @media (prefers-color-scheme: dark) {
+        .boot-b { background-image: linear-gradient(90deg, #272b21 25%, #343a2c 37%, #272b21 63%); }
+        .boot-side { background: #1e211a; border-color: rgba(255, 255, 255, 0.08); }
+      }
+      @media (max-width: 1023px) { .boot-side { display: none; } }
+      @keyframes boot-shimmer {
+        from { background-position: 100% 50%; }
+        to { background-position: 0 50%; }
+      }
+
     </style>
   </head>
 
   <body>
-    <div id="root"></div>
+        <div id="root">
+      <!-- Esqueleto do primeiro carregamento: a casca do app já aparece
+           montada enquanto o pacote desce. -->
+      <div class="boot">
+        <div class="boot-side">
+          <div class="boot-b" style="height: 38px; width: 150px"></div>
+          <div class="boot-b" style="height: 40px; margin-top: 26px"></div>
+          <div class="boot-b" style="height: 40px; margin-top: 10px"></div>
+          <div class="boot-b" style="height: 40px; margin-top: 10px"></div>
+          <div class="boot-b" style="height: 40px; margin-top: 10px"></div>
+          <div class="boot-b" style="height: 40px; margin-top: 10px"></div>
+        </div>
+        <div class="boot-main">
+          <div class="boot-b" style="height: 30px; width: 280px"></div>
+          <div class="boot-b" style="height: 16px; width: 340px; margin-top: 12px"></div>
+          <div class="boot-b" style="height: 290px; margin-top: 26px; border-radius: 22px"></div>
+          <div class="boot-b" style="height: 20px; width: 190px; margin-top: 30px"></div>
+          <div class="boot-row" style="margin-top: 16px">
+            <div class="boot-b" style="height: 250px; flex: 1; border-radius: 18px"></div>
+            <div class="boot-b" style="height: 250px; flex: 1; border-radius: 18px"></div>
+            <div class="boot-b" style="height: 250px; flex: 1; border-radius: 18px"></div>
+            <div class="boot-b" style="height: 250px; flex: 1; border-radius: 18px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

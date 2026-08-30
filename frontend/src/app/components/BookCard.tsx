@@ -8,7 +8,7 @@ import { deleteBook, saveProgress } from "../lib/api";
 import { useOpenBook } from "../lib/readerChoice";
 import { ConfirmDialog, toast } from "./Ui";
 import { Book3D, EASE_OUT, type BookDisplay } from "./Book3D";
-import { useBookFlight } from "./BookTransition";
+import { useBookFlight, useFlyingBookId } from "./BookTransition";
 import type { Book, ReadingProgress } from "../lib/types";
 
 interface Props {
@@ -32,6 +32,7 @@ function BookCardImpl({
   const navigate = useNavigate();
   const openBook = useOpenBook();
   const flyToBook = useBookFlight();
+  const flyingId = useFlyingBookId();
   const rootRef = useRef<HTMLDivElement>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
@@ -236,7 +237,14 @@ function BookCardImpl({
 
   return (
     <>
-      <div ref={rootRef} {...pressHandlers} className="cursor-pointer select-none">
+      {/* Enquanto este livro está voando, a cópia da estante fica invisível —
+          mas ocupando o lugar, para a fileira não se reorganizar. */}
+      <div
+        ref={rootRef}
+        {...pressHandlers}
+        className="cursor-pointer select-none"
+        style={{ visibility: flyingId === book.id ? "hidden" : undefined }}
+      >
         <Book3D
           book={book}
           width={width}

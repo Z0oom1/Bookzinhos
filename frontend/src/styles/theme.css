@@ -60,6 +60,10 @@
   --radius-pill: 999px;
 
   /* Sombras — discretas, de papel sobre papel */
+  /* Esqueleto de carregamento: bloco solido + varredura clara por cima. */
+  --skeleton: #d2cdc0;
+  --skeleton-sheen: rgba(255, 255, 255, 0.78);
+
   --shadow-1: 0 1px 2px rgba(28, 28, 26, 0.04);
   --shadow-2: 0 2px 6px rgba(28, 28, 26, 0.05), 0 10px 26px -14px rgba(28, 28, 26, 0.12);
   --shadow-3: 0 8px 20px rgba(28, 28, 26, 0.07), 0 26px 50px -20px rgba(28, 28, 26, 0.16);
@@ -134,6 +138,9 @@
   --input-background: var(--surface-2);
   --switch-background: #3d4334;
   --ring: rgba(127, 176, 140, 0.28);
+
+  --skeleton: #333a2c;
+  --skeleton-sheen: rgba(255, 255, 255, 0.085);
 
   --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
   --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.4), 0 8px 24px -12px rgba(0, 0, 0, 0.6);
@@ -302,10 +309,14 @@
     transition: transform 0.22s var(--ease-out), box-shadow 0.22s var(--ease-out), border-color 0.22s var(--ease-out);
   }
   .mb-card-hover:hover {
-    transform: translateY(-3px);
-    box-shadow: var(--shadow-2);
-    border-color: color-mix(in srgb, var(--primary) 22%, var(--line));
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-3);
+    border-color: color-mix(in srgb, var(--primary) 26%, var(--line));
   }
+  .mb-card-hover:active { transform: translateY(-1px) scale(0.995); }
+  /* A capa dentro do cartão avança um pouco junto com ele. */
+  .mb-card-hover img { transition: transform 0.5s var(--ease-out); }
+  .mb-card-hover:hover img { transform: scale(1.05); }
 
   .mb-btn {
     display: inline-flex;
@@ -320,30 +331,55 @@
     line-height: 1;
     cursor: pointer;
     white-space: nowrap;
-    transition: background-color 0.16s ease, color 0.16s ease, opacity 0.16s ease, transform 0.14s var(--ease-spring), box-shadow 0.16s ease;
+    position: relative;
+    overflow: hidden;
+    transition: background-color 0.16s ease, color 0.16s ease, opacity 0.16s ease, transform 0.18s var(--ease-spring), box-shadow 0.2s ease;
   }
-  .mb-btn:active { transform: scale(0.96); }
   .mb-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* Um brilho diagonal atravessa o botão quando o ponteiro entra. */
+  .mb-btn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(115deg, transparent 32%, rgba(255, 255, 255, 0.3) 46%, transparent 62%);
+    transform: translateX(-130%);
+    transition: transform 0.62s var(--ease-out);
+  }
+  .mb-btn:hover:not(:disabled)::after { transform: translateX(130%); }
 
   .mb-btn-primary {
     background: var(--primary);
     color: var(--primary-foreground);
     box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 6px 16px -8px color-mix(in srgb, var(--primary) 70%, transparent);
   }
-  .mb-btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+  .mb-btn-primary:hover:not(:disabled) {
+    background: var(--primary-hover);
+    transform: translateY(-1.5px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 14px 26px -10px color-mix(in srgb, var(--primary) 88%, transparent);
+  }
 
   .mb-btn-soft {
     background: var(--primary-soft);
     color: var(--primary);
   }
-  .mb-btn-soft:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 16%, transparent); }
+  .mb-btn-soft:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--primary) 16%, transparent);
+    transform: translateY(-1.5px);
+  }
 
   .mb-btn-outline {
     background: var(--surface);
     color: var(--text-2);
     border: 1px solid var(--line);
   }
-  .mb-btn-outline:hover:not(:disabled) { background: var(--surface-2); color: var(--foreground); }
+  .mb-btn-outline:hover:not(:disabled) {
+    background: var(--surface-2);
+    color: var(--foreground);
+    border-color: color-mix(in srgb, var(--primary) 35%, var(--line));
+    transform: translateY(-1.5px);
+  }
 
   .mb-btn-ghost {
     background: transparent;
@@ -360,6 +396,11 @@
     box-shadow: inset 0 1px 0 var(--glass-sheen), var(--shadow-2);
   }
   .mb-btn-glass:hover:not(:disabled) { background: var(--surface); }
+
+  .mb-btn:active:not(:disabled),
+  .mb-btn-primary:active:not(:disabled),
+  .mb-btn-outline:active:not(:disabled),
+  .mb-btn-soft:active:not(:disabled) { transform: scale(0.955); }
 
   .mb-btn-sm { height: 2rem; padding: 0 0.75rem; font-size: 0.75rem; border-radius: 0.625rem; }
   .mb-btn-lg { height: 3rem; padding: 0 1.5rem; font-size: 0.875rem; border-radius: 0.875rem; }
@@ -379,6 +420,7 @@
     transition: border-color 0.16s ease, background-color 0.16s ease, box-shadow 0.16s ease;
   }
   .mb-input::placeholder { color: var(--text-3); }
+  .mb-input:hover:not(:focus) { background: var(--surface-3); }
   .mb-input:focus {
     background: var(--surface);
     border-color: color-mix(in srgb, var(--primary) 45%, transparent);
@@ -408,6 +450,8 @@
     white-space: nowrap;
   }
   .mb-chip-primary { background: var(--primary-soft); color: var(--primary); }
+  .mb-chip { transition: transform 0.2s var(--ease-spring), background-color 0.2s ease, color 0.2s ease; }
+  .mb-chip:hover { transform: translateY(-1.5px); }
 
   .mb-eyebrow {
     font-size: 0.6875rem;
@@ -430,12 +474,26 @@
   .mb-rail::-webkit-scrollbar { display: none; }
   .mb-rail > * { scroll-snap-align: start; flex: 0 0 auto; }
 
+  /* Bloco de carregamento: cinza solido com uma luz que passa por cima,
+     no espirito do esqueleto do YouTube. O bloco precisa ter contraste
+     suficiente para ser lido como "conteudo chegando", nao como fundo. */
   .mb-skeleton {
-    background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 37%, var(--surface-2) 63%);
-    background-size: 400% 100%;
-    animation: mb-shimmer 1.4s ease-in-out infinite;
+    position: relative;
+    overflow: hidden;
+    background: var(--skeleton);
     border-radius: 0.5rem;
   }
+  .mb-skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, var(--skeleton-sheen), transparent);
+    animation: mb-skeleton-sweep 1.3s ease-in-out infinite;
+  }
+  /* A varredura anda em cascata: linhas vizinhas nao piscam juntas. */
+  .mb-skeleton:nth-child(2n)::after { animation-delay: 0.12s; }
+  .mb-skeleton:nth-child(3n)::after { animation-delay: 0.24s; }
 
   /* ─── Livros em 3D ──────────────────────────────────────────────────────
      Um livro é uma caixa: capa na frente, lombada na lateral esquerda e um
@@ -489,13 +547,109 @@
     z-index: 9999;
     pointer-events: none;
     transform-origin: center center;
-    animation: mb-book-fly 0.62s cubic-bezier(0.5, 0, 0.15, 1) forwards;
+    animation: mb-book-fly 0.7s cubic-bezier(0.5, 0, 0.15, 1) forwards;
   }
   .mb-flying .mb-book-3d {
     /* A volta completa mostra capa, lombada, contracapa e lombada de novo. */
-    animation: mb-book-spin 0.62s cubic-bezier(0.5, 0, 0.15, 1) both;
+    animation: mb-book-spin 0.7s cubic-bezier(0.5, 0, 0.15, 1) both;
     transition: none;
   }
+
+  /* ─── Transição entre telas ──────────────────────────────────────────
+     A tela nova entra subindo enquanto o esqueleto da rota cobre a troca.
+     O véu é uma camada por cima: a página real já monta e busca os dados
+     por baixo dele, então a transição não custa tempo de carregamento.
+     ──────────────────────────────────────────────────────────────────── */
+  .mb-page {
+    animation: mb-page-in 0.44s var(--ease-out) both;
+  }
+
+  .mb-veil {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* A tela que esta por baixo pode ser curta; o esqueleto ainda precisa
+       cobrir o que a pessoa ve, entao vale uma altura minima de janela. */
+    min-height: 100vh;
+    z-index: 20;
+    background: var(--background);
+    overflow: hidden;
+    /* Decorativo: nunca deve roubar um clique da tela que esta por baixo. */
+    pointer-events: none;
+  }
+  .mb-veil-life {
+    animation: mb-veil-life 0.78s var(--ease-out) forwards;
+  }
+
+  /* ─── Hovers padronizados ────────────────────────────────────────────── */
+
+  /* Qualquer superfície que sobe ao receber o ponteiro. */
+  .mb-lift {
+    transition: transform 0.24s var(--ease-out), box-shadow 0.24s var(--ease-out),
+      border-color 0.24s var(--ease-out), background-color 0.24s ease;
+  }
+  .mb-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-2);
+    border-color: color-mix(in srgb, var(--primary) 24%, var(--line));
+  }
+  .mb-lift:active { transform: translateY(-1px) scale(0.995); }
+
+  /* Item da barra lateral: filete que cresce à esquerda e ícone que reage. */
+  .mb-nav-item { position: relative; }
+  .mb-nav-item::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 3px;
+    height: 0;
+    border-radius: 999px;
+    background: var(--primary);
+    transform: translateY(-50%);
+    transition: height 0.26s var(--ease-spring);
+  }
+  .mb-nav-item:hover::before { height: 40%; }
+  .mb-nav-item[aria-current="page"]::before { height: 58%; }
+  .mb-nav-item svg { transition: transform 0.26s var(--ease-spring); }
+  .mb-nav-item:hover svg { transform: scale(1.15) rotate(-5deg); }
+  .mb-nav-item:active { transform: scale(0.985); }
+
+  /* Aba da barra inferior: o ícone dá um pulinho ao virar a aba da vez. */
+  .mb-tab svg { transition: transform 0.26s var(--ease-spring); }
+  .mb-tab:hover svg { transform: translateY(-2px); }
+  .mb-tab[aria-current="page"] svg { animation: mb-pop-in 0.36s var(--ease-spring); }
+
+  /* Sublinhado que cresce do canto — links de texto. */
+  .mb-link { position: relative; }
+  .mb-link::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: -2px;
+    width: 100%;
+    height: 1.5px;
+    border-radius: 2px;
+    background: currentColor;
+    transform: scaleX(0);
+    transform-origin: right center;
+    transition: transform 0.3s var(--ease-out);
+  }
+  .mb-link:hover::after { transform: scaleX(1); transform-origin: left center; }
+
+  /* Entrada escalonada: cartões de uma lista aparecem em cascata. */
+  .mb-stagger > * { animation: mb-fade-up 0.5s var(--ease-out) both; }
+  .mb-stagger > *:nth-child(1) { animation-delay: 0.02s; }
+  .mb-stagger > *:nth-child(2) { animation-delay: 0.06s; }
+  .mb-stagger > *:nth-child(3) { animation-delay: 0.1s; }
+  .mb-stagger > *:nth-child(4) { animation-delay: 0.14s; }
+  .mb-stagger > *:nth-child(5) { animation-delay: 0.18s; }
+  .mb-stagger > *:nth-child(6) { animation-delay: 0.22s; }
+  .mb-stagger > *:nth-child(7) { animation-delay: 0.26s; }
+  .mb-stagger > *:nth-child(8) { animation-delay: 0.3s; }
+  .mb-stagger > *:nth-child(n + 9) { animation-delay: 0.34s; }
 
   .mb-shelf-board {
     background:
@@ -505,6 +659,22 @@
 }
 
 /* ─── Animações ─────────────────────────────────────────────────────────────── */
+@keyframes mb-page-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.994); }
+  to { opacity: 1; transform: none; }
+}
+
+/* O esqueleto segura firme ate quase metade e entao dissolve. */
+@keyframes mb-veil-life {
+  0%, 46% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.012); visibility: hidden; }
+}
+
+@keyframes mb-skeleton-sweep {
+  0% { transform: translateX(-100%); }
+  60%, 100% { transform: translateX(100%); }
+}
+
 @keyframes mb-shimmer {
   0% { background-position: 100% 50%; }
   100% { background-position: 0 50%; }
@@ -527,17 +697,41 @@
   70% { transform: translateY(0) scaleY(0.94); }
 }
 
+/* Troca de slide do destaque da semana */
+@keyframes mb-hero-swap {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes mb-hero-cover-in {
+  from { opacity: 0; transform: translateX(30px) scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+
+/* O livro do destaque respira devagar, como se estivesse suspenso. */
+@keyframes mb-hero-float {
+  0%, 100% { transform: translateY(var(--float-base, 0px)); }
+  50% { transform: translateY(calc(var(--float-base, 0px) - 10px)); }
+}
+
+/* A bolinha ativa preenche no ritmo do autoplay */
+@keyframes mb-dot-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
 @keyframes mb-book-fly {
   0% { transform: translate(0, 0) scale(1); }
   62% { transform: translate(calc(var(--dx) * 1.03), calc(var(--dy) * 1.03)) scale(calc(var(--s) * 1.05)); }
   100% { transform: translate(var(--dx), var(--dy)) scale(var(--s)); }
 }
 
-/* Termina sempre em 360deg — ou seja, com a capa de frente. Somar 360 ao
-   ângulo inicial faria o livro guardado de lombada parar de lombada de novo. */
+/* Gira da direita para a esquerda e termina em -360deg — que é o mesmo que
+   zero, ou seja, com a capa de frente. Somar 360 ao ângulo inicial faria o
+   livro guardado de lombada parar de lombada de novo. */
 @keyframes mb-book-spin {
   from { transform: rotateY(var(--a0, 0deg)); }
-  to { transform: rotateY(360deg); }
+  to { transform: rotateY(-360deg); }
 }
 
 @layer base {
@@ -605,4 +799,19 @@
       transition-duration: 0.01ms !important;
     }
   }
+}
+
+/* Preferência de "reduzir animações", ligada nas configurações. */
+:root[data-reduce-motion="true"] *,
+:root[data-reduce-motion="true"] *::before,
+:root[data-reduce-motion="true"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* Anel de foco padrão — quem navega pelo teclado precisa ver onde está. */
+:where(a, button, input, textarea, select, [role="switch"], [tabindex]):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 72%, transparent);
+  outline-offset: 2px;
 }

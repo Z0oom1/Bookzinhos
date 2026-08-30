@@ -478,6 +478,11 @@ export function fetchNotifications(): Promise<Notifications> {
   return request("GET", "/notifications");
 }
 
+/** Marca avisos como lidos — todos, ou apenas os ids informados. */
+export function markNotificationsRead(ids?: number[]): Promise<{ ok: boolean }> {
+  return request("POST", "/notifications/read", ids ? { ids } : {});
+}
+
 // ─── STATUS GLOBAL ────────────────────────────────────────────────────────────
 
 export function fetchGlobalStatus(): Promise<{ username: string; content: string; emote: string; updated_at: number } | null> {

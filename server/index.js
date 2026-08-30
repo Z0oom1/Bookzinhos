@@ -132,6 +132,8 @@ function rowToBook(row) {
     author: row.author,
     description: row.description,
     genre: row.genre,
+    publisher: row.publisher || "",
+    publishedYear: row.published_year || "",
     rating: Number(row.rating) || 0,
     reviewCount: Number(row.review_count) || 0,
     isPublic: !!row.is_public,
@@ -203,6 +205,35 @@ function decorateBook(book, stats) {
   // Popularidade: leitores valem mais que conclusões isoladas, resenhas somam.
   book.popularity = (book.readers || 0) * 3 + (book.finishedCount || 0) * 2 + (book.reviewCount || 0);
   return book;
+}
+
+/**
+ * Guarda um aviso para alguém.
+ *
+ * Nunca lança: um aviso é secundário e não pode derrubar a ação que o gerou
+ * (curtir, comentar, seguir). Também não avisa a própria pessoa.
+ */
+async function notify(username, { type, title, body = "", link = "/", actor = "" }) {
+  try {
+    if (!username) return;
+    if (actor && String(actor).toLowerCase() === String(username).toLowerCase()) return;
+    await db.query(sql`
+      INSERT INTO notifications (username, type, title, body, link, actor, is_read, created_at)
+      VALUES (${username}, ${type}, ${title}, ${body}, ${link}, ${actor}, 0, ${Date.now()})
+    `);
+  } catch (err) {
+    console.error("[notify]", err.message);
+  }
+}
+
+/** Avisa todo mundo, menos quem gerou o evento. */
+async function notifyEveryone(payload) {
+  try {
+    const users = await db.query(sql`SELECT username FROM users`);
+    for (const u of users) await notify(u.username, payload);
+  } catch (err) {
+    console.error("[notifyEveryone]", err.message);
+  }
 }
 
 /** Recalcula média/contagem de um livro depois de mexer nas resenhas. */
@@ -391,7 +422,7 @@ app.post("/books/presigned-url", async (req, res) => {
 
 app.post("/books", upload.fields([{ name: "pdf", maxCount: 1 }, { name: "cover", maxCount: 1 }]), async (req, res) => {
   try {
-    const { title, author, description, genre, isPublic, coverColor } = req.body;
+    const { title, author, description, genre, isPublic, coverColor, publisher, publishedYear } = req.body;
     if (!title) return res.status(400).json({ error: "Título é obrigatório" });
 
     const [existing] = await db.query(sql`
@@ -418,8 +449,8 @@ app.post("/books", upload.fields([{ name: "pdf", maxCount: 1 }, { name: "cover",
     }
 
     await db.query(sql`
-      INSERT INTO books (id,title,author,description,genre,rating,review_count,is_public,cover_color,added_at,pdf_path,cover_image_path,is_user_book)
-      VALUES (${id},${title},${author || ""},${description || ""},${genre || "Outros"},0,0,${isPublic === "false" ? 0 : 1},${coverColor || "lavender-mint"},${Date.now()},${pdfUrl},${coverUrl},1)
+      INSERT INTO books (id,title,author,description,genre,publisher,published_year,rating,review_count,is_public,cover_color,added_at,pdf_path,cover_image_path,is_user_book)
+      VALUES (${id},${title},${author || ""},${description || ""},${genre || "Outros"},${publisher || ""},${publishedYear || ""},0,0,${isPublic === "false" ? 0 : 1},${coverColor || "lavender-mint"},${Date.now()},${pdfUrl},${coverUrl},1)
     `);
 
     const [bookRow] = await db.query(sql`SELECT * FROM books WHERE id = ${id}`);
@@ -435,7 +466,7 @@ app.post("/books", upload.fields([{ name: "pdf", maxCount: 1 }, { name: "cover",
 
 app.put("/books/:id", upload.fields([{ name: "cover", maxCount: 1 }]), async (req, res) => {
   try {
-    const { title, author, description, genre, isPublic, coverColor } = req.body;
+    const { title, author, description, genre, isPublic, coverColor, publisher, publishedYear } = req.body;
     const coverFile = req.files?.cover?.[0];
 
     const [existing] = await db.query(sql`SELECT * FROM books WHERE id = ${req.params.id}`);
@@ -452,6 +483,8 @@ app.put("/books/:id", upload.fields([{ name: "cover", maxCount: 1 }]), async (re
         author=${author ?? existing.author},
         description=${description ?? existing.description},
         genre=${genre || existing.genre},
+        publisher=${publisher ?? existing.publisher ?? ""},
+        published_year=${publishedYear ?? existing.published_year ?? ""},
         is_public=${isPublic === "false" || isPublic === false ? 0 : 1},
         cover_color=${coverColor || existing.cover_color},
         cover_image_path=${coverUrl}
@@ -655,6 +688,14 @@ app.post("/users/:username/follow", async (req, res) => {
     const [exists] = await db.query(sql`SELECT 1 FROM users WHERE username = ${target} COLLATE NOCASE`);
     if (!exists) return res.status(404).json({ error: "Usuário não encontrado" });
     await db.query(sql`INSERT OR IGNORE INTO follows (follower, following, created_at) VALUES (${me}, ${target}, ${Date.now()})`);
+
+    await notify(target, {
+      type: "seguidor",
+      title: `${me} começou a seguir você`,
+      link: `/user/${encodeURIComponent(me)}`,
+      actor: me,
+    });
+
     const [count] = await db.query(sql`SELECT COUNT(*) as c FROM follows WHERE following = ${target} COLLATE NOCASE`);
     res.json({ following: true, followers: Number(count.c) });
   } catch (err) {
@@ -752,6 +793,21 @@ app.post("/reviews/:reviewId/like", async (req, res) => {
       await db.query(sql`INSERT OR IGNORE INTO review_likes (review_id, username, created_at) VALUES (${id}, ${me}, ${Date.now()})`);
     }
     const [count] = await db.query(sql`SELECT COUNT(*) as c FROM review_likes WHERE review_id = ${id}`);
+
+    if (!liked) {
+      const [review] = await db.query(sql`SELECT username, book_id FROM book_reviews WHERE id = ${id}`);
+      if (review) {
+        const [b] = await db.query(sql`SELECT title FROM books WHERE id = ${review.book_id}`);
+        await notify(review.username, {
+          type: "curtida",
+          title: `${me} curtiu sua avaliação`,
+          body: b ? b.title : "",
+          link: `/book/${review.book_id}#avaliar`,
+          actor: me,
+        });
+      }
+    }
+
     res.json({ likes: Number(count.c), likedByMe: !liked });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -770,6 +826,18 @@ app.post("/reviews/:reviewId/comments", async (req, res) => {
     if (!review) return res.status(404).json({ error: "Resenha não encontrada" });
 
     await db.query(sql`INSERT INTO review_comments (review_id, username, content, created_at) VALUES (${id}, ${me}, ${content}, ${Date.now()})`);
+
+    const [owner] = await db.query(sql`SELECT username, book_id FROM book_reviews WHERE id = ${id}`);
+    if (owner) {
+      await notify(owner.username, {
+        type: "resposta",
+        title: `${me} respondeu sua avaliação`,
+        body: content.slice(0, 120),
+        link: `/book/${owner.book_id}#avaliar`,
+        actor: me,
+      });
+    }
+
     const rows = await db.query(sql`SELECT * FROM review_comments WHERE review_id = ${id} ORDER BY created_at ASC`);
     const [user] = await db.query(sql`SELECT avatar FROM users WHERE username = ${me} COLLATE NOCASE`);
     res.status(201).json(rows.map((c) => ({
@@ -950,6 +1018,15 @@ app.post("/posts", requireAdmin, upload.single("image"), async (req, res) => {
     `);
     const rows = await db.query(sql`SELECT * FROM home_posts ORDER BY id DESC LIMIT 1`);
     const [post] = await decoratePosts(rows, req.adminUser);
+
+    await notifyEveryone({
+      type: "mural",
+      title: title ? `Novo no mural: ${title}` : "Nova publicação no mural",
+      body: String(content || "").slice(0, 120),
+      link: "/",
+      actor: req.adminUser,
+    });
+
     res.status(201).json(post);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1198,6 +1275,15 @@ app.post("/chat/:otherUser", async (req, res) => {
     if (sharedBookId) {
       await db.query(sql`INSERT INTO book_recommendations (sender, receiver, book_id) VALUES (${me}, ${other}, ${sharedBookId})`);
     }
+
+    await notify(other, {
+      type: "mensagem",
+      title: `${me} te mandou uma mensagem`,
+      body: String(content || "").slice(0, 120),
+      link: `/chat/${encodeURIComponent(me)}`,
+      actor: me,
+    });
+
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1245,17 +1331,60 @@ app.post("/status", async (req, res) => {
 app.get("/notifications", async (req, res) => {
   try {
     const me = currentUser(req);
-    if (!me) return res.json({ unreadCount: 0, details: {} });
+    if (!me) return res.json({ unreadCount: 0, details: {}, items: [] });
+
+    // `details` continua alimentando o badge por conversa na tela Social.
     const senders = await db.query(sql`SELECT sender, COUNT(*) as c FROM chat_messages WHERE receiver = ${me} COLLATE NOCASE AND is_read = 0 GROUP BY sender`);
     const details = {};
-    let total = 0;
     for (const row of senders) {
-      if (row.sender) {
-        details[String(row.sender).toLowerCase()] = Number(row.c);
-        total += Number(row.c);
-      }
+      if (row.sender) details[String(row.sender).toLowerCase()] = Number(row.c);
     }
-    res.json({ unreadCount: total, details });
+
+    const rows = await db.query(sql`
+      SELECT * FROM notifications WHERE username = ${me} COLLATE NOCASE
+      ORDER BY created_at DESC LIMIT 40
+    `);
+    const [unread] = await db.query(sql`
+      SELECT COUNT(*) as c FROM notifications WHERE username = ${me} COLLATE NOCASE AND is_read = 0
+    `);
+
+    const users = await db.query(sql`SELECT username, avatar FROM users`);
+    const avatars = new Map(users.map((u) => [String(u.username).toLowerCase(), u.avatar]));
+
+    res.json({
+      unreadCount: Number(unread.c) || 0,
+      details,
+      items: rows.map((r) => ({
+        id: Number(r.id),
+        type: r.type,
+        title: r.title,
+        body: r.body || "",
+        link: r.link || "/",
+        actor: r.actor || "",
+        avatar: avatars.get(String(r.actor).toLowerCase()) || null,
+        isRead: !!Number(r.is_read),
+        createdAt: Number(r.created_at),
+      })),
+    });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+/** Marca avisos como lidos — todos, ou apenas os ids informados. */
+app.post("/notifications/read", async (req, res) => {
+  try {
+    const me = currentUser(req);
+    if (!me) return res.status(401).json({ error: "Nao autorizado" });
+
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids.map(Number).filter(Number.isFinite) : null;
+    if (ids && ids.length > 0) {
+      await db.query({
+        text: `UPDATE notifications SET is_read = 1 WHERE username = ? COLLATE NOCASE AND id IN (${ids.join(",")})`,
+        values: [me],
+      });
+    } else {
+      await db.query(sql`UPDATE notifications SET is_read = 1 WHERE username = ${me} COLLATE NOCASE`);
+    }
+    res.json({ ok: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

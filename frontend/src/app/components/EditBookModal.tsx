@@ -21,6 +21,8 @@ export function EditBookModal({ book, onClose, onSaved }: Props) {
     description: book.description,
     genre: book.genre,
     coverColor: book.coverColor,
+    publisher: book.publisher || "",
+    publishedYear: book.publishedYear || "",
   });
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState<string | null>(getFullUrl(book.coverImagePath));
@@ -148,6 +150,29 @@ export function EditBookModal({ book, onClose, onSaved }: Props) {
             </div>
           </div>
         )}
+
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="edit-publisher" className="mb-label">Editora</label>
+            <input
+              id="edit-publisher"
+              value={form.publisher}
+              onChange={(e) => setForm({ ...form, publisher: e.target.value })}
+              placeholder="Ex.: Arqueiro"
+              className="mb-input"
+            />
+          </div>
+          <div>
+            <label htmlFor="edit-year" className="mb-label">Publicado em</label>
+            <input
+              id="edit-year"
+              value={form.publishedYear}
+              onChange={(e) => setForm({ ...form, publishedYear: e.target.value })}
+              placeholder="Ex.: 2023"
+              className="mb-input"
+            />
+          </div>
+        </div>
 
         <div>
           <label htmlFor="edit-desc" className="mb-label">Sinopse</label>

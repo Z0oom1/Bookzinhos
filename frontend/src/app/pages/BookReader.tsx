@@ -162,7 +162,7 @@ export function BookReader() {
   const [isNativeFullscreen, setIsNativeFullscreen] = useState(false);
 
   const rootRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
+  const [stageEl, setStageEl] = useState<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const uiTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const touchRef = useRef<{ x: number; y: number; t: number } | null>(null);
@@ -177,15 +177,21 @@ export function BookReader() {
   // ── Carregamento ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (!id) return;
-    Promise.all([fetchBook(id), fetchProgress(id)]).then(([b, p]) => {
-      setBook(b);
-      if (p) {
-        setCurrentPage(Math.max(0, p.currentPage));
-        setIsPaused(p.status === "pausado");
-        setIsFinished(p.status === "finalizado");
-      }
-      setIsLoading(false);
-    });
+    Promise.all([fetchBook(id), fetchProgress(id).catch(() => null)])
+      .then(([b, p]) => {
+        setBook(b);
+        if (p) {
+          setCurrentPage(Math.max(0, p.currentPage));
+          setIsPaused(p.status === "pausado");
+          setIsFinished(p.status === "finalizado");
+        }
+      })
+      .catch((err) => {
+        console.error("Falha ao abrir o livro", err);
+        setErrorMessage("Não foi possível falar com o servidor. Verifique a conexão e tente de novo.");
+      })
+      // Sem isto, qualquer erro de rede deixaria a tela girando para sempre.
+      .finally(() => setIsLoading(false));
   }, [id]);
 
   const loadChapters = useCallback(() => {
@@ -226,15 +232,23 @@ export function BookReader() {
   }, [pdfUrl]);
 
   // ── Medidas da área de leitura ────────────────────────────────────────────
+  // O palco só existe depois que o livro carrega. Um `useEffect` de montagem
+  // encontraria a ref vazia e desistiria — a largura ficaria em zero e o leitor
+  // não sairia de "Preparando as páginas…". Com ref de callback, o observador
+  // se liga no instante em que o elemento entra na árvore.
   useEffect(() => {
-    const el = stageRef.current;
-    if (!el) return;
+    if (!stageEl) return;
+
+    const measure = (w: number, h: number) => setViewport({ w, h });
+    const rect = stageEl.getBoundingClientRect();
+    measure(rect.width, rect.height);
+
     const observer = new ResizeObserver(([entry]) => {
-      setViewport({ w: entry.contentRect.width, h: entry.contentRect.height });
+      measure(entry.contentRect.width, entry.contentRect.height);
     });
-    observer.observe(el);
+    observer.observe(stageEl);
     return () => observer.disconnect();
-  }, []);
+  }, [stageEl]);
 
   useEffect(() => {
     const onChange = () => setIsNativeFullscreen(!!document.fullscreenElement);
@@ -656,7 +670,7 @@ export function BookReader() {
     >
       {/* ── Palco ─────────────────────────────────────────────────────────── */}
       <div
-        ref={stageRef}
+        ref={setStageEl}
         className="absolute inset-0"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}

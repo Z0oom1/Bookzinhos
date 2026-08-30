@@ -159,7 +159,7 @@ export function MyBooks() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-4 gap-y-6">
+        <div className="mb-stagger grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-x-4 gap-y-6">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i}>
               <Skeleton className="w-full aspect-[2/3] rounded-lg" />

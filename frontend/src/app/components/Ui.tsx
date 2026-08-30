@@ -226,8 +226,8 @@ export function EmptyState({
 
 // ─── Esqueletos de carregamento ───────────────────────────────────────────────
 
-export function Skeleton({ className = "" }: { className?: string }) {
-  return <div className={`mb-skeleton ${className}`} />;
+export function Skeleton({ className = "", style }: { className?: string; style?: React.CSSProperties }) {
+  return <div className={`mb-skeleton ${className}`} style={style} />;
 }
 
 export function BookRailSkeleton({ count = 6 }: { count?: number }) {

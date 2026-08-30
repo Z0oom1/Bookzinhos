@@ -264,7 +264,7 @@ export function Library() {
           action={<Link to="/upload" className="mb-btn mb-btn-primary">Enviar um livro</Link>}
         />
       ) : view === "list" ? (
-        <div className="space-y-2.5">
+        <div className="mb-stagger space-y-2.5">
           {visible.map((book) => (
             <BookCard
               key={book.id}

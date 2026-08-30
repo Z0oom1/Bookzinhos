@@ -55,7 +55,7 @@ export function BookGrid({ books, progressOf, display = "cover", ranked, onDelet
 
   return (
     <div
-      className="flex flex-wrap items-start"
+      className="mb-stagger flex flex-wrap items-start"
       style={{
         columnGap: isShelf ? 3 : 18,
         rowGap,

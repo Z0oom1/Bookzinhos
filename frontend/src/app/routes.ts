@@ -1,5 +1,6 @@
 import { createBrowserRouter } from "react-router";
 import { AuthWrapper } from "./components/AuthWrapper";
+import { ErrorScreen } from "./components/ErrorScreen";
 import { RootLayout } from "./components/RootLayout";
 import { Home } from "./pages/Home";
 
@@ -12,10 +13,13 @@ export const router = createBrowserRouter([
   {
     path: "/",
     Component: AuthWrapper,
+    // Uma tela que quebra não deve virar página branca: o erro sobe até aqui.
+    ErrorBoundary: ErrorScreen,
     children: [
       {
         path: "/",
         Component: RootLayout,
+        ErrorBoundary: ErrorScreen,
         children: [
           { index: true, Component: Home },
           { path: "library", lazy: async () => ({ Component: (await import("./pages/Library")).Library }) },
@@ -26,6 +30,7 @@ export const router = createBrowserRouter([
           { path: "upload", lazy: async () => ({ Component: (await import("./pages/Upload")).Upload }) },
           { path: "social", lazy: async () => ({ Component: (await import("./pages/Social")).Social }) },
           { path: "admin", lazy: async () => ({ Component: (await import("./pages/Admin")).Admin }) },
+          { path: "settings", lazy: async () => ({ Component: (await import("./pages/Settings")).Settings }) },
           { path: "user/:username", lazy: async () => ({ Component: (await import("./pages/UserProfile")).UserProfile }) },
           { path: "chat/:otherUser", lazy: async () => ({ Component: (await import("./pages/Chat")).Chat }) },
           { path: "read/:id", lazy: async () => ({ Component: (await import("./pages/BookReader")).BookReader }) },

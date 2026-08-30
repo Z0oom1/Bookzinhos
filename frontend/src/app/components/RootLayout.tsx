@@ -1,12 +1,16 @@
-import { Outlet, useLocation, Link, NavLink } from "react-router";
+import { Outlet, useLocation, useNavigation, Link, NavLink } from "react-router";
 import {
-  Home, Library, Heart, PenLine, User, Users, Shield, Plus, Bell, MessageSquare, ChevronRight,
+  Home, Library, Heart, PenLine, User, Users, Shield, Plus, MessageSquare, ChevronRight,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useEffect, useState, useMemo, type ComponentType } from "react";
 import { fetchNotifications } from "../lib/api";
 import { getAvatar, getUsername, isAdmin as isAdminUser } from "../lib/session";
 import { ReaderChoiceProvider } from "../lib/readerChoice";
 import { BookTransitionProvider } from "./BookTransition";
+import { NotificationsMenu } from "./NotificationsMenu";
+import { RouteSkeleton } from "./Skeletons";
+import { applySettings, loadSettings } from "../lib/settings";
 
 interface NavItem {
   path: string;
@@ -25,10 +29,18 @@ interface NavItem {
  */
 export function RootLayout() {
   const location = useLocation();
+  // Enquanto o roteador busca o módulo da próxima tela, mostramos o esqueleto
+  // dela — a página já entra com a forma certa em vez de piscar em branco.
+  const navigation = useNavigation();
+  const pending = navigation.state === "loading" ? navigation.location.pathname : null;
   const [unreadCount, setUnreadCount] = useState(0);
   const [avatar, setAvatar] = useState(getAvatar);
   const [username, setUsername] = useState(getUsername);
   const [admin, setAdmin] = useState(isAdminUser);
+
+  useEffect(() => {
+    applySettings(loadSettings());
+  }, []);
 
   useEffect(() => {
     const syncSession = () => {
@@ -71,6 +83,7 @@ export function RootLayout() {
       { path: "/notes", icon: PenLine, label: "Diário de leitura" },
     ];
     if (admin) items.push({ path: "/admin", icon: Shield, label: "Admin" });
+    items.push({ path: "/settings", icon: SlidersHorizontal, label: "Configurações" });
     return items;
   }, [unreadCount, admin]);
 
@@ -82,9 +95,24 @@ export function RootLayout() {
   // eles usem `h-full` internamente para rolar só a área de conteúdo.
   if (hideNav) {
     return (
-      <div className="h-screen overflow-hidden bg-background">
+      <div className="h-screen overflow-hidden bg-background relative">
         <ReaderChoiceProvider>
-          <Outlet />
+          <div key={location.pathname} className="mb-page h-full">
+            <Outlet />
+          </div>
+  {/* Enquanto o módulo da próxima tela desce, o esqueleto dela cobre a
+              atual. Depois, com a rota já trocada, um segundo véu segura o
+              esqueleto por um instante e dissolve sobre a página montada.
+              Quem manda no tempo é a animação, não um cronômetro: assim a
+              troca não depende de o componente sobreviver à navegação. */}
+          {pending && (
+            <div className="mb-veil" aria-hidden>
+              <RouteSkeleton pathname={pending} />
+            </div>
+          )}
+          <div key={`veil-${location.pathname}`} className="mb-veil mb-veil-life" aria-hidden>
+            <RouteSkeleton pathname={location.pathname} />
+          </div>
         </ReaderChoiceProvider>
       </div>
     );
@@ -107,7 +135,7 @@ export function RootLayout() {
                 to={path}
                 end={end}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3.5 h-11 rounded-[14px] text-[14px] transition-colors ${
+                  `mb-nav-item flex items-center gap-3 px-3.5 h-11 rounded-[14px] text-[14px] transition-all ${
                     isActive
                       ? "bg-[var(--primary-soft)] text-[var(--primary)] font-semibold"
                       : "text-[var(--text-2)] font-medium hover:bg-[var(--surface-2)] hover:text-foreground"
@@ -155,16 +183,12 @@ export function RootLayout() {
 
         {/* ── Ações da conta (desktop) ────────────────────────────────────── */}
         <div className="hidden lg:flex fixed top-6 right-7 z-40 items-center gap-2">
-          <Link to="/social" aria-label="Notificações" className="relative w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-2)] hover:bg-[var(--surface)] transition-colors">
-            <Bell className="w-[19px] h-[19px]" />
-            {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-[var(--like)] text-white text-[10px] font-bold flex items-center justify-center ring-2 ring-[var(--background)]">
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </span>
-            )}
-          </Link>
+          <NotificationsMenu />
           <Link to="/social" aria-label="Conversas" className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-2)] hover:bg-[var(--surface)] transition-colors">
             <MessageSquare className="w-[19px] h-[19px]" />
+          </Link>
+          <Link to="/settings" aria-label="Configurações" className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--text-2)] hover:bg-[var(--surface)] transition-colors">
+            <SlidersHorizontal className="w-[19px] h-[19px]" />
           </Link>
           <Link to="/profile" aria-label="Meu perfil" className="w-10 h-10 rounded-full bg-[var(--surface)] border border-[var(--line)] shadow-[var(--shadow-1)] flex items-center justify-center text-lg select-none hover:scale-105 transition-transform">
             {avatar}
@@ -178,14 +202,7 @@ export function RootLayout() {
             <span className="text-[16px] font-bold tracking-tight text-foreground">myBooks</span>
           </Link>
           <div className="flex items-center gap-1.5">
-            <Link to="/social" aria-label="Notificações" className="relative w-9 h-9 rounded-full flex items-center justify-center text-[var(--text-2)]">
-              <Bell className="w-[19px] h-[19px]" />
-              {unreadCount > 0 && (
-                <span className="absolute top-0.5 right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-[var(--like)] text-white text-[9px] font-bold flex items-center justify-center ring-2 ring-[var(--background)]">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
-              )}
-            </Link>
+            <NotificationsMenu />
             <Link to="/profile" aria-label="Meu perfil" className="w-9 h-9 rounded-full bg-[var(--surface)] border border-[var(--line)] flex items-center justify-center text-base select-none">
               {avatar}
             </Link>
@@ -195,9 +212,28 @@ export function RootLayout() {
         {/* ── Conteúdo ────────────────────────────────────────────────────── */}
         <main className="lg:pl-[264px] lg:pr-5 lg:pt-14 pb-28 lg:pb-8">
           <ReaderChoiceProvider>
+            {/* O invólucro posicionado é a caixa de conteúdo do `main`: sem ele
+                o véu se estica por baixo da barra lateral, porque um elemento
+                absoluto se mede pela caixa de padding do ancestral. */}
+            <div className="relative">
             {/* A chave por rota reinicia a animação a cada navegação. */}
-            <div key={location.pathname} className="animate-fade-in">
+            <div key={location.pathname} className="mb-page">
               <Outlet />
+            </div>
+
+{/* Enquanto o módulo da próxima tela desce, o esqueleto dela cobre a
+                atual. Depois, com a rota já trocada, um segundo véu segura o
+                esqueleto por um instante e dissolve sobre a página montada.
+                Quem manda no tempo é a animação, não um cronômetro: assim a
+                troca não depende de o componente sobreviver à navegação. */}
+            {pending && (
+              <div className="mb-veil" aria-hidden>
+                <RouteSkeleton pathname={pending} />
+              </div>
+            )}
+            <div key={`veil-${location.pathname}`} className="mb-veil mb-veil-life" aria-hidden>
+              <RouteSkeleton pathname={location.pathname} />
+            </div>
             </div>
           </ReaderChoiceProvider>
         </main>
@@ -242,7 +278,7 @@ function MobileTab({
       end={end}
       aria-label={label}
       className={({ isActive }) =>
-        `flex-1 h-full flex flex-col items-center justify-center gap-1 transition-colors ${
+        `mb-tab flex-1 h-full flex flex-col items-center justify-center gap-1 transition-colors ${
           isActive ? "text-[var(--primary)]" : "text-[var(--text-3)]"
         }`
       }
