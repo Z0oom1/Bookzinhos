@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { trackBanner } from "../lib/api";
 import { getFullUrl } from "../lib/types";
 import type { Banner } from "../lib/types";
 
@@ -16,6 +17,9 @@ export function BannerCarousel({ banners }: { banners: Banner[] }) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const touchStartX = useRef<number | null>(null);
+  // Um banner conta uma exibição por sessão, não uma por passagem do carrossel:
+  // senão o relatório do patrocinador vira contagem de rotação, não de gente.
+  const contados = useRef<Set<number>>(new Set());
 
   const total = banners.length;
 
@@ -32,9 +36,19 @@ export function BannerCarousel({ banners }: { banners: Banner[] }) {
     return () => window.clearInterval(id);
   }, [total, paused]);
 
+  // Só conta como exibição o banner que está de fato na tela e visível.
+  const atual = total > 0 ? banners[index % total] : null;
+  useEffect(() => {
+    if (!atual || document.visibilityState !== "visible") return;
+    if (contados.current.has(atual.id)) return;
+    contados.current.add(atual.id);
+    trackBanner(atual.id, "view");
+  }, [atual]);
+
   if (total === 0) return null;
 
   const openBanner = (banner: Banner) => {
+    trackBanner(banner.id, "click");
     if (banner.bookId) navigate(`/book/${banner.bookId}`);
     else if (banner.linkUrl) {
       if (banner.linkUrl.startsWith("/")) navigate(banner.linkUrl);

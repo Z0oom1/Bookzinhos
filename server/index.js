@@ -882,17 +882,43 @@ function rowToBanner(r) {
     bookId: r.book_id || null,
     sortOrder: Number(r.sort_order) || 0,
     isActive: !!Number(r.is_active),
+    sponsor: r.sponsor || "",
+    startsAt: Number(r.starts_at) || 0,
+    endsAt: Number(r.ends_at) || 0,
     createdAt: Number(r.created_at),
   };
+}
+
+/**
+ * Um banner está no ar se está ativo e dentro do período contratado.
+ *
+ * Datas em 0 valem como "sem limite": banner da própria casa não tem contrato,
+ * e o Admin não deveria ser obrigado a inventar uma data para publicar um
+ * aviso interno.
+ */
+function bannerNoAr(r, agora = Date.now()) {
+  if (!Number(r.is_active)) return false;
+  const inicio = Number(r.starts_at) || 0;
+  const fim = Number(r.ends_at) || 0;
+  if (inicio && agora < inicio) return false;
+  if (fim && agora > fim) return false;
+  return true;
+}
+
+/** Datas vêm do formulário como texto (yyyy-mm-dd) ou vazias. */
+function paraInstante(valor, atual = 0) {
+  if (valor === undefined) return atual;
+  if (valor === "" || valor === null) return 0;
+  const t = new Date(valor).getTime();
+  return Number.isFinite(t) ? t : atual;
 }
 
 app.get("/banners", async (req, res) => {
   try {
     const all = req.query.all === "true" && (await isAdmin(currentUser(req)));
-    const rows = all
-      ? await db.query(sql`SELECT * FROM banners ORDER BY sort_order ASC, id DESC`)
-      : await db.query(sql`SELECT * FROM banners WHERE is_active = 1 ORDER BY sort_order ASC, id DESC`);
-    res.json(rows.map(rowToBanner));
+    const rows = await db.query(sql`SELECT * FROM banners ORDER BY sort_order ASC, id DESC`);
+    const visiveis = all ? rows : rows.filter((r) => bannerNoAr(r));
+    res.json(visiveis.map(rowToBanner));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -900,7 +926,7 @@ app.get("/banners", async (req, res) => {
 
 app.post("/banners", requireAdmin, upload.single("image"), async (req, res) => {
   try {
-    const { title, subtitle, linkUrl, bookId, sortOrder } = req.body;
+    const { title, subtitle, linkUrl, bookId, sortOrder, sponsor, startsAt, endsAt } = req.body;
     let imageUrl = req.body.imageUrl || null;
     if (req.file) {
       imageUrl = await uploadFileToCloud(req.file.buffer, `banners/banner-${Date.now()}.jpg`, req.file.mimetype);
@@ -909,8 +935,11 @@ app.post("/banners", requireAdmin, upload.single("image"), async (req, res) => {
 
     const now = Date.now();
     await db.query(sql`
-      INSERT INTO banners (title, subtitle, image_url, link_url, book_id, sort_order, is_active, created_at, updated_at)
-      VALUES (${title || ""}, ${subtitle || ""}, ${imageUrl}, ${linkUrl || null}, ${bookId || null}, ${Number(sortOrder) || 0}, 1, ${now}, ${now})
+      INSERT INTO banners (title, subtitle, image_url, link_url, book_id, sort_order, is_active,
+                           sponsor, starts_at, ends_at, created_at, updated_at)
+      VALUES (${title || ""}, ${subtitle || ""}, ${imageUrl}, ${linkUrl || null}, ${bookId || null},
+              ${Number(sortOrder) || 0}, 1, ${sponsor || ""}, ${paraInstante(startsAt)}, ${paraInstante(endsAt)},
+              ${now}, ${now})
     `);
     const [row] = await db.query(sql`SELECT * FROM banners ORDER BY id DESC LIMIT 1`);
     res.status(201).json(rowToBanner(row));
@@ -929,7 +958,7 @@ app.put("/banners/:id", requireAdmin, upload.single("image"), async (req, res) =
     if (req.file) {
       imageUrl = await uploadFileToCloud(req.file.buffer, `banners/banner-${id}-${Date.now()}.jpg`, req.file.mimetype);
     }
-    const { title, subtitle, linkUrl, bookId, sortOrder, isActive } = req.body;
+    const { title, subtitle, linkUrl, bookId, sortOrder, isActive, sponsor, startsAt, endsAt } = req.body;
 
     await db.query(sql`
       UPDATE banners SET
@@ -940,6 +969,9 @@ app.put("/banners/:id", requireAdmin, upload.single("image"), async (req, res) =
         book_id = ${bookId ?? existing.book_id},
         sort_order = ${sortOrder != null ? Number(sortOrder) : existing.sort_order},
         is_active = ${isActive != null ? (isActive === "false" || isActive === false ? 0 : 1) : existing.is_active},
+        sponsor = ${sponsor ?? existing.sponsor ?? ""},
+        starts_at = ${paraInstante(startsAt, Number(existing.starts_at) || 0)},
+        ends_at = ${paraInstante(endsAt, Number(existing.ends_at) || 0)},
         updated_at = ${Date.now()}
       WHERE id = ${id}
     `);
@@ -950,9 +982,75 @@ app.put("/banners/:id", requireAdmin, upload.single("image"), async (req, res) =
   }
 });
 
+/**
+ * Registra que um banner foi visto ou clicado.
+ *
+ * Responde 202 sem esperar a escrita: é telemetria, não pode segurar a
+ * navegação de quem clicou nem quebrar a home se o banco engasgar.
+ */
+app.post("/banners/:id/event", async (req, res) => {
+  res.status(202).json({ ok: true });
+  try {
+    const id = Number(req.params.id);
+    const tipo = req.body?.type === "click" ? "click" : "view";
+    if (!Number.isFinite(id)) return;
+    await db.query(sql`
+      INSERT INTO banner_events (banner_id, type, username, created_at)
+      VALUES (${id}, ${tipo}, ${currentUser(req) || ""}, ${Date.now()})
+    `);
+  } catch (err) {
+    console.error("[banner-event]", err.message);
+  }
+});
+
+/**
+ * Relatório de um banner: total de exibições, cliques, taxa de clique e a
+ * série por dia. É o documento que o patrocinador recebe no fim do mês.
+ */
+app.get("/banners/:id/report", requireAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [banner] = await db.query(sql`SELECT * FROM banners WHERE id = ${id}`);
+    if (!banner) return res.status(404).json({ error: "Banner não encontrado" });
+
+    // Sem período contratado, o relatório cobre os últimos 30 dias.
+    const inicio = Number(banner.starts_at) || Date.now() - 30 * 24 * 3600 * 1000;
+    const fim = Number(banner.ends_at) || Date.now();
+
+    const rows = await db.query(sql`
+      SELECT type, created_at FROM banner_events
+      WHERE banner_id = ${id} AND created_at >= ${inicio} AND created_at <= ${fim}
+    `);
+
+    let views = 0;
+    let clicks = 0;
+    const porDia = new Map();
+    for (const r of rows) {
+      const dia = new Date(Number(r.created_at)).toISOString().slice(0, 10);
+      const atual = porDia.get(dia) || { day: dia, views: 0, clicks: 0 };
+      if (r.type === "click") { clicks++; atual.clicks++; } else { views++; atual.views++; }
+      porDia.set(dia, atual);
+    }
+
+    res.json({
+      banner: rowToBanner(banner),
+      from: inicio,
+      to: fim,
+      views,
+      clicks,
+      ctr: views > 0 ? Number(((clicks / views) * 100).toFixed(2)) : 0,
+      daily: [...porDia.values()].sort((a, b) => a.day.localeCompare(b.day)),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.delete("/banners/:id", requireAdmin, async (req, res) => {
   try {
-    await db.query(sql`DELETE FROM banners WHERE id = ${Number(req.params.id)}`);
+    const id = Number(req.params.id);
+    await db.query(sql`DELETE FROM banner_events WHERE banner_id = ${id}`);
+    await db.query(sql`DELETE FROM banners WHERE id = ${id}`);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1103,7 +1201,7 @@ app.get("/home", async (req, res) => {
     const [bookRows, stats, bannerRows, postRows, statusRow, myProgress, savedRows, openRows] = await Promise.all([
       db.query(sql`SELECT * FROM books ORDER BY added_at DESC`),
       loadBookStats(),
-      db.query(sql`SELECT * FROM banners WHERE is_active = 1 ORDER BY sort_order ASC, id DESC`),
+      db.query(sql`SELECT * FROM banners ORDER BY sort_order ASC, id DESC`),
       db.query(sql`SELECT * FROM home_posts WHERE is_active = 1 ORDER BY is_pinned DESC, created_at DESC LIMIT 10`),
       db.query(sql`SELECT * FROM global_status WHERE id = 1`),
       me ? db.query(sql`SELECT * FROM reading_progress WHERE username = ${me} COLLATE NOCASE`) : Promise.resolve([]),
@@ -1148,7 +1246,7 @@ app.get("/home", async (req, res) => {
       mostRead,
       topRated,
       recent,
-      banners: bannerRows.map(rowToBanner),
+      banners: bannerRows.filter((r) => bannerNoAr(r)).map(rowToBanner),
       posts: await decoratePosts(postRows, me),
       status: statusRow[0] || null,
       progress,

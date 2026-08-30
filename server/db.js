@@ -403,6 +403,12 @@ async function initDB() {
   await ensureColumn("users", "created_at", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("books", "publisher", "TEXT NOT NULL DEFAULT ''");
   await ensureColumn("books", "published_year", "TEXT NOT NULL DEFAULT ''");
+  // Patrocínio: quem pagou pelo espaço e por quanto tempo ele fica no ar.
+  // `starts_at`/`ends_at` em 0 significam "sem limite" — é o caso dos banners
+  // da própria casa, que não têm contrato.
+  await ensureColumn("banners", "sponsor", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn("banners", "starts_at", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("banners", "ends_at", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("book_reviews", "has_spoiler", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("book_reviews", "created_at", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("book_reviews", "updated_at", "INTEGER NOT NULL DEFAULT 0");
@@ -413,6 +419,21 @@ async function initDB() {
       SELECT MAX(id) FROM book_reviews GROUP BY book_id, LOWER(username)
     )
   `, "limpeza de resenhas duplicadas");
+
+  // Exibições e cliques de banner.
+  //
+  // É o que vira o relatório do patrocinador — sem número medido, ninguém
+  // renova o contrato. Guardamos evento a evento (e não só um contador) para
+  // conseguir mostrar a série por dia e recortar por período contratado.
+  await db.query(sql`
+    CREATE TABLE IF NOT EXISTS banner_events (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      banner_id  INTEGER NOT NULL,
+      type       TEXT NOT NULL,
+      username   TEXT NOT NULL DEFAULT '' COLLATE NOCASE,
+      created_at INTEGER NOT NULL
+    )
+  `);
 
   // ─── Índices (performance) ──────────────────────────────────────────────────
   const indexes = [
@@ -430,6 +451,7 @@ async function initDB() {
     "CREATE INDEX IF NOT EXISTS idx_follows_following ON follows(following)",
     "CREATE INDEX IF NOT EXISTS idx_books_added ON books(added_at)",
     "CREATE INDEX IF NOT EXISTS idx_opens_book ON book_opens(book_id)",
+    "CREATE INDEX IF NOT EXISTS idx_banner_events ON banner_events(banner_id, type, created_at)",
     "CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(username, is_read, created_at)",
   ];
   for (const stmt of indexes) {

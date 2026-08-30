@@ -9,7 +9,7 @@
 
 import { API_BASE_URL } from "./config";
 import type {
-  AdminOverview, Banner, Book, BookChapter, ChatMessage, FeedItem, HomeData, HomePost,
+  AdminOverview, Banner, BannerReport, Book, BookChapter, ChatMessage, FeedItem, HomeData, HomePost,
   Note, Notifications, ReadingProgress, Review, ReviewComment, Stats, UserProfile,
 } from "./types";
 
@@ -366,13 +366,17 @@ export function fetchBanners(all = false, force = false): Promise<Banner[]> {
 }
 
 export async function createBanner(data: {
-  title?: string; subtitle?: string; linkUrl?: string; bookId?: string; sortOrder?: number; imageFile?: File | null; imageUrl?: string;
+  title?: string; subtitle?: string; linkUrl?: string; bookId?: string; sortOrder?: number;
+  imageFile?: File | null; imageUrl?: string; sponsor?: string; startsAt?: string; endsAt?: string;
 }): Promise<Banner> {
   const form = new FormData();
   if (data.title) form.append("title", data.title);
   if (data.subtitle) form.append("subtitle", data.subtitle);
   if (data.linkUrl) form.append("linkUrl", data.linkUrl);
   if (data.bookId) form.append("bookId", data.bookId);
+  if (data.sponsor) form.append("sponsor", data.sponsor);
+  if (data.startsAt != null) form.append("startsAt", data.startsAt);
+  if (data.endsAt != null) form.append("endsAt", data.endsAt);
   if (data.sortOrder != null) form.append("sortOrder", String(data.sortOrder));
   if (data.imageUrl) form.append("imageUrl", data.imageUrl);
   if (data.imageFile) form.append("image", data.imageFile);
@@ -393,6 +397,31 @@ export async function updateBanner(id: number, data: Record<string, string | num
 export async function deleteBanner(id: number): Promise<void> {
   await request("DELETE", `/banners/${id}`);
   invalidate("/banners", "/home");
+}
+
+/**
+ * Avisa que um banner foi visto ou clicado.
+ *
+ * Dispara e esquece: nenhum erro daqui pode atrapalhar a navegação de quem
+ * clicou. Usa `sendBeacon` quando existe, para o registro sobreviver mesmo
+ * quando o clique leva a pessoa para fora da página.
+ */
+export function trackBanner(id: number, type: "view" | "click"): void {
+  const body = JSON.stringify({ type });
+  try {
+    const url = `${API_BASE_URL}/banners/${id}/event`;
+    if (type === "click" && navigator.sendBeacon) {
+      navigator.sendBeacon(url, new Blob([body], { type: "application/json" }));
+      return;
+    }
+    void request("POST", `/banners/${id}/event`, { type }).catch(() => {});
+  } catch {
+    /* telemetria nunca deve estourar para o usuário */
+  }
+}
+
+export function fetchBannerReport(id: number): Promise<BannerReport> {
+  return request<BannerReport>("GET", `/banners/${id}/report`);
 }
 
 // ─── POSTAGENS DA HOME (Admin) ────────────────────────────────────────────────

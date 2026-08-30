@@ -157,7 +157,24 @@ export interface Banner {
   bookId: string | null;
   sortOrder: number;
   isActive: boolean;
+  /** Quem pagou pelo espaço. Vazio nos banners da própria casa. */
+  sponsor: string;
+  /** Período contratado, em milissegundos. 0 nos dois campos = sem limite. */
+  startsAt: number;
+  endsAt: number;
   createdAt: number;
+}
+
+/** Relatório de desempenho de um banner — o que o patrocinador recebe. */
+export interface BannerReport {
+  banner: Banner;
+  from: number;
+  to: number;
+  views: number;
+  clicks: number;
+  /** Taxa de clique, em porcentagem. */
+  ctr: number;
+  daily: { day: string; views: number; clicks: number }[];
 }
 
 export interface HomePost {

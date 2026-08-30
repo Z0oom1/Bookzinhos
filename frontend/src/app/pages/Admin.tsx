@@ -2,15 +2,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate } from "react-router";
 import {
   Image as ImageIcon, Megaphone, BookOpen, Users, LayoutDashboard, Plus, Trash2,
-  Pencil, Eye, EyeOff, Pin, Loader2, Search,
+  Pencil, Eye, EyeOff, Pin, Loader2, Search, BarChart3, MousePointerClick, CalendarClock,
 } from "lucide-react";
 import {
   createBanner, createPost, deleteBanner, deleteBook, deletePost, fetchAdminOverview,
-  fetchAllUsers, fetchBanners, fetchBooks, fetchPosts, updateBanner, updatePost,
+  fetchAllUsers, fetchBannerReport, fetchBanners, fetchBooks, fetchPosts, updateBanner, updatePost,
 } from "../lib/api";
 import { isAdmin as isAdminUser } from "../lib/session";
 import { getFullUrl, timeAgo } from "../lib/types";
-import type { AdminOverview, Banner, Book, HomePost, UserProfile } from "../lib/types";
+import type { AdminOverview, Banner, BannerReport, Book, HomePost, UserProfile } from "../lib/types";
 import { Avatar, ConfirmDialog, EmptyState, Modal, PageHeader, SectionHeader, Skeleton, toast } from "../components/Ui";
 import { EditBookModal } from "../components/EditBookModal";
 
@@ -171,6 +171,7 @@ function BannersTab() {
   const [banners, setBanners] = useState<Banner[] | null>(null);
   const [books, setBooks] = useState<Book[]>([]);
   const [editing, setEditing] = useState<Banner | "new" | null>(null);
+  const [reporting, setReporting] = useState<Banner | null>(null);
   const [confirmId, setConfirmId] = useState<number | null>(null);
 
   const load = () => fetchBanners(true, true).then(setBanners).catch(() => setBanners([]));
@@ -234,16 +235,25 @@ function BannersTab() {
               <div className="flex-1 min-w-0">
                 <p className="text-[13.5px] font-semibold text-foreground truncate">{banner.title || "(sem título)"}</p>
                 <p className="text-[12px] text-[var(--text-3)] truncate">{banner.subtitle || "—"}</p>
-                <div className="flex gap-1.5 mt-1.5">
-                  <span className={`mb-chip ${banner.isActive ? "mb-chip-primary" : ""}`}>
-                    {banner.isActive ? "Ativo" : "Oculto"}
+                <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                  <span className={`mb-chip ${bannerNoAr(banner) ? "mb-chip-primary" : ""}`}>
+                    {situacaoDoBanner(banner)}
                   </span>
                   <span className="mb-chip">Ordem {banner.sortOrder}</span>
+                  {banner.sponsor && <span className="mb-chip">Patrocínio: {banner.sponsor}</span>}
+                  {(banner.startsAt > 0 || banner.endsAt > 0) && (
+                    <span className="mb-chip">
+                      <CalendarClock className="w-3 h-3" /> {periodoDoBanner(banner)}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="flex gap-1 flex-shrink-0">
                 <button onClick={() => toggleActive(banner)} aria-label="Ativar/ocultar" className="mb-btn mb-btn-ghost mb-btn-icon mb-btn-sm">
                   {banner.isActive ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                </button>
+                <button onClick={() => setReporting(banner)} aria-label="Relatório" title="Relatório do patrocinador" className="mb-btn mb-btn-ghost mb-btn-icon mb-btn-sm">
+                  <BarChart3 className="w-4 h-4" />
                 </button>
                 <button onClick={() => setEditing(banner)} aria-label="Editar" className="mb-btn mb-btn-ghost mb-btn-icon mb-btn-sm">
                   <Pencil className="w-4 h-4" />
@@ -265,6 +275,8 @@ function BannersTab() {
           onSaved={() => { setEditing(null); load(); }}
         />
       )}
+
+      {reporting && <BannerReportModal banner={reporting} onClose={() => setReporting(null)} />}
 
       <ConfirmDialog
         open={confirmId !== null}
@@ -292,6 +304,9 @@ function BannerForm({
   const [linkUrl, setLinkUrl] = useState(banner?.linkUrl || "");
   const [bookId, setBookId] = useState(banner?.bookId || "");
   const [sortOrder, setSortOrder] = useState(banner?.sortOrder ?? 0);
+  const [sponsor, setSponsor] = useState(banner?.sponsor || "");
+  const [startsAt, setStartsAt] = useState(paraCampoData(banner?.startsAt));
+  const [endsAt, setEndsAt] = useState(paraCampoData(banner?.endsAt));
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(getFullUrl(banner?.imageUrl));
   const [isSaving, setIsSaving] = useState(false);
@@ -308,9 +323,9 @@ function BannerForm({
     setIsSaving(true);
     try {
       if (banner) {
-        await updateBanner(banner.id, { title, subtitle, linkUrl, bookId, sortOrder }, file);
+        await updateBanner(banner.id, { title, subtitle, linkUrl, bookId, sortOrder, sponsor, startsAt, endsAt }, file);
       } else {
-        await createBanner({ title, subtitle, linkUrl, bookId, sortOrder, imageFile: file });
+        await createBanner({ title, subtitle, linkUrl, bookId, sortOrder, sponsor, startsAt, endsAt, imageFile: file });
       }
       toast(banner ? "Banner atualizado." : "Banner publicado na home!");
       onSaved();
@@ -367,6 +382,27 @@ function BannerForm({
           </div>
         </div>
 
+        <div className="grid sm:grid-cols-3 gap-3">
+          <div>
+            <label htmlFor="banner-sponsor" className="mb-label">Patrocinador</label>
+            <input
+              id="banner-sponsor"
+              value={sponsor}
+              onChange={(e) => setSponsor(e.target.value)}
+              className="mb-input"
+              placeholder="Ex.: Sebo da Praça"
+            />
+          </div>
+          <div>
+            <label htmlFor="banner-start" className="mb-label">Entra no ar</label>
+            <input id="banner-start" type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} className="mb-input" />
+          </div>
+          <div>
+            <label htmlFor="banner-end" className="mb-label">Sai do ar</label>
+            <input id="banner-end" type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} className="mb-input" />
+          </div>
+        </div>
+
         <div className="w-32">
           <label htmlFor="banner-order" className="mb-label">Ordem</label>
           <input
@@ -377,8 +413,165 @@ function BannerForm({
             className="mb-input"
           />
         </div>
+
+        <p className="text-[12.5px] text-[var(--text-3)] leading-relaxed">
+          Deixe as datas em branco para o banner ficar no ar sem prazo. Com data
+          preenchida, ele entra e sai sozinho — você não precisa lembrar de
+          desligar quando o contrato acabar.
+        </p>
       </div>
     </Modal>
+  );
+}
+
+// ─── Relatório do patrocinador ────────────────────────────────────────────────
+
+/** Um banner só está no ar se está ativo e dentro do período contratado. */
+function bannerNoAr(b: Banner, agora = Date.now()): boolean {
+  if (!b.isActive) return false;
+  if (b.startsAt && agora < b.startsAt) return false;
+  if (b.endsAt && agora > b.endsAt) return false;
+  return true;
+}
+
+function situacaoDoBanner(b: Banner): string {
+  if (!b.isActive) return "Oculto";
+  const agora = Date.now();
+  if (b.startsAt && agora < b.startsAt) return "Agendado";
+  if (b.endsAt && agora > b.endsAt) return "Encerrado";
+  return "No ar";
+}
+
+const dia = (ms: number) => new Date(ms).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
+
+function periodoDoBanner(b: Banner): string {
+  if (b.startsAt && b.endsAt) return `${dia(b.startsAt)} – ${dia(b.endsAt)}`;
+  if (b.startsAt) return `a partir de ${dia(b.startsAt)}`;
+  return `até ${dia(b.endsAt)}`;
+}
+
+/** Instante em milissegundos para o `yyyy-mm-dd` que o `input[type=date]` usa. */
+function paraCampoData(ms?: number): string {
+  if (!ms) return "";
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/**
+ * O relatório que o patrocinador recebe.
+ *
+ * Sem número medido ninguém renova contrato — por isso a tela mostra exibições,
+ * cliques, taxa de clique e a série por dia, e deixa o texto pronto para copiar
+ * e colar na mensagem para o cliente.
+ */
+function BannerReportModal({ banner, onClose }: { banner: Banner; onClose: () => void }) {
+  const [report, setReport] = useState<BannerReport | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchBannerReport(banner.id)
+      // O cliente devolve `null` em 404 em vez de lançar; sem esta guarda o
+      // modal ficaria no esqueleto para sempre quando a rota não existe.
+      .then((r) => (r ? setReport(r) : setErro("Relatório indisponível para este banner.")))
+      .catch((e) => setErro(e instanceof Error ? e.message : "Não foi possível carregar."));
+  }, [banner.id]);
+
+  const maiorDia = report ? Math.max(1, ...report.daily.map((d) => d.views)) : 1;
+
+  const resumoParaCopiar = report
+    ? [
+        `Relatório — ${banner.title || "banner"}${banner.sponsor ? ` (${banner.sponsor})` : ""}`,
+        `Período: ${dia(report.from)} a ${dia(report.to)}`,
+        `Exibições: ${report.views.toLocaleString("pt-BR")}`,
+        `Cliques: ${report.clicks.toLocaleString("pt-BR")}`,
+        `Taxa de clique: ${report.ctr}%`,
+      ].join("\n")
+    : "";
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      title="Relatório do banner"
+      description={banner.sponsor ? `Patrocínio de ${banner.sponsor}.` : "Banner da casa, sem patrocinador."}
+      size="lg"
+      footer={
+        <>
+          <button onClick={onClose} className="mb-btn mb-btn-outline">Fechar</button>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(resumoParaCopiar).then(
+                () => toast("Resumo copiado. Cole na mensagem para o patrocinador."),
+                () => toast("Não deu para copiar.", "error")
+              );
+            }}
+            disabled={!report}
+            className="mb-btn mb-btn-primary"
+          >
+            Copiar resumo
+          </button>
+        </>
+      }
+    >
+      {erro ? (
+        <EmptyState emoji="😕" title="Erro ao carregar" description={erro} />
+      ) : !report ? (
+        <div className="space-y-3">
+          <Skeleton className="h-24 w-full rounded-[18px]" />
+          <Skeleton className="h-40 w-full rounded-[18px]" />
+        </div>
+      ) : (
+        <div className="space-y-5">
+          <p className="text-[12.5px] text-[var(--text-3)]">
+            Período de {dia(report.from)} a {dia(report.to)}.
+          </p>
+
+          <div className="grid grid-cols-3 gap-3">
+            <Metrica icon={<Eye className="w-4 h-4" />} label="Exibições" value={report.views.toLocaleString("pt-BR")} />
+            <Metrica icon={<MousePointerClick className="w-4 h-4" />} label="Cliques" value={report.clicks.toLocaleString("pt-BR")} />
+            <Metrica icon={<BarChart3 className="w-4 h-4" />} label="Taxa de clique" value={`${report.ctr}%`} />
+          </div>
+
+          {report.daily.length === 0 ? (
+            <EmptyState emoji="📭" title="Nenhum registro ainda" description="Assim que o banner aparecer para alguém, os números começam a entrar aqui." />
+          ) : (
+            <div>
+              <span className="mb-label">Por dia</span>
+              <div className="flex items-end gap-1 h-32">
+                {report.daily.map((d) => (
+                  <div key={d.day} className="flex-1 h-full flex flex-col justify-end items-center gap-1 min-w-0" title={`${d.day}: ${d.views} exibições, ${d.clicks} cliques`}>
+                    {/* A coluna precisa de altura própria: uma barra em
+                        porcentagem dentro de um pai auto colapsa para zero. */}
+                    <div
+                      className="w-full rounded-t bg-[var(--primary-soft)] flex flex-col justify-end"
+                      style={{ height: `max(3px, ${(d.views / maiorDia) * 100}%)` }}
+                    >
+                      <div className="w-full rounded-t bg-[var(--primary)]" style={{ height: `${d.views > 0 ? (d.clicks / d.views) * 100 : 0}%` }} />
+                    </div>
+                    <span className="text-[9px] text-[var(--text-3)] truncate w-full text-center">{d.day.slice(8)}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11.5px] text-[var(--text-3)] mt-2">
+                Barra clara: exibições. Parte escura: a fatia que virou clique.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+function Metrica({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-[18px] bg-[var(--surface-2)] p-4">
+      <span className="flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-wide text-[var(--text-3)]">
+        {icon} {label}
+      </span>
+      <p className="text-[22px] font-bold text-foreground mt-1.5">{value}</p>
+    </div>
   );
 }
 
