@@ -72,19 +72,27 @@ export function Login({ onLoginSuccess }: LoginProps) {
         style={{ backgroundImage: "url(/login-bg-mobile.png)" }}
       />
 
-      {/* Véu suave para o cartão ganhar contraste sem apagar a cena:
-          no celular escurece de baixo para cima; no desktop, da direita. */}
+      {/* ── Filtros de imersão ────────────────────────────────────────────────
+          Três camadas de degradê dão profundidade e puxam o olhar para o
+          centro, onde fica o login:
+          1. um tom verde da marca, de cima para baixo;
+          2. uma vinheta que escurece as bordas e mantém o centro limpo;
+          3. um brilho radial atrás do cartão, para ele "saltar" da foto. */}
       <div
-        className="absolute inset-0 sm:hidden"
-        style={{ background: "linear-gradient(to top, rgba(24,30,18,0.5) 0%, rgba(24,30,18,0.12) 42%, transparent 68%)" }}
+        className="absolute inset-0"
+        style={{ background: "linear-gradient(180deg, rgba(20,32,18,0.58) 0%, transparent 30%, transparent 52%, rgba(11,16,8,0.66) 100%)" }}
       />
       <div
-        className="absolute inset-0 hidden sm:block"
-        style={{ background: "linear-gradient(to right, transparent 34%, rgba(28,34,22,0.16) 68%, rgba(28,34,22,0.34) 100%)" }}
+        className="absolute inset-0"
+        style={{ background: "radial-gradient(118% 86% at 50% 47%, transparent 18%, rgba(13,19,10,0.5) 60%, rgba(8,12,6,0.82) 100%)" }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{ background: "radial-gradient(44% 40% at 50% 49%, rgba(255,249,236,0.2) 0%, transparent 70%)" }}
       />
 
       {/* ── Cartão de vidro ───────────────────────────────────────────────── */}
-      <div className="relative z-10 min-h-screen flex flex-col justify-end sm:justify-center items-center sm:items-end px-4 pb-8 sm:p-10 lg:pr-[7%]">
+      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-8">
         <div className="mb-auth-card w-full max-w-sm p-6 sm:p-8 animate-scale-in">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="flex items-center gap-3.5">
@@ -164,7 +172,7 @@ export function Login({ onLoginSuccess }: LoginProps) {
           </form>
         </div>
 
-        <p className="relative z-10 mt-4 text-[12px] text-white/85 sm:text-[#3a442e]/75 text-center sm:text-right sm:pr-1 drop-shadow-sm">
+        <p className="relative z-10 mt-5 text-[12.5px] text-white/85 text-center tracking-wide drop-shadow-[0_1px_3px_rgba(0,0,0,0.4)]">
           Entre páginas, a vida acontece.
         </p>
       </div>
