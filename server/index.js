@@ -642,6 +642,11 @@ function safeParse(value) {
   }
 }
 
+app.get("/version", (_req, res) => {
+  // Sonda de deploy: se esta rota responde, o servidor esta com o codigo novo.
+  res.json({ version: "auth-system-1", routes: ["/config", "/auth/available", "/auth/google"], ts: Date.now() });
+});
+
 app.get("/config", (_req, res) => {
   res.json({
     googleClientId: process.env.GOOGLE_CLIENT_ID || null,
