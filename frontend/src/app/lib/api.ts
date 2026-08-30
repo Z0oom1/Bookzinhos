@@ -267,9 +267,61 @@ export function login(username: string, password: string): Promise<UserProfile> 
   return request<UserProfile>("POST", "/auth/login", { username, password });
 }
 
-export function register(username: string, password: string): Promise<UserProfile> {
+/** Dados de configuração pública do servidor (Google, entrega de e-mail). */
+export interface ServerConfig {
+  googleClientId: string | null;
+  emailDelivery: boolean;
+}
+
+export function fetchServerConfig(): Promise<ServerConfig> {
+  return request<ServerConfig>("GET", "/config");
+}
+
+export interface Availability {
+  nickname?: { ok: boolean; reason: string | null };
+  email?: { ok: boolean; reason: string | null };
+}
+
+/** Checa se apelido e/ou e-mail estão livres (cadastro passo a passo). */
+export function checkAvailability(params: { nickname?: string; email?: string }): Promise<Availability> {
+  const q = new URLSearchParams();
+  if (params.nickname) q.set("nickname", params.nickname);
+  if (params.email) q.set("email", params.email);
+  return request<Availability>("GET", `/auth/available?${q.toString()}`);
+}
+
+/** Envia o código de verificação para o e-mail. `devCode` vem só sem serviço de e-mail. */
+export function sendEmailCode(email: string, purpose: "signup" | "reset"): Promise<{ ok: boolean; delivered: boolean; devCode?: string }> {
+  return request("POST", "/auth/send-code", { email, purpose });
+}
+
+export function verifyEmailCode(email: string, code: string, purpose: "signup" | "reset"): Promise<{ ok: boolean; reason?: string }> {
+  return request("POST", "/auth/verify-code", { email, code, purpose });
+}
+
+export interface SignupData {
+  fullName: string;
+  username: string;
+  email: string;
+  password: string;
+  code: string;
+  avatar: string;
+  allowWeak: boolean;
+}
+
+export function register(data: SignupData): Promise<UserProfile> {
   invalidate();
-  return request<UserProfile>("POST", "/auth/register", { username, password });
+  return request<UserProfile>("POST", "/auth/register", data);
+}
+
+export function resetPassword(email: string, code: string, password: string, allowWeak: boolean): Promise<UserProfile> {
+  invalidate();
+  return request<UserProfile>("POST", "/auth/reset", { email, code, password, allowWeak });
+}
+
+export function loginWithGoogle(credential: string): Promise<UserProfile & { isNew?: boolean }> {
+  invalidate();
+  return request<UserProfile & { isNew?: boolean }>("POST", "/auth/google", { credential });
 }
 
 export async function updateProfile(bio: string, avatar: string, shelf: string[]): Promise<UserProfile> {

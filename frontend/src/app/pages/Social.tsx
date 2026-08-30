@@ -9,6 +9,7 @@ import { getUsername } from "../lib/session";
 import { getCoverGradient, getFullUrl, timeAgo } from "../lib/types";
 import type { FeedItem, Notifications, UserProfile } from "../lib/types";
 import { Avatar, EmptyState, PageHeader, SectionHeader, Skeleton, Stars, toast } from "../components/Ui";
+import { requireAuth } from "../lib/authGate";
 
 type Tab = "feed" | "leitores";
 type Scope = "all" | "following";
@@ -53,7 +54,7 @@ export function Social() {
   }, [others, search]);
 
   const toggleFollow = async (user: UserProfile) => {
-    if (!me) return toast("Entre na sua conta para seguir leitores.", "error");
+    if (!requireAuth("seguir leitores")) return;
     const wasFollowing = !!user.isFollowedByMe;
 
     setUsers((prev) =>

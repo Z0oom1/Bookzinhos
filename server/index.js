@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
 const multer = require("multer");
 const { createClient } = require("@supabase/supabase-js");
 const { db, sql, initDB } = require("./db");
@@ -544,6 +545,83 @@ app.delete("/books/:id", async (req, res) => {
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 
+const CODE_TTL_MS = 10 * 60 * 1000;   // validade do código enviado por e-mail
+const CODE_MAX_TRIES = 6;             // tentativas antes de invalidar o código
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const NICK_RE = /^[a-zA-Z0-9_.]{2,20}$/;
+
+/** Guarda a senha como scrypt (sal + hash). Nunca em texto puro. */
+function hashPassword(pw) {
+  const salt = crypto.randomBytes(16).toString("hex");
+  const hash = crypto.scryptSync(pw, salt, 64).toString("hex");
+  return `scrypt$${salt}$${hash}`;
+}
+
+/**
+ * Confere a senha. Aceita o formato scrypt novo e, por retrocompatibilidade,
+ * senhas antigas em texto puro — inclusive a do Admin, que o seed reafirma
+ * assim a cada boot.
+ */
+function verifyPassword(pw, stored) {
+  if (!stored) return false;
+  if (stored.startsWith("scrypt$")) {
+    const [, salt, hash] = stored.split("$");
+    const test = crypto.scryptSync(pw, salt, 64).toString("hex");
+    const a = Buffer.from(hash, "hex");
+    const b = Buffer.from(test, "hex");
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  }
+  return stored === pw;
+}
+
+/** Requisitos de senha. Vazio = senha forte. */
+function passwordIssues(pw) {
+  const issues = [];
+  if (!pw || pw.length < 8) issues.push("min8");
+  if (!/[0-9]/.test(pw || "")) issues.push("number");
+  if (!/[^A-Za-z0-9]/.test(pw || "")) issues.push("symbol");
+  return issues;
+}
+
+const hashCode = (code) => crypto.createHash("sha256").update(String(code)).digest("hex");
+const genCode = () => String(crypto.randomInt(100000, 1000000)); // 6 dígitos
+
+/**
+ * Envia o código por e-mail.
+ *
+ * Usa a API HTTP da Resend quando `RESEND_API_KEY` está no ambiente — não
+ * precisa de biblioteca, só de `fetch`. Sem chave configurada, cai no modo de
+ * desenvolvimento: registra o código no log e o devolve para o cliente, para
+ * o fluxo poder ser testado antes de existir um serviço de e-mail.
+ */
+async function sendEmailCode(email, code, purpose) {
+  const subject = purpose === "reset" ? "Redefinir senha — myBooks" : "Seu código do myBooks";
+  const text = `Seu código é ${code}. Ele vale por 10 minutos.\n\nSe não foi você, ignore este e-mail.`;
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const r = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: process.env.MAIL_FROM || "myBooks <onboarding@resend.dev>",
+          to: email, subject, text,
+        }),
+      });
+      if (r.ok) return { delivered: true };
+      console.error("[mail] Resend recusou:", await r.text());
+    } catch (err) {
+      console.error("[mail]", err.message);
+    }
+  }
+  console.log(`[mail:dev] Código para ${email} (${purpose}): ${code}`);
+  return { delivered: false };
+}
+
+const isProd = () => process.env.NODE_ENV === "production";
+
 function publicUser(user) {
   return {
     username: user.username,
@@ -564,12 +642,115 @@ function safeParse(value) {
   }
 }
 
+app.get("/config", (_req, res) => {
+  res.json({
+    googleClientId: process.env.GOOGLE_CLIENT_ID || null,
+    emailDelivery: !!process.env.RESEND_API_KEY,
+  });
+});
+
 app.post("/auth/login", async (req, res) => {
   try {
     const { username, password } = req.body;
-    const [user] = await db.query(sql`SELECT * FROM users WHERE username = ${username} COLLATE NOCASE AND password = ${password}`);
-    if (!user) return res.status(401).json({ error: "Usuário ou senha incorretos." });
+    // Aceita entrar pelo apelido ou pelo e-mail.
+    const [user] = await db.query(sql`
+      SELECT * FROM users WHERE username = ${username} COLLATE NOCASE OR email = ${username} COLLATE NOCASE
+    `);
+    if (!user || !verifyPassword(password, user.password)) {
+      return res.status(401).json({ error: "Usuário ou senha incorretos." });
+    }
     res.json(publicUser(user));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** Diz se um apelido ou e-mail já está em uso — alimenta o cadastro passo a passo. */
+app.get("/auth/available", async (req, res) => {
+  try {
+    const nickname = String(req.query.nickname || "").trim();
+    const email = String(req.query.email || "").trim();
+    const out = {};
+    if (nickname) {
+      if (!NICK_RE.test(nickname)) {
+        out.nickname = { ok: false, reason: "formato" };
+      } else {
+        const [row] = await db.query(sql`SELECT 1 FROM users WHERE username = ${nickname} COLLATE NOCASE`);
+        out.nickname = { ok: !row, reason: row ? "usado" : null };
+      }
+    }
+    if (email) {
+      if (!EMAIL_RE.test(email)) {
+        out.email = { ok: false, reason: "formato" };
+      } else {
+        const [row] = await db.query(sql`SELECT 1 FROM users WHERE email = ${email} COLLATE NOCASE`);
+        out.email = { ok: !row, reason: row ? "usado" : null };
+      }
+    }
+    res.json(out);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Envia um código de verificação para o e-mail.
+ *
+ * `purpose: "signup"` exige que o e-mail ainda não tenha conta; `"reset"` exige
+ * que já tenha. Guardamos só o hash do código e apagamos os anteriores daquele
+ * e-mail e propósito, para não deixar códigos válidos soltos.
+ */
+app.post("/auth/send-code", async (req, res) => {
+  try {
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const purpose = req.body.purpose === "reset" ? "reset" : "signup";
+    if (!EMAIL_RE.test(email)) return res.status(400).json({ error: "E-mail inválido." });
+
+    const [existing] = await db.query(sql`SELECT 1 FROM users WHERE email = ${email} COLLATE NOCASE`);
+    if (purpose === "signup" && existing) {
+      return res.status(409).json({ error: "Este e-mail já tem conta. Use 'Esqueci minha senha'.", code: "email_em_uso" });
+    }
+    if (purpose === "reset" && !existing) {
+      return res.status(404).json({ error: "Não há conta com este e-mail." });
+    }
+
+    const code = genCode();
+    const now = Date.now();
+    await db.query(sql`DELETE FROM email_codes WHERE email = ${email} COLLATE NOCASE AND purpose = ${purpose}`);
+    await db.query(sql`
+      INSERT INTO email_codes (email, code_hash, purpose, expires_at, attempts, created_at)
+      VALUES (${email}, ${hashCode(code)}, ${purpose}, ${now + CODE_TTL_MS}, 0, ${now})
+    `);
+
+    const { delivered } = await sendEmailCode(email, code, purpose);
+    // Sem serviço de e-mail (desenvolvimento), devolve o código para testar.
+    res.json({ ok: true, delivered, devCode: delivered || isProd() ? undefined : code });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** Confere um código sem consumi-lo (usado para liberar o próximo passo do cadastro). */
+async function checkCode(email, purpose, code) {
+  const [row] = await db.query(sql`
+    SELECT rowid, * FROM email_codes WHERE email = ${email} COLLATE NOCASE AND purpose = ${purpose}
+  `);
+  if (!row) return { ok: false, reason: "sem_codigo" };
+  if (Date.now() > Number(row.expires_at)) return { ok: false, reason: "expirado" };
+  if (Number(row.attempts) >= CODE_MAX_TRIES) return { ok: false, reason: "tentativas" };
+  if (row.code_hash !== hashCode(code)) {
+    await db.query(sql`UPDATE email_codes SET attempts = attempts + 1 WHERE rowid = ${row.rowid}`);
+    return { ok: false, reason: "incorreto" };
+  }
+  return { ok: true, rowid: row.rowid };
+}
+
+app.post("/auth/verify-code", async (req, res) => {
+  try {
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const purpose = req.body.purpose === "reset" ? "reset" : "signup";
+    const result = await checkCode(email, purpose, String(req.body.code || ""));
+    res.json({ ok: result.ok, reason: result.reason });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -577,14 +758,119 @@ app.post("/auth/login", async (req, res) => {
 
 app.post("/auth/register", async (req, res) => {
   try {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: "Usuário e senha são obrigatórios." });
-    if (username.trim().length < 2) return res.status(400).json({ error: "O nome precisa de pelo menos 2 letras." });
-    const [existing] = await db.query(sql`SELECT 1 FROM users WHERE username = ${username} COLLATE NOCASE`);
-    if (existing) return res.status(400).json({ error: "Este usuário já existe." });
+    const fullName = String(req.body.fullName || "").trim();
+    const username = String(req.body.username || "").trim();
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const password = String(req.body.password || "");
+    const code = String(req.body.code || "");
+    const avatar = String(req.body.avatar || "🐼").slice(0, 8) || "🐼";
+    const allowWeak = req.body.allowWeak === true || req.body.allowWeak === "true";
+
+    // Validações — a interface já checa, mas o servidor é a palavra final.
+    if (fullName.length < 3) return res.status(400).json({ error: "Escreva seu nome completo." });
+    if (!NICK_RE.test(username)) return res.status(400).json({ error: "Apelido inválido (2 a 20 letras, números, . ou _)." });
+    if (!EMAIL_RE.test(email)) return res.status(400).json({ error: "E-mail inválido." });
+
+    // Regra: 8 caracteres sempre. Com a caixa marcada ("deixar minha conta
+    // não segura"), isso basta; senão, também exige um número e um símbolo.
+    const issues = passwordIssues(password);
+    if (issues.includes("min8")) return res.status(400).json({ error: "A senha precisa de ao menos 8 caracteres." });
+    if (!allowWeak && (issues.includes("number") || issues.includes("symbol"))) {
+      return res.status(400).json({ error: "A senha não atende aos requisitos." });
+    }
+
+    const [nickTaken] = await db.query(sql`SELECT 1 FROM users WHERE username = ${username} COLLATE NOCASE`);
+    if (nickTaken) return res.status(409).json({ error: "Este apelido já existe." });
+    const [emailTaken] = await db.query(sql`SELECT 1 FROM users WHERE email = ${email} COLLATE NOCASE`);
+    if (emailTaken) return res.status(409).json({ error: "Este e-mail já tem conta. Use 'Esqueci minha senha'." });
+
+    const verified = await checkCode(email, "signup", code);
+    if (!verified.ok) return res.status(400).json({ error: "Código de verificação inválido ou expirado.", reason: verified.reason });
+
     const bio = "Novo leitor por aqui ✨";
-    await db.query(sql`INSERT INTO users (username, password, bio, avatar, pandinhas, is_admin, created_at) VALUES (${username}, ${password}, ${bio}, '🐼', 0, 0, ${Date.now()})`);
-    res.status(201).json({ username, bio, avatar: "🐼", shelf: [], pandinhas: 0, isAdmin: false });
+    const now = Date.now();
+    await db.query(sql`
+      INSERT INTO users (username, password, bio, avatar, pandinhas, is_admin, created_at, full_name, email, auth_provider)
+      VALUES (${username}, ${hashPassword(password)}, ${bio}, ${avatar}, 0, 0, ${now}, ${fullName}, ${email}, 'senha')
+    `);
+    await db.query(sql`DELETE FROM email_codes WHERE email = ${email} COLLATE NOCASE`);
+
+    res.status(201).json({ username, bio, avatar, shelf: [], pandinhas: 0, isAdmin: false });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** Redefinir senha: confere o código de recuperação e grava a nova senha. */
+app.post("/auth/reset", async (req, res) => {
+  try {
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const password = String(req.body.password || "");
+    const code = String(req.body.code || "");
+    const allowWeak = req.body.allowWeak === true || req.body.allowWeak === "true";
+
+    if (!EMAIL_RE.test(email)) return res.status(400).json({ error: "E-mail inválido." });
+    const issues = passwordIssues(password);
+    if (issues.includes("min8")) return res.status(400).json({ error: "A senha precisa de ao menos 8 caracteres." });
+    if (!allowWeak && (issues.includes("number") || issues.includes("symbol"))) {
+      return res.status(400).json({ error: "A senha não atende aos requisitos." });
+    }
+
+    const verified = await checkCode(email, "reset", code);
+    if (!verified.ok) return res.status(400).json({ error: "Código inválido ou expirado.", reason: verified.reason });
+
+    const [user] = await db.query(sql`SELECT * FROM users WHERE email = ${email} COLLATE NOCASE`);
+    if (!user) return res.status(404).json({ error: "Conta não encontrada." });
+    await db.query(sql`UPDATE users SET password = ${hashPassword(password)} WHERE email = ${email} COLLATE NOCASE`);
+    await db.query(sql`DELETE FROM email_codes WHERE email = ${email} COLLATE NOCASE`);
+    res.json(publicUser(user));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Login com Google.
+ *
+ * Precisa de `GOOGLE_CLIENT_ID` no ambiente. O frontend obtém um id_token pelo
+ * botão do Google e o manda aqui; conferimos o token no próprio Google (sem
+ * biblioteca, só `fetch`). Conta nova é criada com um apelido derivado do
+ * e-mail; a pessoa ajusta apelido e emote depois, no perfil.
+ */
+app.post("/auth/google", async (req, res) => {
+  try {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) return res.status(501).json({ error: "Login com Google não está configurado." });
+    const credential = String(req.body.credential || "");
+    if (!credential) return res.status(400).json({ error: "Faltou o token do Google." });
+
+    const r = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`);
+    if (!r.ok) return res.status(401).json({ error: "Token do Google inválido." });
+    const info = await r.json();
+    if (info.aud !== clientId) return res.status(401).json({ error: "Token não pertence a este app." });
+    if (info.email_verified !== "true" && info.email_verified !== true) {
+      return res.status(401).json({ error: "E-mail do Google não verificado." });
+    }
+
+    const email = String(info.email || "").toLowerCase();
+    const [existing] = await db.query(sql`SELECT * FROM users WHERE email = ${email} COLLATE NOCASE`);
+    if (existing) return res.json(publicUser(existing));
+
+    // Apelido único a partir do e-mail.
+    const base = (email.split("@")[0] || "leitor").replace(/[^a-zA-Z0-9_.]/g, "").slice(0, 16) || "leitor";
+    let username = base;
+    for (let i = 0; i < 50; i++) {
+      const [taken] = await db.query(sql`SELECT 1 FROM users WHERE username = ${username} COLLATE NOCASE`);
+      if (!taken) break;
+      username = `${base}${crypto.randomInt(10, 9999)}`;
+    }
+    const now = Date.now();
+    await db.query(sql`
+      INSERT INTO users (username, password, bio, avatar, pandinhas, is_admin, created_at, full_name, email, auth_provider)
+      VALUES (${username}, '', 'Novo leitor por aqui ✨', '🐼', 0, 0, ${now}, ${String(info.name || "")}, ${email}, 'google')
+    `);
+    const [created] = await db.query(sql`SELECT * FROM users WHERE username = ${username} COLLATE NOCASE`);
+    res.status(201).json({ ...publicUser(created), isNew: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

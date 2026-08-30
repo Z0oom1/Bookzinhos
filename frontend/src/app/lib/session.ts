@@ -16,6 +16,25 @@ const KEYS = {
   shelf: "profile-shelf",
 } as const;
 
+/** Flag de "entrar sem conta": navega e vê tudo, mas não age. */
+const GUEST_KEY = "mybooks-guest";
+
+/** Está navegando como visitante (sem conta, mas escolheu entrar assim). */
+export function isGuest(): boolean {
+  return !getUsername() && localStorage.getItem(GUEST_KEY) === "1";
+}
+
+export function enterGuestMode(): void {
+  localStorage.setItem(GUEST_KEY, "1");
+  notifySessionChanged();
+}
+
+/** Sai do modo visitante — a AuthWrapper volta a mostrar a tela de entrada. */
+export function leaveGuestMode(): void {
+  localStorage.removeItem(GUEST_KEY);
+  notifySessionChanged();
+}
+
 export function getUsername(): string | null {
   const value = localStorage.getItem(KEYS.username);
   return value && value !== "anonymous" ? value : null;
@@ -44,6 +63,7 @@ export function getShelf(): string[] {
 }
 
 export function saveSession(user: Partial<UserProfile> & { username: string }): void {
+  localStorage.removeItem(GUEST_KEY); // entrar de verdade encerra o modo visitante
   localStorage.setItem(KEYS.username, user.username);
   if (user.bio != null) localStorage.setItem(KEYS.bio, user.bio);
   if (user.avatar != null) localStorage.setItem(KEYS.avatar, user.avatar);
@@ -53,6 +73,7 @@ export function saveSession(user: Partial<UserProfile> & { username: string }): 
 
 export function clearSession(): void {
   Object.values(KEYS).forEach((key) => localStorage.removeItem(key));
+  localStorage.removeItem(GUEST_KEY);
 }
 
 /** Dispara um evento para que o layout atualize avatar/nome sem recarregar. */

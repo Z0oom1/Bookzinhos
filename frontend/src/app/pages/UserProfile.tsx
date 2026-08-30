@@ -4,6 +4,7 @@ import { ArrowLeft, MessageCircle, UserPlus, UserCheck, Star } from "lucide-reac
 import { fetchBooks, fetchUserProfile, followUser, unfollowUser } from "../lib/api";
 import { useLiveData } from "../lib/useLiveData";
 import { getUsername } from "../lib/session";
+import { requireAuth } from "../lib/authGate";
 import { getCoverGradient, getFullUrl, timeAgo } from "../lib/types";
 import type { Book, UserProfile as UserProfileType } from "../lib/types";
 import { Avatar, EmptyState, Skeleton, Stars, toast } from "../components/Ui";
@@ -41,7 +42,7 @@ export function UserProfile() {
 
   const toggleFollow = async () => {
     if (!profile) return;
-    if (!me) return toast("Entre na sua conta para seguir leitores.", "error");
+    if (!requireAuth("seguir leitores")) return;
     const wasFollowing = !!profile.isFollowedByMe;
 
     setData((prev) =>

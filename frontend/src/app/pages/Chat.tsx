@@ -5,6 +5,7 @@ import { fetchChat, sendMessage, setNickname, fetchBooks } from "../lib/api";
 import { getFullUrl } from "../lib/types";
 import type { Book, ChatMessage } from "../lib/types";
 import { getUsername } from "../lib/session";
+import { requireAuth } from "../lib/authGate";
 import { Modal, toast } from "../components/Ui";
 
 const QUICK_EMOTES = ["🐼", "💕", "✨", "📖", "📚", "🤍", "🌸", "🍭", "🎈"];
@@ -52,6 +53,7 @@ export function Chat() {
   const handleSend = async (textOverride?: string) => {
     const text = (textOverride || inputValue).trim();
     if (!text || !otherUser) return;
+    if (!requireAuth("enviar mensagens")) return;
     if (!textOverride) setInputValue("");
     try {
       await sendMessage(otherUser, text);

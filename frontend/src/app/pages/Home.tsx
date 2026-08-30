@@ -9,6 +9,7 @@ import { useLiveData } from "../lib/useLiveData";
 import { getCoverGradient, getFullUrl, timeAgo } from "../lib/types";
 import type { Book, FeedItem, HomeData, HomePost, ReadingProgress } from "../lib/types";
 import { getUsername, isAdmin as isAdminUser } from "../lib/session";
+import { requireAuth } from "../lib/authGate";
 import { Book3D } from "../components/Book3D";
 import { BookCard } from "../components/BookCard";
 import { BookGrid } from "../components/BookGrid";
@@ -130,6 +131,7 @@ export function Home() {
 
   const handleUpdateStatus = async () => {
     if (!statusInput.trim()) return;
+    if (!requireAuth("publicar um recado")) return;
     try {
       await updateGlobalStatus(statusInput.trim(), statusEmote);
       setIsEditingStatus(false);
@@ -142,6 +144,7 @@ export function Home() {
 
   const handleLikePost = async (post: HomePost) => {
     if (!data) return;
+    if (!requireAuth("curtir publicações")) return;
     const optimistic = data.posts.map((p) =>
       p.id === post.id ? { ...p, likedByMe: !p.likedByMe, likes: p.likes + (p.likedByMe ? -1 : 1) } : p
     );

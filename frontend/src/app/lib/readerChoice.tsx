@@ -4,6 +4,7 @@ import { useNavigate } from "react-router";
 import { BookOpen, Smartphone, Check } from "lucide-react";
 import { getFullUrl } from "./types";
 import { registerBookOpen } from "./api";
+import { requireAuth } from "./authGate";
 import type { Book } from "./types";
 
 export type ReaderMode = "native" | "app";
@@ -45,6 +46,8 @@ export function ReaderChoiceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const openBook = useCallback((book: Book) => {
+    // Ler e baixar são bloqueados para visitante.
+    if (!requireAuth("ler este livro")) return;
     // Conta a abertura para o ranking "Mais lidos" da home.
     registerBookOpen(book.id);
     if (!book.pdfPath) {

@@ -10,6 +10,7 @@ import {
 import { getCoverGradient, getFullUrl } from "../lib/types";
 import type { Book, ReadingProgress, Review, UserProfile } from "../lib/types";
 import { getUsername } from "../lib/session";
+import { requireAuth } from "../lib/authGate";
 import { useOpenBook } from "../lib/readerChoice";
 import { ReviewSection } from "../components/ReviewSection";
 import { useSpineColor } from "../components/Book3D";
@@ -85,6 +86,7 @@ export function BookDetails() {
 
   const handleToggleSave = async () => {
     if (!id) return;
+    if (!requireAuth("guardar nos favoritos")) return;
     setIsSaved((v) => !v);
     try {
       const res = await toggleSaved(id, isSaved);
@@ -97,6 +99,7 @@ export function BookDetails() {
 
   const handleToggleRead = async () => {
     if (!id || !book) return;
+    if (!requireAuth("marcar leituras")) return;
     const isCurrentlyFinished = progress?.status === "finalizado";
     const total = book.pages?.length || progress?.totalPages || 1;
 
@@ -117,6 +120,7 @@ export function BookDetails() {
 
   const handleShare = async (targetUsername: string) => {
     if (!book) return;
+    if (!requireAuth("recomendar livros")) return;
     try {
       await sendMessage(targetUsername, `Recomendei "${book.title}" para você! 📖✨`, book.id);
       setShowShare(false);

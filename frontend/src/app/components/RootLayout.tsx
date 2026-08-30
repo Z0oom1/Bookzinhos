@@ -1,14 +1,15 @@
 import { Outlet, useLocation, useNavigation, Link, NavLink } from "react-router";
 import {
   Home, Library, Heart, PenLine, User, Users, Shield, Plus, MessageSquare, ChevronRight,
-  SlidersHorizontal,
+  SlidersHorizontal, LogIn,
 } from "lucide-react";
 import { useEffect, useState, useMemo, type ComponentType } from "react";
 import { fetchNotifications } from "../lib/api";
-import { getAvatar, getUsername, isAdmin as isAdminUser } from "../lib/session";
+import { getAvatar, getUsername, isAdmin as isAdminUser, isGuest, leaveGuestMode } from "../lib/session";
 import { ReaderChoiceProvider } from "../lib/readerChoice";
 import { BookTransitionProvider } from "./BookTransition";
 import { NotificationsMenu } from "./NotificationsMenu";
+import { AuthGateModal } from "./AuthGateModal";
 import { RouteSkeleton } from "./Skeletons";
 import { applySettings, loadSettings } from "../lib/settings";
 
@@ -37,6 +38,7 @@ export function RootLayout() {
   const [avatar, setAvatar] = useState(getAvatar);
   const [username, setUsername] = useState(getUsername);
   const [admin, setAdmin] = useState(isAdminUser);
+  const [guest, setGuest] = useState(isGuest);
 
   useEffect(() => {
     applySettings(loadSettings());
@@ -47,6 +49,7 @@ export function RootLayout() {
       setAvatar(getAvatar());
       setUsername(getUsername());
       setAdmin(isAdminUser());
+      setGuest(isGuest());
     };
     syncSession();
     window.addEventListener("mybooks:session", syncSession);
@@ -65,12 +68,14 @@ export function RootLayout() {
       }
     };
     check();
-    const interval = window.setInterval(check, 20000);
+    const interval = window.setInterval(check, 8000);
     document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
     return () => {
       cancelled = true;
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
     };
   }, []);
 
@@ -120,6 +125,7 @@ export function RootLayout() {
 
   return (
     <BookTransitionProvider>
+      <AuthGateModal />
       <div className="min-h-screen bg-background">
         {/* ── Barra lateral (desktop) ─────────────────────────────────────── */}
         <aside className="hidden lg:flex fixed left-5 top-5 bottom-5 z-50 w-[236px] flex-col rounded-[22px] bg-[var(--surface)] border border-[var(--line)] shadow-[var(--shadow-2)] overflow-hidden">
@@ -158,26 +164,43 @@ export function RootLayout() {
           </nav>
 
           <div className="p-3 space-y-3">
-            <Link to="/upload" className="mb-btn mb-btn-primary w-full h-11 rounded-[14px]">
-              <Plus className="w-4 h-4" /> Adicionar livro
-            </Link>
-            <NavLink
-              to="/profile"
-              className={({ isActive }) =>
-                `flex items-center gap-3 p-2 rounded-[14px] transition-colors ${
-                  isActive ? "bg-[var(--surface-2)]" : "hover:bg-[var(--surface-2)]"
-                }`
-              }
-            >
-              <span className="w-10 h-10 rounded-full bg-[var(--surface-2)] border border-[var(--line)] flex items-center justify-center text-lg select-none flex-shrink-0">
-                {avatar}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[13.5px] font-semibold text-foreground truncate">{username || "Visitante"}</span>
-                <span className="block text-[12px] text-[var(--text-3)] truncate">@{(username || "visitante").toLowerCase()}</span>
-              </span>
-              <ChevronRight className="w-4 h-4 text-[var(--text-3)] flex-shrink-0" />
-            </NavLink>
+            {guest ? (
+              <button
+                onClick={() => leaveGuestMode()}
+                className="w-full rounded-[16px] bg-[var(--primary-soft)] border border-[var(--primary)]/25 p-3.5 text-left hover:bg-[color-mix(in_srgb,var(--primary)_18%,transparent)] transition-colors cursor-pointer"
+              >
+                <span className="block text-[13.5px] font-bold text-[var(--primary)]">Você é visitante</span>
+                <span className="block text-[12px] text-[var(--text-2)] mt-0.5 leading-snug">
+                  Entre para ler, comentar e conversar.
+                </span>
+                <span className="mb-btn mb-btn-primary mb-btn-sm w-full mt-2.5 pointer-events-none">
+                  <LogIn className="w-4 h-4" /> Entrar ou criar conta
+                </span>
+              </button>
+            ) : (
+              <>
+                <Link to="/upload" className="mb-btn mb-btn-primary w-full h-11 rounded-[14px]">
+                  <Plus className="w-4 h-4" /> Adicionar livro
+                </Link>
+                <NavLink
+                  to="/profile"
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 p-2 rounded-[14px] transition-colors ${
+                      isActive ? "bg-[var(--surface-2)]" : "hover:bg-[var(--surface-2)]"
+                    }`
+                  }
+                >
+                  <span className="w-10 h-10 rounded-full bg-[var(--surface-2)] border border-[var(--line)] flex items-center justify-center text-lg select-none flex-shrink-0">
+                    {avatar}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[13.5px] font-semibold text-foreground truncate">{username || "Visitante"}</span>
+                    <span className="block text-[12px] text-[var(--text-3)] truncate">@{(username || "visitante").toLowerCase()}</span>
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-[var(--text-3)] flex-shrink-0" />
+                </NavLink>
+              </>
+            )}
           </div>
         </aside>
 

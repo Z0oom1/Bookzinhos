@@ -2,8 +2,13 @@
 <html lang="pt-br">
   <head>
     <meta charset="UTF-8" />
-    <!-- Sem `maximum-scale`: bloquear o zoom quebra a leitura de quem precisa aumentar o texto. -->
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Zoom travado: instalado como app na tela inicial do iPhone, o pulo de
+         escala ao tocar em campos e o pinça-zoom quebravam o enquadramento. A
+         página fica sempre inteira, em 100%. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
     <meta name="theme-color" content="#f6f4ef" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#14150f" media="(prefers-color-scheme: dark)" />
     <meta name="description" content="myBooks — a rede social de leitura: leia, avalie, comente e descubra o que a comunidade está lendo." />
@@ -17,6 +22,25 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <title>myBooks</title>
+    <script>
+      // Reforço ao viewport: no iPhone instalado como app o Safari ignora
+      // `user-scalable=no`, então barramos o pinça-zoom (gesture*) e o
+      // toque-duplo na mão. A leitura acontece sempre com a página inteira.
+      document.addEventListener("gesturestart", function (e) { e.preventDefault(); }, { passive: false });
+      document.addEventListener("gesturechange", function (e) { e.preventDefault(); }, { passive: false });
+      (function () {
+        var lastTouch = 0;
+        document.addEventListener(
+          "touchend",
+          function (e) {
+            var now = Date.now();
+            if (now - lastTouch <= 300) e.preventDefault();
+            lastTouch = now;
+          },
+          { passive: false }
+        );
+      })();
+    </script>
     <style>
       /* Cor de fundo do arranque, antes do CSS do app chegar.
          Depois que os tokens carregam, `var(--background)` assume — por isso
@@ -26,6 +50,8 @@
         min-height: 100%;
         overscroll-behavior-y: none;
         background-color: var(--background, #f6f4ef);
+        /* Sem toque-duplo para dar zoom: mantém a página em 100%. */
+        touch-action: manipulation;
       }
       @media (prefers-color-scheme: dark) {
         html, body { background-color: var(--background, #14150f); }

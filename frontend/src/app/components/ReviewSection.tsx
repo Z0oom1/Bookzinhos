@@ -5,6 +5,7 @@ import {
   addReviewComment, deleteReview, deleteReviewComment, saveReview, toggleReviewLike,
 } from "../lib/api";
 import { getUsername, isAdmin as isAdminUser } from "../lib/session";
+import { requireAuth } from "../lib/authGate";
 import { timeAgo } from "../lib/types";
 import type { Review } from "../lib/types";
 import { Avatar, ConfirmDialog, StarPicker, Stars, toast } from "./Ui";
@@ -73,6 +74,7 @@ export function ReviewSection({
   }, [reviews, sort, me]);
 
   const openComposer = () => {
+    if (!requireAuth("avaliar este livro")) return;
     setRating(myReview?.rating || 0);
     setComment(myReview?.comment || "");
     setHasSpoiler(!!myReview?.hasSpoiler);
@@ -107,7 +109,7 @@ export function ReviewSection({
   };
 
   const handleLike = async (review: Review) => {
-    if (!me) return toast("Entre na sua conta para curtir.", "error");
+    if (!requireAuth("curtir avaliações")) return;
     // Atualização otimista: a interface responde antes da rede.
     const optimistic = reviews.map((r) =>
       r.id === review.id
@@ -313,7 +315,7 @@ function ReviewCard({
   const submitReply = async () => {
     const text = replyText.trim();
     if (!text) return;
-    if (!me) return toast("Entre na sua conta para responder.", "error");
+    if (!requireAuth("responder avaliações")) return;
     setIsSending(true);
     try {
       await onReply(review.id, text);

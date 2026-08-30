@@ -81,13 +81,25 @@ export function NotificationsMenu({ onUnreadChange }: { onUnreadChange?: (n: num
 
   useEffect(() => {
     load();
-    const id = window.setInterval(load, 20000);
+    // Sondagem frequente + ao voltar o foco/aba: o aviso aparece quase na
+    // hora, sem precisar de conexão persistente.
+    const id = window.setInterval(load, 8000);
     document.addEventListener("visibilitychange", load);
+    window.addEventListener("focus", load);
     return () => {
       window.clearInterval(id);
       document.removeEventListener("visibilitychange", load);
+      window.removeEventListener("focus", load);
     };
   }, [load]);
+
+  // Abriu o sino e viu: os avisos deixam de contar como novos e o balão some.
+  useEffect(() => {
+    if (!open || unread === 0) return;
+    const timer = window.setTimeout(() => { void markAllRead(); }, 800);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   // Fecha ao clicar fora ou apertar Esc.
   useEffect(() => {

@@ -401,6 +401,10 @@ async function initDB() {
   await ensureColumn("users", "pandinhas", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "is_admin", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "created_at", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("users", "full_name", "TEXT NOT NULL DEFAULT ''");
+  await ensureColumn("users", "email", "TEXT NOT NULL DEFAULT ''");
+  // Como a conta foi criada: "senha", "google" ou "" (contas antigas).
+  await ensureColumn("users", "auth_provider", "TEXT NOT NULL DEFAULT ''");
   await ensureColumn("books", "publisher", "TEXT NOT NULL DEFAULT ''");
   await ensureColumn("books", "published_year", "TEXT NOT NULL DEFAULT ''");
   // Patrocínio: quem pagou pelo espaço e por quanto tempo ele fica no ar.
@@ -435,6 +439,19 @@ async function initDB() {
     )
   `);
 
+  // Códigos enviados por e-mail (verificação de cadastro e recuperação de senha).
+  // Guardamos hash do código, não o código puro, e uma validade curta.
+  await db.query(sql`
+    CREATE TABLE IF NOT EXISTS email_codes (
+      email      TEXT NOT NULL COLLATE NOCASE,
+      code_hash  TEXT NOT NULL,
+      purpose    TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      attempts   INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL
+    )
+  `);
+
   // ─── Índices (performance) ──────────────────────────────────────────────────
   const indexes = [
     "CREATE INDEX IF NOT EXISTS idx_reviews_book ON book_reviews(book_id)",
@@ -452,6 +469,8 @@ async function initDB() {
     "CREATE INDEX IF NOT EXISTS idx_books_added ON books(added_at)",
     "CREATE INDEX IF NOT EXISTS idx_opens_book ON book_opens(book_id)",
     "CREATE INDEX IF NOT EXISTS idx_banner_events ON banner_events(banner_id, type, created_at)",
+    "CREATE INDEX IF NOT EXISTS idx_email_codes ON email_codes(email, purpose)",
+    "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)",
     "CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(username, is_read, created_at)",
   ];
   for (const stmt of indexes) {
