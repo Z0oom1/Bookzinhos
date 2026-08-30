@@ -403,7 +403,7 @@
      desfoque forte, saturação, brilho na borda de cima e sombra funda para
      o cartão parecer flutuar sobre a fotografia. */
   .mb-auth-card {
-    background: rgba(255, 255, 255, 0.58);
+    background: rgba(255, 255, 255, 0.66);
     backdrop-filter: blur(30px) saturate(185%);
     -webkit-backdrop-filter: blur(30px) saturate(185%);
     border: 1px solid rgba(255, 255, 255, 0.65);

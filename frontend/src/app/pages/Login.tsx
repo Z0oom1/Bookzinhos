@@ -48,7 +48,13 @@ export function Login({ onLoginSuccess, onGuest }: LoginProps) {
       <div className="absolute inset-0" style={{ background: "radial-gradient(44% 40% at 50% 49%, rgba(255,249,236,0.2) 0%, transparent 70%)" }} />
 
       <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-8">
-        <div className="mb-auth-card w-full max-w-sm p-6 sm:p-7 animate-scale-in">
+        {/* O desfoque acrílico vai inline: o minificador do build remove o
+            `backdrop-filter` padrão da classe e o Chrome ignora só o `-webkit-`,
+            então em produção o vidro perdia o efeito. Inline não é minificado. */}
+        <div
+          className="mb-auth-card w-full max-w-sm p-6 sm:p-7 animate-scale-in"
+          style={{ backdropFilter: "blur(30px) saturate(185%)", WebkitBackdropFilter: "blur(30px) saturate(185%)" }}
+        >
           <AuthFlow config={config} onLoginSuccess={onLoginSuccess} onGuest={onGuest} />
         </div>
         <button
