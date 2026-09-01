@@ -237,41 +237,57 @@ function Book3DImpl({ book, width, display = "cover", index = 0, progress, rank,
                  style={{ bottom, height: bottom === 10 ? 2 : 1, background: color.ink }} />
           ))}
 
-          {/* Título ao centro */}
-          <div className="absolute inset-x-0 flex items-center justify-center px-[3px]" style={{ top: 26, bottom: 46 }}>
-            <span
-              className="font-bold leading-none tracking-[0.01em] overflow-hidden text-ellipsis whitespace-nowrap"
-              style={{
-                writingMode: "vertical-rl",
-                textOrientation: "mixed",
-                maxHeight: height - 84,
-                fontSize: Math.min(Math.max(depth * 0.36, 9), 14),
-                textShadow: "0 1px 1px rgba(0,0,0,0.3)",
-              }}
-              title={book.title}
-            >
-              {book.title}
-            </span>
-          </div>
+          {/* Título — ocupa o topo do miolo, com um limite claro em cima do
+              autor para os dois nunca se sobreporem. O autor só entra quando a
+              lombada é alta o bastante para caber sem espremer o título. */}
+          {(() => {
+            const hasAuthor = !!book.author && depth >= 24 && height >= 150;
+            // Reserva do pé: espaço do autor (quando existe) + o losango.
+            const footReserve = hasAuthor ? 96 : 34;
+            return (
+              <>
+                <div
+                  className="absolute inset-x-0 flex items-center justify-center px-[3px]"
+                  style={{ top: 22, bottom: footReserve }}
+                >
+                  <span
+                    className="font-bold leading-none tracking-[0.01em] overflow-hidden text-ellipsis whitespace-nowrap"
+                    style={{
+                      writingMode: "vertical-rl",
+                      textOrientation: "mixed",
+                      maxHeight: height - 22 - footReserve,
+                      fontSize: Math.min(Math.max(depth * 0.34, 9), 13.5),
+                      textShadow: "0 1px 1px rgba(0,0,0,0.3)",
+                    }}
+                    title={book.title}
+                  >
+                    {book.title}
+                  </span>
+                </div>
 
-          {/* Autor no pé, menor e mais discreto */}
-          {book.author && depth >= 26 && (
-            <div className="absolute inset-x-0 flex items-center justify-center px-[3px]" style={{ bottom: 22, height: 84 }}>
-              <span
-                className="font-medium leading-none opacity-75 overflow-hidden text-ellipsis whitespace-nowrap"
-                style={{
-                  writingMode: "vertical-rl",
-                  textOrientation: "mixed",
-                  maxHeight: 78,
-                  fontSize: Math.min(Math.max(depth * 0.27, 8), 10.5),
-                  textShadow: "0 1px 1px rgba(0,0,0,0.28)",
-                }}
-                title={book.author}
-              >
-                {book.author}
-              </span>
-            </div>
-          )}
+                {hasAuthor && (
+                  <div
+                    className="absolute inset-x-0 flex items-center justify-center px-[3px]"
+                    style={{ bottom: 24, height: 62 }}
+                  >
+                    <span
+                      className="font-medium leading-none opacity-70 overflow-hidden text-ellipsis whitespace-nowrap"
+                      style={{
+                        writingMode: "vertical-rl",
+                        textOrientation: "mixed",
+                        maxHeight: 56,
+                        fontSize: Math.min(Math.max(depth * 0.26, 8), 10),
+                        textShadow: "0 1px 1px rgba(0,0,0,0.28)",
+                      }}
+                      title={book.author}
+                    >
+                      {book.author}
+                    </span>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {/* Losango da "editora" */}
           <div
