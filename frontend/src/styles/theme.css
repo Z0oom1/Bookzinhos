@@ -543,7 +543,8 @@
     gap: 1.125rem;
     overflow-x: auto;
     scroll-snap-type: x proximity;
-    padding: 0.5rem 0.25rem 1.25rem;
+    /* Folga no topo para o livro não ser cortado quando sobe no hover. */
+    padding: 1.5rem 0.25rem 1.25rem;
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
@@ -553,15 +554,6 @@
   /* Bloco de carregamento: cinza solido com uma luz que passa por cima,
      no espirito do esqueleto do YouTube. O bloco precisa ter contraste
      suficiente para ser lido como "conteudo chegando", nao como fundo. */
-  /* Pula a renderização do que está fora da tela: o navegador só desenha o
-     item quando ele se aproxima da viewport. Ganho grande em listas longas de
-     livros, sobretudo em celular. O `auto` guarda o tamanho já medido para o
-     scroll não pular. */
-  .mb-cv {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 300px;
-  }
-
   .mb-skeleton {
     position: relative;
     overflow: hidden;
