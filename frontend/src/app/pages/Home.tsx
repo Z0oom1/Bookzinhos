@@ -421,7 +421,6 @@ function HeroFeature({
   const cover = getFullUrl(book.coverImagePath);
   const layout = HERO_LAYOUTS[index % HERO_LAYOUTS.length];
   const active = count > 0 ? index % count : 0;
-  const narrow = useIsNarrow();
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -479,23 +478,81 @@ function HeroFeature({
         }}
       />
 
+      {/* ── Celular: compacto e horizontal ─────────────────────────────────
+          Capa lisa e pequena ao lado do texto, altura enxuta — sem o livro 3D
+          gigante flutuando no rodapé, que deixava o cartão altíssimo. */}
+      <div key={`m-${book.id}`} className="sm:hidden relative flex gap-4 p-5 pb-9">
+        <div className="flex-1 min-w-0">
+          <span className="inline-flex items-center gap-1.5 h-7 px-3 rounded-full bg-[var(--surface)]/85 border border-[var(--line)] text-[10.5px] font-bold uppercase tracking-wider text-[var(--text-2)]">
+            <Star className="w-3 h-3 fill-[var(--gold)] text-[var(--gold)]" /> Destaque
+          </span>
+
+          <h2 className="text-[20px] font-bold tracking-tight text-foreground leading-[1.12] mt-2.5 line-clamp-2">
+            {book.title}
+          </h2>
+          <p className="text-[13.5px] font-semibold text-[var(--primary)] mt-1">
+            {book.author || "Autor desconhecido"}
+          </p>
+
+          <div className="flex items-center gap-3 mt-2.5 text-[12.5px] font-medium text-[var(--text-2)]">
+            {!!book.readers && book.readers > 0 && (
+              <span>{book.readers} {book.readers === 1 ? "já leu" : "já leram"}</span>
+            )}
+            {book.rating > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <Star className="w-3.5 h-3.5 fill-[var(--gold)] text-[var(--gold)]" /> {book.rating.toFixed(1)}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 mt-3.5">
+            <button onClick={onOpen} className="mb-btn mb-btn-primary flex-1 h-11 rounded-[13px]">
+              Ver detalhes
+            </button>
+            <button
+              onClick={toggleSave}
+              aria-pressed={saved}
+              aria-label={saved ? "Remover dos favoritos" : "Guardar nos favoritos"}
+              className={`w-11 h-11 rounded-[13px] border flex items-center justify-center flex-shrink-0 transition-colors ${
+                saved
+                  ? "bg-[var(--primary)] border-[var(--primary)] text-white"
+                  : "bg-[var(--surface)]/85 border-[var(--line)] text-[var(--text-2)]"
+              }`}
+            >
+              <Bookmark className={`w-[18px] h-[18px] ${saved ? "fill-current" : ""}`} />
+            </button>
+          </div>
+        </div>
+
+        <button onClick={onOpen} aria-label={`Abrir ${book.title}`} className="flex-shrink-0 w-[104px] self-center">
+          <div className="w-full aspect-[2/3] rounded-xl overflow-hidden shadow-[0_14px_30px_-12px_rgba(0,0,0,.5)] rotate-3">
+            {cover ? (
+              <img src={cover} alt={`Capa de ${book.title}`} className="w-full h-full object-cover" />
+            ) : (
+              <div className={`w-full h-full bg-gradient-to-br ${getCoverGradient(book)}`} />
+            )}
+          </div>
+        </button>
+      </div>
+
+      {/* ── Desktop: o livro em três dimensões, imponente ──────────────────── */}
       <div
         key={book.id}
-        className={`relative flex flex-col items-start sm:items-center gap-4 sm:gap-10 p-6 sm:p-8 pb-12 sm:pb-14 ${layout.reverse ? "sm:flex-row-reverse" : "sm:flex-row"}`}
+        className={`relative hidden sm:flex items-center gap-10 p-8 pb-14 ${layout.reverse ? "flex-row-reverse" : "flex-row"}`}
       >
-        <div className="w-full sm:flex-1 min-w-0" style={{ animation: "mb-hero-swap .55s var(--ease-out) both" }}>
+        <div className="flex-1 min-w-0" style={{ animation: "mb-hero-swap .55s var(--ease-out) both" }}>
           <span className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-[var(--surface)]/85 border border-[var(--line)] text-[11px] font-bold uppercase tracking-wider text-[var(--text-2)]">
             <Star className="w-3.5 h-3.5 fill-[var(--gold)] text-[var(--gold)]" /> Destaque da semana
           </span>
 
-          <h2 className="text-[26px] sm:text-[42px] font-bold tracking-tight text-foreground leading-[1.04] mt-3.5 line-clamp-2">
+          <h2 className="text-[42px] font-bold tracking-tight text-foreground leading-[1.04] mt-3.5 line-clamp-2">
             {book.title}
           </h2>
-          <p className="text-[15px] sm:text-[18px] font-semibold text-[var(--primary)] mt-1.5">
+          <p className="text-[18px] font-semibold text-[var(--primary)] mt-1.5">
             {book.author || "Autor desconhecido"}
           </p>
 
-          <p className="hidden sm:block text-[14.5px] text-[var(--text-2)] leading-relaxed mt-3.5 line-clamp-2 max-w-md">
+          <p className="text-[14.5px] text-[var(--text-2)] leading-relaxed mt-3.5 line-clamp-2 max-w-md">
             {book.description || "Um livro do acervo da comunidade esperando por você."}
           </p>
 
@@ -546,30 +603,23 @@ function HeroFeature({
           </div>
         </div>
 
-        {/* O livro em três dimensões: capa, lombada e bloco de páginas de
-            verdade. O invólucro externo cuida da entrada, o interno da altura e
-            da flutuação — assim as transformações não brigam entre si. */}
         <div
-          className="flex-shrink-0 relative self-center px-0 sm:px-11"
+          className="flex-shrink-0 relative self-center px-11"
           style={{ animation: "mb-hero-cover-in .6s var(--ease-out) both" }}
         >
           <div
             key={`pose-${book.id}`}
             style={{
-              // A altura do slide entra como variável: a flutuação anima o
-              // mesmo `transform` e sobrescreveria um valor fixo.
               "--float-base": `${layout.offsetY}px`,
               animation: "mb-hero-float 6s ease-in-out infinite",
             } as React.CSSProperties}
           >
-            <Book3D book={book} width={narrow ? 116 : layout.width} pose={layout.pose} floating still />
+            <Book3D book={book} width={layout.width} pose={layout.pose} floating still />
           </div>
 
-          {/* Selo de curadoria, como a cinta de uma edição especial. */}
           {book.rating > 0 && (
             <span
-              className={`hidden sm:flex absolute bottom-0 ${layout.reverse ? "right-0" : "left-0"} w-[84px] h-[84px] rounded-full bg-[var(--surface)]/92 border border-[var(--line)] shadow-[var(--shadow-2)] flex-col items-center justify-center text-center leading-tight backdrop-blur-sm`}
-              // Metade para fora da folga: o selo encosta no livro sem tapar a capa.
+              className={`flex absolute bottom-0 ${layout.reverse ? "right-0" : "left-0"} w-[84px] h-[84px] rounded-full bg-[var(--surface)]/92 border border-[var(--line)] shadow-[var(--shadow-2)] flex-col items-center justify-center text-center leading-tight backdrop-blur-sm`}
               style={{ transform: `translateX(${layout.reverse ? "50%" : "-50%"})` }}
             >
               <Star className="w-4 h-4 fill-[var(--gold)] text-[var(--gold)]" />
@@ -609,19 +659,6 @@ function HeroFeature({
       )}
     </section>
   );
-}
-
-/** O livro do destaque encolhe no celular; acompanhar a largura basta. */
-function useIsNarrow(breakpoint = 640) {
-  const [narrow, setNarrow] = useState(() => typeof window !== "undefined" && window.innerWidth < breakpoint);
-  useEffect(() => {
-    const media = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
-    const sync = () => setNarrow(media.matches);
-    sync();
-    media.addEventListener("change", sync);
-    return () => media.removeEventListener("change", sync);
-  }, [breakpoint]);
-  return narrow;
 }
 
 function ReadingCard({
