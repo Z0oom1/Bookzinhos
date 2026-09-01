@@ -82,11 +82,24 @@ export function triggerBackgroundCoverGeneration(books: Book[], onUpdated?: (upd
   if (booksNeedCover.length === 0) return;
 
   console.log(`[CoverExtractor] Encontrado(s) ${booksNeedCover.length} livro(s) que precisam de extração de capa.`);
-  
-  // Executa de forma sequencial para não sobrecarregar a memória/processamento do navegador
-  (async () => {
-    for (const book of booksNeedCover) {
-      await extractAndUploadCover(book, onUpdated);
-    }
-  })();
+
+  // Só começa quando o navegador estiver ocioso: extrair capa de PDF é pesado
+  // (carrega o pdf.js, renderiza uma página num canvas) e não pode competir com
+  // a primeira pintura da tela. Entre um livro e outro há uma pausa, para o
+  // trabalho ficar picado e a interface nunca travar.
+  const start = () => {
+    (async () => {
+      for (const book of booksNeedCover) {
+        await extractAndUploadCover(book, onUpdated);
+        await new Promise((r) => setTimeout(r, 400));
+      }
+    })();
+  };
+
+  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+    (window as unknown as { requestIdleCallback: (cb: () => void, o?: { timeout: number }) => void })
+      .requestIdleCallback(start, { timeout: 4000 });
+  } else {
+    setTimeout(start, 1500);
+  }
 }

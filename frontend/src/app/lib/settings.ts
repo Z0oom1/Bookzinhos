@@ -22,6 +22,8 @@ export interface Settings {
   /** Mostrar aviso quando alguém marca spoiler */
   compactBooks: boolean;
   reduceMotion: boolean;
+  /** Sons sutis da interface (toques, abrir livro, trocar de menu). */
+  soundsOn: boolean;
 }
 
 export const NOTIFICATION_LABELS: Record<NotificationKind, string> = {
@@ -41,6 +43,7 @@ const DEFAULTS: Settings = {
   kinds: { mensagem: true, curtida: true, resposta: true, seguidor: true, mural: true },
   compactBooks: false,
   reduceMotion: false,
+  soundsOn: true,
 };
 
 export function loadSettings(): Settings {

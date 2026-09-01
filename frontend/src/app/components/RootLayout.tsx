@@ -12,6 +12,7 @@ import { NotificationsMenu } from "./NotificationsMenu";
 import { AuthGateModal } from "./AuthGateModal";
 import { RouteSkeleton } from "./Skeletons";
 import { applySettings, loadSettings } from "../lib/settings";
+import { primeSounds, soundTap } from "../lib/sounds";
 
 interface NavItem {
   path: string;
@@ -42,6 +43,7 @@ export function RootLayout() {
 
   useEffect(() => {
     applySettings(loadSettings());
+    primeSounds();
   }, []);
 
   useEffect(() => {
@@ -140,6 +142,7 @@ export function RootLayout() {
                 key={path}
                 to={path}
                 end={end}
+                onClick={soundTap}
                 className={({ isActive }) =>
                   `mb-nav-item flex items-center gap-3 px-3.5 h-11 rounded-[14px] text-[14px] transition-all ${
                     isActive
@@ -310,6 +313,7 @@ function MobileTab({
     <NavLink
       to={to}
       end={end}
+      onClick={soundTap}
       aria-label={label}
       className={({ isActive }) =>
         `mb-tab flex-1 h-full flex flex-col items-center justify-center gap-1 transition-colors ${

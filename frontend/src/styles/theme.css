@@ -645,7 +645,11 @@
      por baixo dele, então a transição não custa tempo de carregamento.
      ──────────────────────────────────────────────────────────────────── */
   .mb-page {
-    animation: mb-page-in 0.44s var(--ease-out) both;
+    animation: mb-page-in 0.42s var(--ease-out) both;
+  }
+  /* Quem pediu menos movimento troca o deslize por um fade curtinho. */
+  :root[data-reduce-motion="true"] .mb-page {
+    animation: fade-in 0.2s ease both;
   }
 
   .mb-veil {
@@ -744,7 +748,7 @@
 
 /* ─── Animações ─────────────────────────────────────────────────────────────── */
 @keyframes mb-page-in {
-  from { opacity: 0; transform: translateY(12px) scale(0.994); }
+  from { opacity: 0; transform: translateY(16px) scale(0.988); }
   to { opacity: 1; transform: none; }
 }
 

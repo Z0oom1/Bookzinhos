@@ -9,6 +9,7 @@ import {
   type NotificationKind, type ThemeChoice,
 } from "../lib/settings";
 import { getSavedReaderMode, setSavedReaderMode, type ReaderMode } from "../lib/readerChoice";
+import { soundToggle } from "../lib/sounds";
 import { clearSession, getUsername, isAdmin as isAdminUser } from "../lib/session";
 import { invalidate } from "../lib/api";
 import { ConfirmDialog, PageHeader, toast } from "../components/Ui";
@@ -95,6 +96,17 @@ export function Settings() {
           hint="Desliga as transições mais longas, como a virada das lombadas."
           checked={settings.reduceMotion}
           onChange={(v) => update({ reduceMotion: v })}
+        />
+
+        <Toggle
+          label="Sons da interface"
+          hint="Toques sutis ao trocar de menu e abrir um livro."
+          checked={settings.soundsOn}
+          onChange={(v) => {
+            update({ soundsOn: v });
+            // Toca a prévia depois do estado salvar, para ela respeitar o novo valor.
+            if (v) window.setTimeout(() => soundToggle(true), 0);
+          }}
         />
       </Section>
 
