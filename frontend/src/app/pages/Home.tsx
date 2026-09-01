@@ -481,9 +481,9 @@ function HeroFeature({
 
       <div
         key={book.id}
-        className={`relative flex items-center gap-5 sm:gap-10 p-6 sm:p-8 pb-14 ${layout.reverse ? "flex-row-reverse" : "flex-row"}`}
+        className={`relative flex flex-col items-start sm:items-center gap-4 sm:gap-10 p-6 sm:p-8 pb-12 sm:pb-14 ${layout.reverse ? "sm:flex-row-reverse" : "sm:flex-row"}`}
       >
-        <div className="flex-1 min-w-0" style={{ animation: "mb-hero-swap .55s var(--ease-out) both" }}>
+        <div className="w-full sm:flex-1 min-w-0" style={{ animation: "mb-hero-swap .55s var(--ease-out) both" }}>
           <span className="inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full bg-[var(--surface)]/85 border border-[var(--line)] text-[11px] font-bold uppercase tracking-wider text-[var(--text-2)]">
             <Star className="w-3.5 h-3.5 fill-[var(--gold)] text-[var(--gold)]" /> Destaque da semana
           </span>
@@ -550,7 +550,7 @@ function HeroFeature({
             verdade. O invólucro externo cuida da entrada, o interno da altura e
             da flutuação — assim as transformações não brigam entre si. */}
         <div
-          className="flex-shrink-0 relative px-5 sm:px-11"
+          className="flex-shrink-0 relative self-center px-0 sm:px-11"
           style={{ animation: "mb-hero-cover-in .6s var(--ease-out) both" }}
         >
           <div

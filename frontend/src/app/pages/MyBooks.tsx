@@ -94,7 +94,7 @@ export function MyBooks() {
         highlight="estante"
         subtitle="Suas leituras, favoritos e o que vem a seguir."
         icon={<Heart className="w-5 h-5" />}
-        gradient="linear-gradient(140deg,#FB7185,#BE123C)"
+        gradient="linear-gradient(140deg,#e0a33c,#c07f1f)"
       />
 
       {/* Destaque da leitura em andamento */}

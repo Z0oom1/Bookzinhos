@@ -44,7 +44,7 @@ export function Admin() {
           highlight="myBooks"
           subtitle="Banners, mural e acervo — o que você mudar aqui vale para toda a comunidade."
           icon={<LayoutDashboard className="w-5 h-5" />}
-          gradient="linear-gradient(140deg,#FBBF24,#F97316)"
+          gradient="linear-gradient(140deg,#e0a33c,#c07f1f)"
         />
       </div>
 

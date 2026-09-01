@@ -83,7 +83,7 @@ export function Social() {
         highlight="comunidade"
         subtitle="Veja o que a rede está lendo, siga leitores e converse sobre os livros."
         icon={<Users className="w-5 h-5" />}
-        gradient="linear-gradient(140deg,#34D399,#0D9488)"
+        gradient="linear-gradient(140deg,#4f9e8a,#2f6d5e)"
       />
 
       <div className="flex gap-1.5 border-b border-[var(--line)] pb-2">

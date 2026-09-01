@@ -224,9 +224,20 @@ export function RootLayout() {
             <img src="/logo.svg" alt="" className="w-8 h-8 rounded-lg" />
             <span className="text-[16px] font-bold tracking-tight text-foreground">myBooks</span>
           </Link>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1">
             <NotificationsMenu />
-            <Link to="/profile" aria-label="Meu perfil" className="w-9 h-9 rounded-full bg-[var(--surface)] border border-[var(--line)] flex items-center justify-center text-base select-none">
+            <NavLink
+              to="/settings"
+              aria-label="Configurações"
+              className={({ isActive }) =>
+                `w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                  isActive ? "text-[var(--primary)] bg-[var(--primary-soft)]" : "text-[var(--text-2)] hover:bg-[var(--surface-2)]"
+                }`
+              }
+            >
+              <SlidersHorizontal className="w-[18px] h-[18px]" />
+            </NavLink>
+            <Link to="/profile" aria-label="Meu perfil" className="w-9 h-9 rounded-full bg-[var(--surface)] border border-[var(--line)] flex items-center justify-center text-base select-none ml-0.5">
               {avatar}
             </Link>
           </div>

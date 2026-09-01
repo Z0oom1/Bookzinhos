@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import {
-  BookOpen, Check, LogOut, Pencil, Smartphone, ExternalLink, Star, Users, Loader2,
+  BookOpen, Check, LogOut, Pencil, Smartphone, ExternalLink, Star, Users, Loader2, SlidersHorizontal,
 } from "lucide-react";
 import { fetchBooks, fetchStats, fetchUserProfile, updateProfile } from "../lib/api";
 import { clearSession, getUsername, notifySessionChanged, saveSession } from "../lib/session";
@@ -248,13 +248,21 @@ export function Profile() {
             <Link to="/notes" className="mb-btn mb-btn-outline mb-btn-sm">
               <Star className="w-3.5 h-3.5" /> Meu diário
             </Link>
+            <Link to="/settings" className="mb-btn mb-btn-outline mb-btn-sm">
+              <SlidersHorizontal className="w-3.5 h-3.5" /> Configurações
+            </Link>
             {profile.isAdmin && (
               <Link to="/admin" className="mb-btn mb-btn-soft mb-btn-sm">🐶 Painel do Admin</Link>
             )}
-            <button onClick={() => setConfirmLogout(true)} className="mb-btn mb-btn-ghost mb-btn-sm ml-auto">
-              <LogOut className="w-3.5 h-3.5" /> Sair da conta
-            </button>
           </div>
+
+          {/* Sair fica sozinho, vermelho e largo — impossível não achar. */}
+          <button
+            onClick={() => setConfirmLogout(true)}
+            className="mb-btn mb-btn-danger w-full h-12 rounded-[14px] mt-3 text-[14px]"
+          >
+            <LogOut className="w-[18px] h-[18px]" /> Sair da conta
+          </button>
         </div>
       </section>
 

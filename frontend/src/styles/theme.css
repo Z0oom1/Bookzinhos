@@ -387,6 +387,27 @@
   }
   .mb-btn-ghost:hover:not(:disabled) { background: var(--surface-2); color: var(--foreground); }
 
+.mb-btn-danger {
+    background: var(--destructive);
+    color: var(--destructive-foreground);
+    box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 6px 16px -8px color-mix(in srgb, var(--destructive) 70%, transparent);
+  }
+  .mb-btn-danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--destructive) 88%, #000);
+    transform: translateY(-1.5px);
+    box-shadow: 0 2px 4px rgba(0,0,0,.1), 0 14px 26px -10px color-mix(in srgb, var(--destructive) 85%, transparent);
+  }
+
+  .mb-btn-danger-soft {
+    background: color-mix(in srgb, var(--destructive) 12%, transparent);
+    color: var(--destructive);
+    border: 1px solid color-mix(in srgb, var(--destructive) 26%, transparent);
+  }
+  .mb-btn-danger-soft:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--destructive) 18%, transparent);
+    transform: translateY(-1.5px);
+  }
+
   .mb-btn-glass {
     background: var(--glass-bg-strong);
     backdrop-filter: blur(18px) saturate(180%);
@@ -532,6 +553,15 @@
   /* Bloco de carregamento: cinza solido com uma luz que passa por cima,
      no espirito do esqueleto do YouTube. O bloco precisa ter contraste
      suficiente para ser lido como "conteudo chegando", nao como fundo. */
+  /* Pula a renderização do que está fora da tela: o navegador só desenha o
+     item quando ele se aproxima da viewport. Ganho grande em listas longas de
+     livros, sobretudo em celular. O `auto` guarda o tamanho já medido para o
+     scroll não pular. */
+  .mb-cv {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 300px;
+  }
+
   .mb-skeleton {
     position: relative;
     overflow: hidden;
@@ -563,6 +593,13 @@
     position: relative;
     transform-style: preserve-3d;
     transition: transform 0.8s var(--ease-flip);
+    /* Sem `will-change` fixo: ele criava uma camada de composição por livro,
+       e uma estante de dezenas de livros virava dezenas de camadas 3D —
+       peso de memória e composição que travava aparelhos fracos. A dica só
+       vale quando o livro vai de fato se mexer (hover ou voo). */
+  }
+  .mb-book-scene:hover .mb-book-3d,
+  .mb-flying .mb-book-3d {
     will-change: transform;
   }
 

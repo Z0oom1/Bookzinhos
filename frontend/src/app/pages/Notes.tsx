@@ -109,7 +109,7 @@ export function Notes() {
         highlight="leitura"
         subtitle="Anotações só suas, presas ao livro. Para dar nota pública, use a página do livro."
         icon={<PenLine className="w-5 h-5" />}
-        gradient="linear-gradient(140deg,#38BDF8,#0284C7)"
+        gradient="linear-gradient(140deg,#4f9e8a,#2f6d5e)"
       />
 
       {/* ── Escolha do livro ───────────────────────────────────────────────── */}

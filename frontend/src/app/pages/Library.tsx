@@ -165,7 +165,7 @@ export function Library() {
         highlight="biblioteca"
         subtitle={isLoading ? "Carregando o acervo…" : `${books.length} livros no acervo da comunidade`}
         icon={<ShelfIcon className="w-5 h-5" />}
-        gradient="linear-gradient(140deg,#A78BFA,#6D28D9)"
+        gradient="linear-gradient(140deg,#4b7a57,#2f4f39)"
         action={
           <Link to="/upload" className="mb-btn mb-btn-primary mb-btn-sm">
             <Upload className="w-4 h-4" /> Enviar livro
@@ -204,7 +204,9 @@ export function Library() {
       </div>
 
       {/* ── Filtros ────────────────────────────────────────────────────────── */}
-      <div className="flex gap-1.5 overflow-x-auto no-scrollbar mb-in" style={{ "--i": 2 } as React.CSSProperties}>
+      {/* Quebra em linhas em vez de rolar na horizontal: no celular, o rolo
+          cortava o primeiro e o último filtro. Assim todos aparecem inteiros. */}
+      <div className="flex flex-wrap gap-1.5 mb-in" style={{ "--i": 2 } as React.CSSProperties}>
         {FILTERS.map((f) => (
           <button
             key={f.key}

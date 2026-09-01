@@ -171,7 +171,7 @@ export function PageHeader({
   highlight,
   subtitle,
   icon,
-  gradient = "linear-gradient(140deg,#FB7185,#E11D48)",
+  gradient = "linear-gradient(140deg,#4b7a57,#2f4f39)",
   action,
 }: {
   title: string;

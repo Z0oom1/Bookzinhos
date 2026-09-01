@@ -208,7 +208,7 @@ export function Settings() {
           >
             <Trash2 className="w-4 h-4" /> Limpar cache local
           </button>
-          <button onClick={() => setConfirmLogout(true)} className="mb-btn mb-btn-ghost ml-auto">
+          <button onClick={() => setConfirmLogout(true)} className="mb-btn mb-btn-danger-soft ml-auto">
             <LogOut className="w-4 h-4" /> Sair da conta
           </button>
         </div>

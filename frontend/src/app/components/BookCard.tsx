@@ -242,7 +242,7 @@ function BookCardImpl({
       <div
         ref={rootRef}
         {...pressHandlers}
-        className="cursor-pointer select-none"
+        className="mb-cv cursor-pointer select-none"
         style={{ visibility: flyingId === book.id ? "hidden" : undefined }}
       >
         <Book3D
